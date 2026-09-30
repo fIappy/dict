@@ -1,13 +1,16 @@
 # Flutter web frontend — build + serve image.
 #
-# Build (from the repository root):
-#   docker build -f docker/Dockerfile.web \
-#     --build-arg DICT_API_BASE=http://localhost:8080 \
-#     -t local-dict-web .
+# This image is the single entry point of the web deployment: nginx serves the
+# bundle and proxies /api/ to the backend container, so the app uses a same-origin
+# API by default (DICT_API_BASE empty -> the client falls back to the page origin).
 #
-# DICT_API_BASE is baked in as the compile-time default backend address. It can
-# still be overridden at runtime by appending `?api=http://host:port` to the URL
-# (the choice is persisted in browser storage).
+# Build (from the repository root):
+#   docker build -f docker/Dockerfile.web -t local-dict-web .
+#
+# For separated hosting (bundle on a CDN, backend elsewhere) bake the backend URL:
+#   docker build -f docker/Dockerfile.web \
+#     --build-arg DICT_API_BASE=http://192.168.1.10:8080 -t local-dict-web .
+# It can also be overridden at runtime with ?api=http://host:port in the URL.
 
 # syntax=docker/dockerfile:1
 
@@ -23,7 +26,8 @@ COPY lib ./lib
 COPY assets ./assets
 COPY web ./web
 
-ARG DICT_API_BASE=http://localhost:8080
+# Empty => the client falls back to the page origin, i.e. same-origin /api/.
+ARG DICT_API_BASE=
 RUN flutter build web --release --dart-define=DICT_API_BASE=${DICT_API_BASE}
 
 # -------------------------------------------------------------- runtime stage

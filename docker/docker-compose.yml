@@ -1,12 +1,16 @@
-# Local dictionary — web frontend + dictionary backend.
+# Local dictionary — integrated web deployment (single entry point).
 #
-# Start:  docker compose -f docker/docker-compose.yml up -d --build
-# Open:   http://localhost:8088
-# Verify: curl http://localhost:8080/api/health
+#   docker compose -f docker/docker-compose.yml up -d --build
+#   open http://localhost:8088
+#
+# Only the web container publishes a port. It serves the Flutter bundle and
+# reverse-proxies /api/ to the backend over the compose network, so the frontend
+# and backend share one origin: no CORS, and the backend (which reports absolute
+# dictionary paths) is never directly reachable from outside.
 #
 # The dictionary folder is mounted read-only and scanned recursively for .mdx
-# archives (a sibling .mdd of the same basename supplies pronunciation audio).
-# Override DICT_PATH if your archives live elsewhere:
+# archives; a sibling .mdd of the same basename supplies pronunciation audio.
+# Override its location with DICT_PATH:
 #   DICT_PATH=/mnt/d/dicts docker compose -f docker/docker-compose.yml up -d --build
 
 name: local-dict
@@ -24,8 +28,10 @@ services:
       DICT_PORT: "8080"
     volumes:
       - "${DICT_PATH:-../Dictionary.com 20260913_hahaya}:/dictionaries:ro"
-    ports:
-      - "8080:8080"
+    # Intentionally not published: only the web container proxies to it.
+    # Uncomment to expose the raw API (e.g. for curl/debugging):
+    # ports:
+    #   - "8080:8080"
     restart: unless-stopped
 
   web:
@@ -33,9 +39,8 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.web
       args:
-        # Baked in as the compile-time default backend address. Can be
-        # overridden at runtime with ?api=http://host:port in the URL.
-        DICT_API_BASE: "${WEB_API_BASE:-http://localhost:8080}"
+        # Empty => same-origin API through the nginx proxy above.
+        DICT_API_BASE: ""
     image: local-dict-web:latest
     container_name: local-dict-web
     depends_on:

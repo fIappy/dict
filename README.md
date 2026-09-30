@@ -28,11 +28,24 @@
 |---|---|---|---|
 | Windows 桌面端 | ✅ | 本地文件系统 | `build/windows/x64/runner/Release/` |
 | Android | ✅ | 本地文件系统 | `build/app/outputs/flutter-apk/app-release.apk` |
-| Web | ✅ | **Dart 后端 HTTP API** | `build/web/` + `server/dict_server.dart` |
+| Web | ✅ | **Dart 后端 HTTP API** | 单个入口（nginx 静态资源 + `/api/` 代理） |
 
-Web 端受浏览器沙箱限制无法读取本机 `.mdx`/`.mdd`，因此配套一个 Dart 后端
-（`server/dict_server.dart`）提供检索、查词与发音 API，并与桌面端**复用同一套解析器**。
-音标、字母、词频三个模块在前端完全离线可用。
+### Web 端架构
+
+浏览器沙箱无法读取本机 `.mdx` / `.mdd`，因此配套一个 **Dart 后端**
+（`server/dict_server.dart`，`shelf` + `dart compile exe`）提供检索、查词与发音 API。
+后端与桌面端/安卓端**复用同一套解析器**（`lib/core/mdx/*`），不存在第二份实现。
+
+部署上前后端**整合为单一入口**：只暴露一个端口，nginx 托管静态前端并把 `/api/` 反向代理到后端容器，
+因此前后端同源——不需要 CORS，后端也不会把词典文件路径暴露到网络上。
+
+```
+浏览器 ──▶ web 容器 (nginx, :8088) ──▶ backend 容器 (Dart, 仅内网)
+                    │ 静态资源                │ .mdx / .mdd 只读挂载
+                    └ /api/* ────────────────┘
+```
+
+音标、字母、词频三个模块在前端完全离线可用，不依赖后端。
 
 ## 快速开始
 
@@ -40,10 +53,10 @@ Web 端受浏览器沙箱限制无法读取本机 `.mdx`/`.mdd`，因此配套�
 
 ```bash
 docker compose -f docker/docker-compose.yml up -d --build
-# 前端 http://localhost:8088  ·  后端 http://localhost:8080
+# 打开唯一入口 http://localhost:8088 （前端与 API 同源）
 ```
 
-详见 **[docs/WEB_DEPLOYMENT.md](docs/WEB_DEPLOYMENT.md)**。
+详见 **[docs/WEB_DEPLOYMENT.md](docs/WEB_DEPLOYMENT.md)**（含 API 契约、HTTPS、分离部署、故障排查）。
 
 ### 桌面端 / Android
 

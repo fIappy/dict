@@ -1,7 +1,12 @@
 # Web 端部署指南
 
-本项目的 Web 端由**两个容器**组成：一个纯静态的 Flutter Web 前端，以及一个提供本地词典能力的 Dart 后端。
-浏览器沙箱无法读取本机文件，因此 `.mdx` / `.mdd` 的解析、检索与发音资源读取全部由后端完成，前端通过 HTTP API 调用。
+Web 端由两个容器组成，但对外**只暴露一个入口**：
+
+- **web 容器（nginx）** — 托管 Flutter 静态前端，并把 `/api/` 反向代理到后端；这是唯一的入口。
+- **backend 容器（Dart AOT）** — 解析 `.mdx` / `.mdd`，仅 compose 内网可达，不发布端口。
+
+浏览器沙箱无法读取本机文件，因此词典的解析、检索与发音资源读取全部在后端完成，
+前端通过同源 HTTP API 调用——没有 CORS，后端也不暴露文件路径给外部网络。
 
 ---
 
@@ -12,31 +17,36 @@
 | 项目 | 结果 |
 |---|---|
 | 镜像构建 | `local-dict-backend` / `local-dict-web` 均成功 |
-| 容器状态 | backend `healthy`，web `Up` |
-| `GET /api/health` | `{"status":"ok","dictionaries":1,"enabled":1,"totalEntries":434589,...}` |
+| 容器状态 | backend `healthy`，web `Up (healthy)` |
+| 对外端口 | **仅** `0.0.0.0:8088->80/tcp`；backend 显示 `8080/tcp`（未发布），宿主机访问 `:8080` 被拒绝 |
+| 同源 API | `http://localhost:8088/api/health` → `{"status":"ok","dictionaries":1,"enabled":1,"totalEntries":434589,...}` |
 | `GET /api/dictionaries` | 返回 1 本词典，含 `.mdx` / `.mdd` / `.css` 路径与 434,589 词条数 |
 | `GET /api/search?q=tele&limit=5` | `exact` → `prefix` 分级返回，服务端耗时 **6 ms** |
 | `GET /api/lookup?word=hello` | 完整词条：`American / Etymology / Explanation / Examples` 四个标签页、音标、例句 |
-| `GET /api/audio?key=hello.mp3` | `200`，浏览器播放实测取回 17,756 字节（**27 ms**） |
-| Range 请求 | `206 Partial Content` + `content-range: bytes 0-1023/17756` |
+| `GET /api/audio?key=hello.mp3` | 经 nginx 代理 `200`，浏览器播放实测取回 17,756 字节（**38 ms**） |
+| Range 请求（经代理） | `206 Partial Content` + `content-range: bytes 0-1023/17756`，响应体恰为 1024 字节 |
 | 前端静态资源 | `main.dart.js` 3,580,791 B、`canvaskit.wasm` 7,229,946 B、音标 mp3 字节数与源文件一致 |
-| MIME / 压缩 | `application/wasm`、`application/javascript`、`audio/mpeg`、`application/json` 均正确；gzip 生效 |
-| 浏览器端到端 | 检索 → 查词 → 发音全链路通过，**控制台 0 错误、0 失败请求** |
+| MIME / 压缩 | `application/wasm`、`application/javascript`、`audio/mpeg`、`application/json` 均正确；`content-encoding: gzip` 生效 |
+| 浏览器端到端 | 9 次 API 调用**全部同源**（`localhost:8088`），发往 `:8080` 的请求数为 **0**；检索 → 查词 → 发音全链路通过，**控制台 0 错误、0 失败请求** |
 | 词典页状态 | 「已连接后端词典服务 / 词典由后端提供（1 本，共 434589 条词条）」+「含配套音频库 (.mdd)」「含专用样式表 (.css)」|
 
 ---
 
 ## 1. 架构总览
 
+前端与后端**整合为单一入口**：只暴露一个端口，nginx 既托管静态前端、又把 `/api/` 反向代理到后端容器。
+浏览器看到的永远是同一个 Origin，因此不需要 CORS，后端也不会直接暴露在网络上。
+
 ```mermaid
 graph LR
-    B["浏览器 / Flutter Web 前端<br/>:8088"]
-    S["词典后端 (Dart AOT)<br/>:8080"]
+    B["浏览器<br/>http://host:8088"]
+    W["web 容器 (nginx)<br/>静态资源 + /api/ 反向代理"]
+    S["backend 容器 (Dart AOT)<br/>仅 compose 内网可达"]
     D["词典目录 (只读挂载)<br/>*.mdx + *.mdd"]
 
-    B -- "GET /api/search" --> S
-    B -- "GET /api/lookup" --> S
-    B -- "GET /api/audio" --> S
+    B -- "同源请求" --> W
+    W -- "/ " --> W
+    W -- "/api/*" --> S
     S -- "RandomAccessFile" --> D
 ```
 
@@ -50,6 +60,19 @@ graph LR
 | 生词本 / 查词历史 | 前端（离线） | 浏览器 localStorage |
 
 后端与桌面端/安卓端**复用同一套解析器**（`lib/core/mdx/*`），不存在第二份实现。
+
+### 为什么用 nginx 做静态层，而不是让 Dart 后端一并托管？
+
+后端本身是纯 Dart，技术上完全可以自己吐静态文件。之所以仍由 nginx 负责静态资源，是因为静态交付有三个
+容易被忽略的正确性细节，交给成熟的 Web 服务器更稳妥：
+
+1. **MIME 类型** — `canvaskit.wasm` 必须是 `application/wasm`、`main.dart.js` 必须是
+   `application/javascript`，否则 Flutter 引擎直接加载失败；nginx 的 `mime.types` 已覆盖。
+2. **字节范围（Range）** — 静态音源与媒体需要 `206 Partial Content`。
+3. **压缩** — 未压缩的 `main.dart.js + canvaskit.wasm` 约 10.8 MB，gzip 后传输量显著下降。
+
+`/api/audio` 的 Range 由后端自己实现（已在 curl 中验证返回
+`206` + `content-range: bytes 0-1023/17756`），nginx 仅做透传，不参与缓冲。
 
 ---
 
@@ -74,26 +97,33 @@ docker compose -f docker/docker-compose.yml up -d --build
 
 首次构建需要拉取 Flutter 镜像并编译 Web 产物，耗时较长；之后为增量构建。
 
-启动后：
+启动后**只需访问一个地址**：
 
-| 服务 | 地址 |
-|---|---|
-| Web 前端 | http://localhost:8088 |
-| 后端 API | http://localhost:8080 |
+| 入口 | 地址 | 说明 |
+|---|---|---|
+| Web 应用（前端 + API） | http://localhost:8088 | nginx 托管静态资源并代理 `/api/` |
+| 后端 API（直连） | — | 默认**不对外暴露**，仅 compose 内网可达 |
 
-验证：
+验证（全部走同一个 Origin）：
 
 ```bash
-curl -s http://localhost:8080/api/health
+# 健康检查（经 nginx 代理到后端）
+curl -s http://localhost:8088/api/health
 # {"status":"ok","dictionaries":1,"enabled":1,"totalEntries":434589,"uptimeSeconds":3}
 
-curl -s "http://localhost:8080/api/lookup?word=hello" | head -c 300
-curl -s -o /dev/null -w '%{http_code} %{size_download}\n' \
-  "http://localhost:8080/api/audio?key=hello.mp3"
-# 200 17756
+# 查词
+curl -s "http://localhost:8088/api/lookup?word=hello" | head -c 200
+
+# 发音：Range 透传
+curl -s -D- -o /dev/null -H "Range: bytes=0-1023" \
+  "http://localhost:8088/api/audio?key=hello.mp3" | grep -i content-range
+# content-range: bytes 0-1023/17756
 ```
 
 浏览器打开 http://localhost:8088 ，左侧「词典」页应显示**已连接后端词典服务**。
+
+> 需要直接用 curl 调试后端时，取消 `docker-compose.yml` 中 `backend.ports` 的注释，
+> 或执行 `docker compose exec backend curl -s localhost:8080/api/health`。
 
 停止 / 清理：
 
@@ -126,7 +156,10 @@ docker run --rm -p 8080:8080 \
   local-dict-backend
 ```
 
-### 4.2 仅前端（指向已有后端）
+### 4.2 仅前端（静态托管，后端在别处）
+
+镜像默认按**同源**构建（`DICT_API_BASE` 为空 → 客户端回退到网页 Origin）。
+若把前端单独托管、后端在其它主机，则在构建期写死后端地址：
 
 ```bash
 docker build -f docker/Dockerfile.web \
@@ -134,6 +167,15 @@ docker build -f docker/Dockerfile.web \
   -t local-dict-web .
 docker run --rm -p 8088:80 local-dict-web
 ```
+
+此时不经过 nginx 代理，改为浏览器直连后端，需要后端 `ports` 对外发布，并依赖其 CORS 头。
+也可以完全不重新构建，改用运行时覆盖：
+
+```
+http://your-frontend:8088/?api=http://192.168.1.10:8080
+```
+
+该地址会写入浏览器 localStorage，后续访问自动生效。
 
 ---
 
@@ -173,8 +215,16 @@ docker run --rm -p 8088:80 local-dict-web
 
 ## 6. API 契约
 
-所有响应为 `application/json; charset=utf-8`（音频除外）。跨源请求返回
-`Access-Control-Allow-Origin: *`。
+所有响应为 `application/json; charset=utf-8`（音频除外）。
+
+> **访问入口**：整合部署下统一走 web 容器（`http://localhost:8088/api/...`），
+> 由 nginx 代理到后端。下例用 `$BASE` 表示；后端容器内部监听
+> `http://backend:8080`，默认不对宿主机发布。
+
+```bash
+BASE=http://localhost:8088        # 整合部署入口（同源）
+# BASE=http://localhost:8080      # 仅在后端单独发布端口时使用
+```
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
@@ -188,60 +238,84 @@ docker run --rm -p 8088:80 local-dict-web
 示例：
 
 ```bash
+# 健康检查
+curl -s "$BASE/api/health"
+# {"status":"ok","dictionaries":1,"enabled":1,"totalEntries":434589,"uptimeSeconds":5}
+
 # 前缀检索
-curl -s "http://localhost:8080/api/search?q=tele&limit=5"
+curl -s "$BASE/api/search?q=tele&limit=5"
 # {"query":"tele","results":[
-#   {"word":"tele","matchType":"prefix","dictionaryId":"dictionary-com-20260913","dictionaryName":"Dictionary.com"},
-#   ... ]}
+#   {"word":"tele","matchType":"exact","dictionaryId":"dictionary-com-20260913","dictionaryName":"Dictionary.com 20260913"},
+#   {"word":"tele-","matchType":"prefix", ... }, ... ]}
 
 # 查词
-curl -s "http://localhost:8080/api/lookup?word=hello" | jq '.entry | {word, phonetic, soundKey, tabs: [.tabs[].label]}'
+curl -s "$BASE/api/lookup?word=hello" | jq '.entry | {word, phonetic, soundKey, tabs: [.tabs[].label]}'
 # { "word":"hello", "phonetic":"[he-loh...]", "soundKey":"hello.mp3",
 #   "tabs":["American","Etymology","Explanation","Examples"] }
 
 # 发音（含 Range 请求）
 curl -s -D- -o /dev/null -H 'Range: bytes=0-1023' \
-  "http://localhost:8080/api/audio?key=hello.mp3" | grep -i content-range
+  "$BASE/api/audio?key=hello.mp3" | grep -i content-range
 # content-range: bytes 0-1023/17756
 ```
 
 > `/api/search` 只返回词形与词典归属；中文简释、CEFR 等级、考纲标签由**前端**用本地词频库
 > 富化，因此后端不重复实现该逻辑。
 
+> 后端 CORS 头为 `Access-Control-Allow-Origin: *`。同源整合部署下浏览器不会发起跨源请求，
+> 因此该头不被使用；仅在 §7.1 的前后端分离部署中生效，公网场景请按需收紧。
+
 ---
 
-## 7. 生产部署：单域名 + TLS（推荐）
+## 7. HTTPS / 反向代理
 
-把前端与后端收敛到同一个 Origin，可免除跨源配置，并便于套用 HTTPS。
+同源整合**已经是默认形态**（§1、§3），`/api/` 由 web 容器内的 nginx 代理，无需额外配置。
+要在其外层加 HTTPS，只需在最前面再放一层 TLS 终止（下面以 Caddy 为例，自动申请证书）：
 
-前端镜像用**空** `DICT_API_BASE` 构建，从而回退到网页 Origin：
-
-```bash
-docker build -f docker/Dockerfile.web --build-arg DICT_API_BASE= -t local-dict-web .
 ```
-
-在 nginx（或任何反向代理）中把 `/api/` 转发到后端：
-
-```nginx
-location /api/ {
-    proxy_pass http://backend:8080;      # 结尾无斜杠 => 保留完整路径
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header Range $http_range;  # 音频断点续传必需
-    proxy_set_header If-Range $http_if_range;
-    proxy_buffering off;                 # 音频流不落盘缓冲
-    proxy_read_timeout 60s;
+# Caddyfile
+dict.example.com {
+    reverse_proxy local-dict-web:80
 }
 ```
 
-> 若 `backend` 主机名可能不存在（例如仅部署前端），请改用变量形式延迟解析，
-> 否则 nginx 会在**启动时**因解析失败而退出：
-> ```nginx
-> resolver 127.0.0.11 ipv6=off valid=10s;   # Docker 内置 DNS
-> set $upstream backend;
-> proxy_pass http://$upstream:8080;
-> ```
+或改用 nginx + certbot：
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name dict.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/dict.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/dict.example.com/privkey.pem;
+
+    location / {
+        proxy_pass http://local-dict-web:80;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+}
+```
+
+外层代理**不必**单独处理 `/api/`——它已经在 web 容器内被代理到后端；
+也**必须**保留 `Range` 透传（Caddy 默认支持，nginx 需确认未剥离请求头）。
+
+> 注意：web 容器内的 nginx 用变量 + `resolver 127.0.0.11` 延迟解析后端主机名，
+> 这样即使后端缺席（仅跑前端）容器也能正常启动，只会让 `/api/` 返回 502。
+> `127.0.0.11` 是 Docker 内嵌 DNS，在 Docker 之外运行该镜像时需改为可用的 DNS 地址。
+
+### 7.1 备选：前后端分离部署
+
+若希望前端走 CDN、后端独立扩容，则可放弃同源整合：
+
+1. 前端镜像用 `--build-arg DICT_API_BASE=https://api.example.com` 构建（或运行时 `?api=`），
+   部署到任意静态托管；
+2. 后端容器发布端口（取消 `docker-compose.yml` 中 `ports` 注释）；
+3. 后端 CORS 头目前已允许任意来源（`Access-Control-Allow-Origin: *`），
+   公网部署请按需收紧，并在 `api.example.com` 上单独配置 TLS 与鉴权。
 
 ---
 
