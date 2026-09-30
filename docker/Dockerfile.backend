@@ -1,0 +1,55 @@
+# Local dictionary backend — build + run image.
+#
+# The backend reuses the exact MDict parsers from lib/core/mdx, which are pure
+# Dart; only `flutter pub get` needs the Flutter SDK (the project's pubspec
+# declares the flutter SDK), so the build stage uses the Flutter image and the
+# runtime stage ships a small AOT executable with no Dart SDK at all.
+#
+# Build (from the repository root):
+#   docker build -f docker/Dockerfile.backend -t local-dict-backend .
+# Run:
+#   docker run --rm -p 8080:8080 \
+#     -v "/path/to/dictionaries:/dictionaries:ro" local-dict-backend
+
+# syntax=docker/dockerfile:1
+
+# ---------------------------------------------------------------- build stage
+FROM ghcr.io/cirruslabs/flutter:stable AS build
+
+WORKDIR /src
+
+# Dependency manifest first so the pub cache layer survives source edits.
+COPY pubspec.yaml ./
+RUN flutter pub get
+
+COPY lib ./lib
+COPY server ./server
+
+# Compile a self-contained native executable. Nothing reachable from the server
+# imports dart:ui / package:flutter, so this stays a plain Dart AOT build.
+RUN mkdir -p /out \
+    && dart compile exe server/dict_server.dart -o /out/dict_server
+
+# -------------------------------------------------------------- runtime stage
+FROM debian:bookworm-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY --from=build /out/dict_server /app/dict_server
+
+# Dictionaries are mounted read-only; the default path is scanned recursively
+# for .mdx archives with a sibling .mdd for pronunciation audio.
+ENV DICT_DIR=/dictionaries \
+    DICT_HOST=0.0.0.0 \
+    DICT_PORT=8080
+
+VOLUME ["/dictionaries"]
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:8080/api/health || exit 1
+
+ENTRYPOINT ["/app/dict_server"]

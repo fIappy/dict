@@ -1,0 +1,29 @@
+# Keep the Docker build context small.
+# The bundled dictionaries alone are ~1.7 GB and are mounted at runtime, never
+# baked into an image.
+
+# ---- Dictionary archives (runtime volume, not build input) ----
+Dictionary.com 20260913_hahaya/
+*.mdx
+*.mdd
+*.zip
+
+# ---- Build output and tooling ----
+build/
+.dart_tool/
+.idea/
+.vscode/
+.git/
+
+# ---- Non-web platform folders: not needed to build the web bundle ----
+android/
+ios/
+linux/
+macos/
+windows/
+
+# ---- Not build inputs ----
+test/
+docs/
+*.md
+*.log

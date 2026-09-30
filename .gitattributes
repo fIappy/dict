@@ -1,0 +1,29 @@
+# Normalize line endings to LF inside the repository. The project builds on
+# Windows and inside Linux containers (Docker/WSL), so a single LF convention
+# avoids CRLF artefacts leaking into images and shell scripts.
+
+* text=auto eol=lf
+
+# Windows-only scripting keeps CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary assets must never be line-ending converted.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.mp3 binary
+*.wav binary
+*.ogg binary
+*.ttf binary
+*.otf binary
+*.jar binary
+*.wasm binary
+*.so binary
+*.dll binary
+*.exe binary
+*.zip binary
+*.mx binary
