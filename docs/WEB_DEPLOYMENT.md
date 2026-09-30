@@ -29,6 +29,9 @@ Web 端由两个容器组成，但对外**只暴露一个入口**：
 | MIME / 压缩 | `application/wasm`、`application/javascript`、`audio/mpeg`、`application/json` 均正确；`content-encoding: gzip` 生效 |
 | 浏览器端到端 | 9 次 API 调用**全部同源**（`localhost:8088`），发往 `:8080` 的请求数为 **0**；检索 → 查词 → 发音全链路通过，**控制台 0 错误、0 失败请求** |
 | 词典页状态 | 「已连接后端词典服务 / 词典由后端提供（1 本，共 434589 条词条）」+「含配套音频库 (.mdd)」「含专用样式表 (.css)」|
+| 多词典热加载 | 向第二个挂载目录放入 979 B 测试词典后 `POST /api/reload` → `dictionaries:2, totalEntries:434594`（434589 + 5），**未重启容器**；删除该文件后 reload 回落为 1 本 |
+| 跨词典归属 | 停用大词典后 `GET /api/lookup?word=damson` 由 `Mini Test Dictionary` 返回（音标 `[dam-zuhn]`、标签 `American/Examples`），`dictionaryName` 正确标明来源 |
+| 启用状态保持 | 停用大词典 → reload 后 `enabled` 由 2 变为 **1**，即热加载不会重置启用/停用选择 |
 
 ---
 
@@ -132,16 +135,102 @@ docker compose -f docker/docker-compose.yml down          # 停止
 docker compose -f docker/docker-compose.yml down --rmi local   # 同时删除镜像
 ```
 
-### 词典路径不是默认值时
+### 3.1 词典配置（部署后如何加词典）
 
-默认挂载仓库内的 `Dictionary.com 20260913_hahaya/`。指向其它目录：
+**为什么镜像里没有词典**：词典约 1.7 GB，且受各自授权约束，不适合随镜像分发。
+因此词典在**运行时**通过只读挂载提供，镜像本身可自由分发；
+更新词典只影响挂载目录，**不需要重新构建镜像**。
+
+**挂载点与配对规则**
+
+- 容器内路径由 `DICT_DIR` 指定，默认 `/dictionaries`，会**递归**扫描其中所有 `*.mdx`
+- 同目录、同文件名的 `.mdd` 自动配对，用于发音原声（如 `X.mdx` ↔ `X.mdd`）
+- 同目录下任意 `.css` 会被登记为该词典的词条样式表
+- 可给多个目录，`DICT_DIR` 用 `;` 分隔
+
+**方式 A — Compose（推荐）**
 
 ```bash
+# 默认挂载仓库内的 Dictionary.com 20260913_hahaya/
+docker compose -f docker/docker-compose.yml up -d --build
+
+# 指向任意目录
 DICT_PATH=/mnt/d/dicts docker compose -f docker/docker-compose.yml up -d --build
 ```
 
-Compose 中的相对路径以 `docker/` 目录为基准，因此默认值 `../Dictionary.com 20260913_hahaya`
+`DICT_PATH` 的相对路径以 `docker/` 目录为基准，默认值 `../Dictionary.com 20260913_hahaya`
 即仓库根目录下的词典文件夹。
+
+**方式 B — docker run**
+
+```bash
+docker run -d --name local-dict-backend \
+  -v "/mnt/d/dicts:/dictionaries:ro" \
+  local-dict-backend
+```
+
+**方式 C — 加载多本词典**
+
+最省事的做法：把多本 `.mdx`（连同各自的 `.mdd`）放进**同一个目录**，递归扫描会全部加载。
+若词典分散在不同目录，挂多个卷并扩展 `DICT_DIR`：
+
+```yaml
+services:
+  backend:
+    environment:
+      DICT_DIR: "/dictionaries;/extra-dicts"
+    volumes:
+      - "/mnt/d/main-dicts:/dictionaries:ro"
+      - "/mnt/d/extra-dicts:/extra-dicts:ro"
+```
+
+多本词典同时启用时，检索结果按精确 → 前缀 → 包含排序并跨词典去重；
+查词按启用顺序取第一本命中者，响应中的 `dictionaryName` 标明来源词典。
+
+**方式 D — 服务器上没有现成目录（云主机场景）**
+
+用命名卷预置数据，避免依赖宿主机路径：
+
+```bash
+docker volume create dictdata
+docker run --rm -v dictdata:/dictionaries -v /srv/dicts:/src:ro \
+  alpine sh -c 'cp -a /src/. /dictionaries/'
+# 再让 backend 使用该卷：docker-compose 中把绑定挂载换成
+#   - "dictdata:/dictionaries:ro"
+```
+
+**新增词典如何生效（免重启热加载）**
+
+- 容器**启动时**扫描一次挂载目录；
+- 之后放入挂载目录的词典，调用 `POST /api/reload` 即可热加载，**无需重启容器**。
+  实测（把第二本词典放进挂载目录后）：
+
+  ```console
+  $ curl -s -X POST http://localhost:8088/api/reload
+  {"status":"ok","dictionaries":2,"enabled":2,"totalEntries":434594,
+   "ids":["dictionary-com-20260913","mini"]}
+  ```
+
+  `434589 + 5 = 434594`，第二本已被识别；删除该文件后再 reload 会回落为 1 本。
+- reload 会重新打开归档并重建内存索引（约 66 ms / 43 万词条）。切换瞬间少数在途请求可能失败，重试即可。
+- 通过 `/api/dictionaries/<id>/enabled` 关闭的词典，其启用状态在 reload 后**保持不变**（实测 `enabled` 由 2 变为 1 即为此项）。
+
+**配置后如何验证**
+
+```bash
+curl -s http://localhost:8088/api/health         # dictionaries / enabled / totalEntries
+curl -s http://localhost:8088/api/dictionaries   # 每本的名称、词条数、文件路径
+```
+
+浏览器打开「词典」页也会显示已加载数量与每本的词条数、是否含发音库与样式表。
+
+**注意事项**
+
+- 挂载建议加 `:ro`；后端只读取词典，从不写入
+- 未找到任何 `.mdx` 时后端**仍会启动**，但日志会给出
+  `warning: no .mdx archive found in ...`，此时前端仅剩音标/字母/词频可用
+- 词典文件的绝对路径会出现在 `/api/dictionaries` 响应中（容器内路径），
+  这也是默认不把 backend 端口对外发布的原因之一
 
 ---
 
@@ -231,6 +320,7 @@ BASE=http://localhost:8088        # 整合部署入口（同源）
 | `GET` | `/api/health` | 健康检查：词典数量、总词条数、运行秒数 |
 | `GET` | `/api/dictionaries` | 已加载词典列表（含启用状态、词条数、文件路径） |
 | `POST` | `/api/dictionaries/<id>/enabled` | 启用/停用某本词典，body：`{"enabled": true}` |
+| `POST` | `/api/reload` | 重新扫描挂载目录，热加载新增/移除的词典（免重启），保留启用状态 |
 | `GET` | `/api/search?q=&limit=` | 检索，返回 `exact` → `prefix` → `substring` 分级的词列表 |
 | `GET` | `/api/lookup?word=` | 查词，返回完整解析词条（标签页、正文面板、音标、例句） |
 | `GET` | `/api/audio?key=` | 发音 MP3 字节流，支持 `Range`（206 Partial Content） |

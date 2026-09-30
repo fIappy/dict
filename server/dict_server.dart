@@ -124,13 +124,22 @@ class LoadedDict {
 }
 
 class DictServer {
-  final List<LoadedDict> dictionaries = [];
+  final List<LoadedDict> _dicts = [];
   final Router router = Router();
+
+  /// Roots last passed to [scan]; used by `/api/reload`.
+  List<String> _roots = const [];
+
+  /// Ids the operator disabled, preserved across reloads.
+  final Set<String> _disabled = {};
+
+  List<LoadedDict> get dictionaries => List.unmodifiable(_dicts);
 
   DictServer() {
     router.get('/api/health', _health);
     router.get('/api/dictionaries', _listDictionaries);
     router.post('/api/dictionaries/<id>/enabled', _setEnabled);
+    router.post('/api/reload', _reload);
     router.get('/api/search', _search);
     router.get('/api/lookup', _lookup);
     router.get('/api/audio', _audio);
@@ -140,11 +149,18 @@ class DictServer {
 
   // ---------------------------------------------------------------- loading
 
-  /// Scans [directories] recursively for `.mdx` archives.
+  /// Scans [directories] recursively for `.mdx` archives and swaps them in.
+  ///
+  /// Archives can be added or removed on the mounted volume at any time; call
+  /// this again (or hit `POST /api/reload`) to pick the change up without
+  /// restarting the container.
   Future<void> scan(List<String> directories) async {
+    _roots = List.unmodifiable(directories);
+
+    final loaded = <LoadedDict>[];
     final seenPaths = <String>{};
 
-    for (final dirPath in directories) {
+    for (final dirPath in _roots) {
       final dir = Directory(dirPath);
       if (!dir.existsSync()) continue;
 
@@ -158,15 +174,34 @@ class DictServer {
       for (final file in mdxFiles) {
         final abs = file.absolute.path;
         if (!seenPaths.add(abs)) continue;
-        final loaded = await _load(abs);
-        if (loaded != null) dictionaries.add(loaded);
+        final entry = await _load(abs, priority: loaded.length);
+        if (entry != null) loaded.add(entry);
       }
     }
 
-    dictionaries.sort((a, b) => a.info.priority.compareTo(b.info.priority));
+    loaded.sort((a, b) => a.info.priority.compareTo(b.info.priority));
+
+    // Swap under a single synchronous section, then release the old handles.
+    final previous = List<LoadedDict>.of(_dicts);
+    _dicts
+      ..clear()
+      ..addAll(loaded.map(
+        (d) => _disabled.contains(d.info.id)
+            ? LoadedDict(info: d.info.copyWith(isEnabled: false), mdx: d.mdx, mdd: d.mdd)
+            : d,
+      ));
+
+    // Readers were re-opened, so every previous handle can be released.
+    for (final old in previous) {
+      try {
+        old.close();
+      } catch (_) {
+        // Already gone; nothing to do.
+      }
+    }
   }
 
-  Future<LoadedDict?> _load(String mdxPath) async {
+  Future<LoadedDict?> _load(String mdxPath, {required int priority}) async {
     try {
       final mdx = await MdxReader.open(mdxPath);
       final file = File(mdxPath);
@@ -190,7 +225,7 @@ class DictServer {
         mddPath: mdd == null ? null : mddCandidate.absolute.path,
         cssPath: _findCss(dir, baseName),
         isEnabled: true,
-        priority: dictionaries.length,
+        priority: priority,
         entryCount: mdx.numEntries,
         createdAt: file.statSync().modified,
       );
@@ -235,7 +270,7 @@ class DictServer {
   }
 
   List<LoadedDict> get _enabled =>
-      dictionaries.where((d) => d.info.isEnabled).toList();
+      _dicts.where((d) => d.info.isEnabled).toList();
 
   // -------------------------------------------------------------- handlers
 
@@ -245,6 +280,7 @@ class DictServer {
           'GET /api/health',
           'GET /api/dictionaries',
           'POST /api/dictionaries/<id>/enabled',
+          'POST /api/reload',
           'GET /api/search?q=&limit=',
           'GET /api/lookup?word=',
           'GET /api/audio?key=',
@@ -267,6 +303,20 @@ class DictServer {
         'dictionaries': dictionaries.map((d) => d.info.toMap()).toList(),
       });
 
+  /// Re-scans the mounted volume so archives can be added or removed without
+  /// restarting the container. Readers are re-opened; in-flight requests during
+  /// the swap may fail transiently and are safe to retry.
+  Future<Response> _reload(Request req) async {
+    await scan(_roots);
+    return _json({
+      'status': 'ok',
+      'dictionaries': _dicts.length,
+      'enabled': _enabled.length,
+      'totalEntries': _dicts.fold<int>(0, (sum, d) => sum + d.info.entryCount),
+      'ids': _dicts.map((d) => d.info.id).toList(),
+    });
+  }
+
   Future<Response> _setEnabled(Request req, String id) async {
     final loaded = dictionaries.where((d) => d.info.id == id).firstOrNull;
     if (loaded == null) {
@@ -285,8 +335,14 @@ class DictServer {
       return _json({'error': 'invalid JSON body'}, status: 400);
     }
 
-    final index = dictionaries.indexWhere((d) => d.info.id == id);
-    dictionaries[index] = LoadedDict(
+    if (enabled) {
+      _disabled.remove(id);
+    } else {
+      _disabled.add(id);
+    }
+
+    final index = _dicts.indexWhere((d) => d.info.id == id);
+    _dicts[index] = LoadedDict(
       info: loaded.info.copyWith(isEnabled: enabled),
       mdx: loaded.mdx,
       mdd: loaded.mdd,
