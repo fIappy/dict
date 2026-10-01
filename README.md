@@ -138,7 +138,7 @@ docker/
 ├── nginx.conf
 └── docker-compose.yml
 assets/
-├── audio/ipa/        # 48 个音标示范音（见「音标音频的生成」）
+├── audio/ipa/        # 48 个音标示范音（见「音标音频的来源」）
 ├── audio/letters/    # 26 字母 × 美/英音
 └── data/             # Top 20,000 词频表
 ```
@@ -162,31 +162,52 @@ flutter test             # 单元与 Widget 测试（11 项）
 dart analyze server      # 后端静态分析
 ```
 
-### 音标音频的生成
+### 音标音频的来源
 
-`assets/audio/ipa/` 里的 48 个音标示范音由 `tool/generate_ipa_audio.py` 现场合成，
-不依赖任何第三方录音文件：
+`assets/audio/ipa/` 里的 48 个示范音**从词典自带的 `.mdd` 真人录音里剪出来**，
+和查词时播放的发音是同一个声音：
 
 ```bash
-python tool/generate_ipa_audio.py --check          # 只校验音素映射，不写文件
-python tool/generate_ipa_audio.py                  # 重新生成全部 48 个 mp3
-python tool/generate_ipa_audio.py --voice en-us    # 换成美音
+dart run tool/generate_ipa_audio_from_mdd.dart --check   # 只出报告，不写文件
+dart run tool/generate_ipa_audio_from_mdd.dart           # 重新生成 48 个 mp3
+# 需要 ffmpeg；--mdd / --out / --ffmpeg 可覆盖默认路径
 ```
 
-脚本里每个音标都绑定一个 **espeak-ng 专有音素符号** 和一个锚定例词；运行时先用
-`espeak-ng -x` 反查锚定例词的音素串，确认该符号确实是这个词里的那个音（48/48 必须全过），
-再用这个符号合成，最后按相对峰值裁掉首尾静音、做 RMS 归一化并编码成 64 kbps 单声道 mp3。
+工具直接复用 `lib/core/mdx/mdd_reader_native.dart`——MDict 容器全项目只有一份解析实现。
+每个音素绑定一个例词（与 `ipa_data.dart` 里卡片显示的例词一致），按下面规则从录音里取一段：
 
-两个容易踩的坑写在脚本注释里：
+| 模式 | 取法 | 用在 |
+|---|---|---|
+| `vowel` | 取词中能量最高的连续段（峰值的 25% 以上）并向两侧各留 10% | 单元音、双元音 |
+| `onset` | 词首 160 ms——辅音加上它的除阻 | 词首辅音 |
+| `coda` | 词尾 160 ms | `/ŋ/` `/ts/` `/dz/` `/ʒ/` |
+| `word` | 整遍 | 备用 |
 
-- espeak-ng 的 `[[...]]` **只认它自己的音素符号**。喂 IPA 字符不会报错，而是合成出
-  **数字静音**（-91 dBFS）——`[[ʌ]]` 得到的是一个空文件，必须写 `[[V]]`。
-- espeak-ng 每次都在结尾补 301 ms 静音，且 `-s` 语速只影响元音、双元音和清擦音；
-  浊辅音（m / n / l / r / w / j …）无论多慢都只有 27–98 ms。因此辅音统一读作
-  「辅音 + 中央元音」（/m/ 读作 muh），既好听清也和音标表的通行读法一致。
+Dictionary.com 有些词是**同一个词录了多遍**装在一个文件里（`door` 2.7 s 里 3 遍、
+`you` 4.3 s 里 5 遍）。工具按「两段各 ≥150 ms 的活跃区间之间隔着 ≥350 ms 静音」判定多遍，
+只取第一遍。像 `cats` 这种词内本来就有两次能量隆起（元音、`/ts/` 摩擦）的，间隔只有约 120 ms，
+会正确判为一遍。
 
-> 授权：espeak-ng 本体为 GPL-3.0。合成音频是否构成衍生作品存在不同理解，
-> 通常认为不构成；若需要完全确定的授权，可自行录制或改用许可更宽松的 TTS 换掉这批 mp3。
+剪完统一做 RMS 归一化（−20 dBFS，峰值上限 −1 dBFS，首尾 5 ms 淡入淡出）再编码成 64 kbps 单声道 mp3。
+
+验证方式不是"听着像"，而是**把成品和源录音做滑动互相关**：48 条全部在预期偏移处
+Pearson ≥ 0.917（只有 `/ʃ/` `/ts/` 两个摩擦音略低，是 64 kbps 编码噪声导致的），
+即每条都确实是那段真人录音的一段截取。
+
+> 为什么不用原来的方案：最早那批是按文件名从第三方仓库挑的，挑到的是**基本元音
+> （cardinal vowel）** 的孤立录音而不是英语音位——cardinal [ʌ] 是后半开元音，英语 /ʌ/
+> （cup）是央化的 [ɐ]；cardinal [e] 是次闭前元音，英语 /e/（bed）实际是 [ɛ]。
+> 音标表播的所以不对。
+
+**离线回退方案**：`tool/generate_ipa_audio.py` 用 espeak-ng 现场合成，不需要那 1.7 GB 的
+`.mdd`，只要 espeak-ng + ffmpeg。音素身份同样可校验（每个音素绑定 espeak 专有符号，
+运行时用 `espeak-ng -x` 反查例词确认，48/48），但 espeak-ng 是**共振峰合成器**，
+听起来是电子音——只在拿不到词典文件时用它。
+
+```bash
+python tool/generate_ipa_audio.py --check   # 只校验音素映射
+python tool/generate_ipa_audio.py           # 生成（机械音色）
+```
 
 ## 文档
 

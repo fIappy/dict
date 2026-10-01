@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 """Regenerate the 48 English IPA demonstration clips in assets/audio/ipa/.
 
-Why a generator
----------------
+THIS IS THE FALLBACK PATH. The clips committed to this repo are cut from the
+dictionary's own human recordings by `tool/generate_ipa_audio_from_mdd.dart`
+(same voice as the word lookups). Use this script instead when the 1.7 GB .mdd
+archive is not at hand -- it needs only espeak-ng and ffmpeg, but its output is
+formant-synthesised and sounds mechanical.
+
+Why a generator at all
+----------------------
 The first version of these assets was assembled by name-matching files from a
 third-party repository. That silently produced the *wrong sounds*: the
 monophthongs were **cardinal vowel** reference recordings, not English phonemes.

@@ -261,12 +261,15 @@ class IpaData {
       mouthShape: '面部与唇部完全放松，无特殊唇形，极短极轻。',
       commonSpellings: ['a: about, ago', 'e: open, problem', 'o: second, control', 'er: teacher, doctor (非重读)'],
       examples: [
+        // "sofa" leads because it is the only entry here whose recording isolates
+        // the schwa cleanly (word-final, after a consonant); in "about"/"ago" the
+        // schwa runs into the following diphthong. See tool/generate_ipa_audio_from_mdd.dart.
+        IpaExampleWord(word: 'sofa', phonetic: '/ˈsoʊfə/', spellingPattern: 'a', meaning: 'n. 沙发'),
         IpaExampleWord(word: 'about', phonetic: '/əˈbaʊt/', spellingPattern: 'a', meaning: 'prep. 关于; 大约'),
         IpaExampleWord(word: 'ago', phonetic: '/əˈɡoʊ/', spellingPattern: 'a', meaning: 'adv. 以前'),
         IpaExampleWord(word: 'teacher', phonetic: '/ˈtiːtʃər/', spellingPattern: 'er', meaning: 'n. 老师'),
         IpaExampleWord(word: 'banana', phonetic: '/bəˈnænə/', spellingPattern: 'a', meaning: 'n. 香蕉'),
         IpaExampleWord(word: 'doctor', phonetic: '/ˈdɒktər/', spellingPattern: 'or', meaning: 'n. 医生'),
-        IpaExampleWord(word: 'sofa', phonetic: '/ˈsoʊfə/', spellingPattern: 'a', meaning: 'n. 沙发'),
       ],
       combinations: [
         IpaCombination(
@@ -1365,8 +1368,11 @@ class IpaData {
       mouthShape: '两齿贴近，舌尖从齿龈轻滑，声带震动。',
       commonSpellings: ['ds: birds, beds, cards', 'des: rides, sides'],
       examples: [
-        IpaExampleWord(word: 'birds', phonetic: '/bɜːdz/', spellingPattern: 'ds', meaning: 'n. 鸟 (复数)'),
+        // "beds" leads because this archive has no recording for "birds"
+        // (verified: bird.mp3 and birds.mp3 are both absent). See
+        // tool/generate_ipa_audio_from_mdd.dart.
         IpaExampleWord(word: 'beds', phonetic: '/bedz/', spellingPattern: 'ds', meaning: 'n. 床 (复数)'),
+        IpaExampleWord(word: 'birds', phonetic: '/bɜːdz/', spellingPattern: 'ds', meaning: 'n. 鸟 (复数)'),
         IpaExampleWord(word: 'cards', phonetic: '/kɑːdz/', spellingPattern: 'ds', meaning: 'n. 卡片 (复数)'),
         IpaExampleWord(word: 'hands', phonetic: '/hændz/', spellingPattern: 'ds', meaning: 'n. 手 (复数)'),
         IpaExampleWord(word: 'rides', phonetic: '/raɪdz/', spellingPattern: 'des', meaning: 'v. 骑 (单三)'),
