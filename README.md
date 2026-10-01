@@ -138,7 +138,7 @@ docker/
 ├── nginx.conf
 └── docker-compose.yml
 assets/
-├── audio/ipa/        # 48 个音标原声
+├── audio/ipa/        # 48 个音标示范音（见「音标音频的生成」）
 ├── audio/letters/    # 26 字母 × 美/英音
 └── data/             # Top 20,000 词频表
 ```
@@ -158,9 +158,35 @@ export 'mdx_reader_web.dart' if (dart.library.io) 'mdx_reader_native.dart';
 
 ```bash
 flutter analyze          # 静态分析（0 issues）
-flutter test             # 单元与 Widget 测试（9 项）
+flutter test             # 单元与 Widget 测试（11 项）
 dart analyze server      # 后端静态分析
 ```
+
+### 音标音频的生成
+
+`assets/audio/ipa/` 里的 48 个音标示范音由 `tool/generate_ipa_audio.py` 现场合成，
+不依赖任何第三方录音文件：
+
+```bash
+python tool/generate_ipa_audio.py --check          # 只校验音素映射，不写文件
+python tool/generate_ipa_audio.py                  # 重新生成全部 48 个 mp3
+python tool/generate_ipa_audio.py --voice en-us    # 换成美音
+```
+
+脚本里每个音标都绑定一个 **espeak-ng 专有音素符号** 和一个锚定例词；运行时先用
+`espeak-ng -x` 反查锚定例词的音素串，确认该符号确实是这个词里的那个音（48/48 必须全过），
+再用这个符号合成，最后按相对峰值裁掉首尾静音、做 RMS 归一化并编码成 64 kbps 单声道 mp3。
+
+两个容易踩的坑写在脚本注释里：
+
+- espeak-ng 的 `[[...]]` **只认它自己的音素符号**。喂 IPA 字符不会报错，而是合成出
+  **数字静音**（-91 dBFS）——`[[ʌ]]` 得到的是一个空文件，必须写 `[[V]]`。
+- espeak-ng 每次都在结尾补 301 ms 静音，且 `-s` 语速只影响元音、双元音和清擦音；
+  浊辅音（m / n / l / r / w / j …）无论多慢都只有 27–98 ms。因此辅音统一读作
+  「辅音 + 中央元音」（/m/ 读作 muh），既好听清也和音标表的通行读法一致。
+
+> 授权：espeak-ng 本体为 GPL-3.0。合成音频是否构成衍生作品存在不同理解，
+> 通常认为不构成；若需要完全确定的授权，可自行录制或改用许可更宽松的 TTS 换掉这批 mp3。
 
 ## 文档
 

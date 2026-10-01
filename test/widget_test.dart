@@ -330,6 +330,26 @@ void main() {
       expect(ipaProvider.selectedSymbol, equals('/p/'));
     });
 
+    test('every IPA phoneme has a bundled audio clip', () {
+      // The grid plays these by asset key; a phoneme added without regenerating
+      // its clip (tool/generate_ipa_audio.py) would otherwise fail silently.
+      final missing = <String>[];
+      final stubs = <String>[];
+      for (final phoneme in IpaData.allPhonemes) {
+        final file = File('assets/audio/ipa/${phoneme.audioAssetKey}.mp3');
+        if (!file.existsSync()) {
+          missing.add(phoneme.audioAssetKey);
+          continue;
+        }
+        // a real clip is 0.3-0.5 s of 64 kbps mono: ~1.1-5 KB
+        if (file.lengthSync() < 1000) {
+          stubs.add('${phoneme.audioAssetKey} (${file.lengthSync()} B)');
+        }
+      }
+      expect(missing, isEmpty, reason: 'phonemes with no clip: $missing');
+      expect(stubs, isEmpty, reason: 'truncated clips: $stubs');
+    });
+
     test('requiresDurableImport adopts only transient Android picker paths', () {
       const pickerCache =
           '/data/user/0/com.example.local_dict/cache/file_picker/1727/X.mdx';
