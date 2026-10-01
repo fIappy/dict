@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import '../database/dictionaries_dao.dart';
 import '../frequency/frequency_service.dart';
 import '../mdx/mdd_reader.dart';
@@ -24,6 +25,26 @@ class LoadedDictionary {
     mdx.close();
     mdd?.close();
   }
+}
+
+/// Whether an archive at [path] must be copied into app storage before being
+/// registered as a dictionary.
+///
+/// Android's Storage Access Framework hands back a copy of each picked file
+/// under `cacheDir/file_picker/<timestamp>/`: the OS may evict it, and it never
+/// contains the sibling `.mdd`, so a dictionary imported from it would lose its
+/// audio and eventually its text. Desktop paths are the user's own files, so
+/// they are referenced in place — copying a multi-gigabyte `.mdd` would be
+/// wasteful and slow.
+@visibleForTesting
+bool requiresDurableImport({
+  required bool isAndroid,
+  required String path,
+  required String? appDictDir,
+}) {
+  if (!isAndroid) return false;
+  if (appDictDir != null && p.isWithin(appDictDir, path)) return false;
+  return true;
 }
 
 class DictionaryService {
@@ -119,22 +140,39 @@ class DictionaryService {
       if (!File(info.mdxPath).existsSync()) return null;
       final mdx = await MdxReader.open(info.mdxPath);
 
+      // Resolve the audio archive. A dictionary imported without its .mdd keeps
+      // mddPath == null, so re-probe the sibling file on every load: dropping
+      // <name>.mdd next to <name>.mdx and restarting then picks it up.
+      var resolvedInfo = info;
+      var mddPath = info.mddPath;
+      if (mddPath == null || !File(mddPath).existsSync()) {
+        final sibling = p.join(
+          p.dirname(info.mdxPath),
+          '${p.basenameWithoutExtension(info.mdxPath)}.mdd',
+        );
+        mddPath = File(sibling).existsSync() ? sibling : null;
+        if (mddPath != null) {
+          resolvedInfo = info.copyWith(mddPath: mddPath);
+          await _dao.update(resolvedInfo);
+        }
+      }
+
       MddReader? mdd;
-      if (info.mddPath != null && File(info.mddPath!).existsSync()) {
+      if (mddPath != null) {
         try {
-          mdd = await MddReader.open(info.mddPath!);
+          mdd = await MddReader.open(mddPath);
         } catch (e) {
           debugPrint('Failed to load MDD for ${info.name}: $e');
         }
       }
 
       // Update entry count in database
-      if (info.entryCount != mdx.numEntries) {
-        final updated = info.copyWith(entryCount: mdx.numEntries);
-        await _dao.update(updated);
+      if (resolvedInfo.entryCount != mdx.numEntries) {
+        resolvedInfo = resolvedInfo.copyWith(entryCount: mdx.numEntries);
+        await _dao.update(resolvedInfo);
       }
 
-      final loaded = LoadedDictionary(info: info, mdx: mdx, mdd: mdd);
+      final loaded = LoadedDictionary(info: resolvedInfo, mdx: mdx, mdd: mdd);
       _loadedDicts.add(loaded);
       return loaded;
     } catch (e) {
@@ -159,16 +197,27 @@ class DictionaryService {
     final name = customName ?? baseName;
     final dir = p.dirname(mdxPath);
 
-    // Auto-detect matching .mdd and .css if not provided
+    // Auto-detect matching .mdd and .css next to the .mdx (desktop layout).
     final autoMdd = mddPath ?? p.join(dir, '$baseName.mdd');
     final autoCss = cssPath ?? p.join(dir, '$baseName.css');
+
+    // On Android the picker hands back a throwaway copy under
+    // cacheDir/file_picker/<timestamp>/, so a sibling .mdd is never there and
+    // the path itself can be evicted. Move the archives into app-owned storage
+    // first, keeping one basename so the pair still resolves.
+    final stored = await _adoptIntoAppStorage(
+      mdxPath: mdxPath,
+      mddPath: File(autoMdd).existsSync() ? autoMdd : null,
+      cssPath: File(autoCss).existsSync() ? autoCss : null,
+      baseName: baseName,
+    );
 
     final info = DictionaryInfo(
       id: 'dict_${DateTime.now().millisecondsSinceEpoch}',
       name: name,
-      mdxPath: mdxPath,
-      mddPath: File(autoMdd).existsSync() ? autoMdd : null,
-      cssPath: File(autoCss).existsSync() ? autoCss : null,
+      mdxPath: stored.mdx,
+      mddPath: stored.mdd,
+      cssPath: stored.css,
       isEnabled: true,
       priority: _loadedDicts.length,
       createdAt: DateTime.now(),
@@ -182,6 +231,51 @@ class DictionaryService {
     }
 
     return info;
+  }
+
+  /// Copies picked archives into app-owned storage when the filesystem does not
+  /// give us a durable location (Android's SAF path is a cache copy).
+  ///
+  /// Desktop is returned untouched: archives are referenced in place, which
+  /// avoids duplicating a multi-gigabyte `.mdd`.
+  Future<({String mdx, String? mdd, String? css})> _adoptIntoAppStorage({
+    required String mdxPath,
+    required String? mddPath,
+    required String? cssPath,
+    required String baseName,
+  }) async {
+    final dictDir = await _appStorageDictDir();
+    if (!requiresDurableImport(
+      isAndroid: Platform.isAndroid,
+      path: mdxPath,
+      appDictDir: dictDir,
+    )) {
+      return (mdx: mdxPath, mdd: mddPath, css: cssPath);
+    }
+
+    final dir = Directory(dictDir!);
+    if (!dir.existsSync()) dir.createSync(recursive: true);
+
+    Future<String> copyIn(String source, String extension) async {
+      final target = p.join(dir.path, '$baseName$extension');
+      final src = File(source);
+      if (src.absolute.path == File(target).absolute.path) return target;
+      await src.copy(target);
+      return target;
+    }
+
+    return (
+      mdx: await copyIn(mdxPath, '.mdx'),
+      mdd: mddPath == null ? null : await copyIn(mddPath, '.mdd'),
+      css: cssPath == null ? null : await copyIn(cssPath, '.css'),
+    );
+  }
+
+  /// App-owned dictionary copies live under this folder.
+  Future<String?> _appStorageDictDir() async {
+    if (!Platform.isAndroid) return null;
+    final root = await getApplicationSupportDirectory();
+    return p.join(root.path, 'local_dict', 'dicts');
   }
 
   Future<void> reloadDictionaries() async {
@@ -201,7 +295,23 @@ class DictionaryService {
   }
 
   Future<void> deleteDictionary(String id) async {
+    final info = await _dao.getById(id);
     await _dao.delete(id);
+
+    // Remove files this app copied in; never touch archives the user owns.
+    final ownedDir = await _appStorageDictDir();
+    if (info != null && ownedDir != null) {
+      for (final path in [info.mdxPath, info.mddPath, info.cssPath]) {
+        if (path == null || !p.isWithin(ownedDir, path)) continue;
+        try {
+          final f = File(path);
+          if (f.existsSync()) f.deleteSync();
+        } catch (e) {
+          debugPrint('Could not remove $path: $e');
+        }
+      }
+    }
+
     await reloadDictionaries();
   }
 

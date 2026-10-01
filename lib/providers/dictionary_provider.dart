@@ -102,7 +102,9 @@ class DictionaryProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> importDictionary({
+  /// Imports a dictionary and returns it, so the caller can report whether a
+  /// pronunciation archive (.mdd) was paired with it.
+  Future<DictionaryInfo> importDictionary({
     required String mdxPath,
     String? mddPath,
     String? cssPath,
@@ -111,7 +113,7 @@ class DictionaryProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      await _service.importDictionary(
+      final info = await _service.importDictionary(
         mdxPath: mdxPath,
         mddPath: mddPath,
         cssPath: cssPath,
@@ -121,6 +123,7 @@ class DictionaryProvider extends ChangeNotifier {
       if (_currentWord != null) {
         await lookupWord(_currentWord!, addToHistory: false);
       }
+      return info;
     } finally {
       _isLoading = false;
       notifyListeners();

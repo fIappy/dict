@@ -29,39 +29,85 @@ class _DictionaryManagerScreenState extends State<DictionaryManagerScreen> {
     final messenger = ScaffoldMessenger.of(context);
 
     try {
+      // On Android the picker returns a cache copy of each file inside its own
+      // timestamped directory, so a sibling .mdd can never be discovered there.
+      // Both files therefore have to be selected in the same pass.
+      // file_picker 13 returns the selection directly and is multi-select.
       final files = await FilePicker.pickFiles(
-        dialogTitle: '选择本地 MDX 词典文件',
+        dialogTitle: '选择词典文件：.mdx 主文件必选，同名词典请一并选中 .mdd',
         type: FileType.custom,
-        allowedExtensions: ['mdx'],
+        allowedExtensions: ['mdx', 'mdd'],
       );
 
-      if (files.isNotEmpty) {
-        final filePath = files.first.path;
-        if (filePath != null && mounted) {
-          setState(() => _isImporting = true);
-          try {
-            await dictProvider.importDictionary(mdxPath: filePath);
-            messenger.showSnackBar(
-              SnackBar(
-                content: Text('成功导入词典: ${p.basename(filePath)}'),
-                backgroundColor: Colors.green[700],
-              ),
-            );
-          } catch (e) {
-            messenger.showSnackBar(
-              SnackBar(
-                content: Text('导入词典失败: $e'),
-                backgroundColor: Colors.red[700],
-              ),
-            );
-          } finally {
-            if (mounted) setState(() => _isImporting = false);
+      final picked = files
+          .map((f) => f.path)
+          .whereType<String>()
+          .toList(growable: false);
+      if (picked.isEmpty) return;
+
+      final mdxPaths =
+          picked.where((x) => x.toLowerCase().endsWith('.mdx')).toList();
+      final mddPaths =
+          picked.where((x) => x.toLowerCase().endsWith('.mdd')).toList();
+
+      if (mdxPaths.isEmpty) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('.mdd 只是发音资源，请同时选中同名的 .mdx 主文件'),
+            backgroundColor: Color(0xFFEF6C00),
+          ),
+        );
+        return;
+      }
+
+      if (!mounted) return;
+      setState(() => _isImporting = true);
+
+      var imported = 0;
+      final missingAudio = <String>[];
+      try {
+        for (final mdx in mdxPaths) {
+          final base = p.basenameWithoutExtension(mdx).toLowerCase();
+          String? pairedMdd;
+          for (final mdd in mddPaths) {
+            if (p.basenameWithoutExtension(mdd).toLowerCase() == base) {
+              pairedMdd = mdd;
+              break;
+            }
+          }
+
+          final info = await dictProvider.importDictionary(
+            mdxPath: mdx,
+            mddPath: pairedMdd,
+          );
+          imported++;
+          if (!_service.resourceAvailable(info.mddPath)) {
+            missingAudio.add(p.basenameWithoutExtension(mdx));
           }
         }
+      } finally {
+        if (mounted) setState(() => _isImporting = false);
       }
+
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            missingAudio.isEmpty
+                ? '已导入 $imported 本词典，均已配对发音库 .mdd'
+                : '已导入 $imported 本词典；${missingAudio.join("、")} 未找到同名 .mdd，'
+                    '发音将回退到在线音源（离线时无声）',
+          ),
+          backgroundColor:
+              missingAudio.isEmpty ? Colors.green[700] : const Color(0xFFEF6C00),
+          duration: const Duration(seconds: 5),
+        ),
+      );
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('选择文件出错: $e')),
+        SnackBar(
+          content: Text('导入词典失败: $e'),
+          backgroundColor: Colors.red[700],
+        ),
       );
     }
   }

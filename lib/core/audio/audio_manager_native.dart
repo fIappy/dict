@@ -20,6 +20,16 @@ class AudioManager {
   bool get isPlaying => _isPlaying;
   String? get currentlyPlayingTag => _currentlyPlayingTag;
 
+  /// Plays a pronunciation for [word].
+  ///
+  /// Resolution order:
+  /// * **American** — the archive's own `.mdd` recording first (offline, exact),
+  ///   then an online dictionary voice, then OS text-to-speech.
+  /// * **British** — the bundled `.mdd` holds *American* recordings, so it is
+  ///   never used here; British playback goes online, then OS text-to-speech.
+  ///
+  /// The online step is what keeps a dictionary imported **without** its `.mdd`
+  /// audible: previously "美音" was a silent no-op on anything but Windows.
   Future<void> playWord({
     required String word,
     String? soundKey,
@@ -32,41 +42,18 @@ class AudioManager {
     onStateChanged?.call(true);
 
     try {
-      final tempDir = await getTemporaryDirectory();
-
       if (accent == 'uk') {
-        // 1. British English (UK) Audio
-        final ukFile = File(p.join(tempDir.path, 'uk_${word.toLowerCase()}.mp3'));
-        if (!ukFile.existsSync()) {
-          try {
-            final url = Uri.parse('https://dict.youdao.com/dictvoice?audio=${Uri.encodeComponent(word)}&type=1');
-            final res = await http.get(url).timeout(const Duration(seconds: 4));
-            if (res.statusCode == 200 && res.bodyBytes.length > 500) {
-              await ukFile.writeAsBytes(res.bodyBytes, flush: true);
-            }
-          } catch (e) {
-            debugPrint('Failed to download UK audio for $word: $e');
-          }
-        }
-
-        if (ukFile.existsSync()) {
+        final ukClip = await _cachedOnlineClip(word, 'uk');
+        if (ukClip != null) {
           await _player.stop();
-          await _player.play(DeviceFileSource(ukFile.path));
+          await _player.play(DeviceFileSource(ukClip));
           return;
         }
-
-        // Offline fallback for UK
-        if (Platform.isWindows) {
-          final clean = word.replaceAll("'", "").replaceAll('"', '');
-          await Process.run('powershell', [
-            '-Command',
-            "(New-Object -ComObject SAPI.SpVoice).Speak('$clean')",
-          ]);
-          return;
-        }
+        await _speakWithOs(word);
+        return;
       }
 
-      // 2. American English (US) Audio - Native MDD file
+      // 1. The archive's own recording, available when the dictionary ships an .mdd.
       Uint8List? audioBytes;
       if (soundKey != null && soundKey.isNotEmpty) {
         audioBytes = await _dictService.getAudioBytes(soundKey);
@@ -76,6 +63,7 @@ class AudioManager {
       if (audioBytes != null && audioBytes.isNotEmpty) {
         try {
           if (Platform.isWindows) {
+            final tempDir = await getTemporaryDirectory();
             final tempFile = File(p.join(tempDir.path, 'temp_audio_us.mp3'));
             await tempFile.writeAsBytes(audioBytes, flush: true);
             await _player.stop();
@@ -90,14 +78,17 @@ class AudioManager {
         }
       }
 
-      // 3. Fallback to Windows SAPI TTS if on Windows
-      if (Platform.isWindows) {
-        final cleanWord = word.replaceAll("'", "").replaceAll('"', '');
-        await Process.run('powershell', [
-          '-Command',
-          "(New-Object -ComObject SAPI.SpVoice).Speak('$cleanWord')",
-        ]);
+      // 2. No .mdd in this archive (e.g. an .mdx imported on its own): use the
+      //    online voice instead of staying silent.
+      final usClip = await _cachedOnlineClip(word, 'us');
+      if (usClip != null) {
+        await _player.stop();
+        await _player.play(DeviceFileSource(usClip));
+        return;
       }
+
+      // 3. Offline and no archive audio: fall back to OS text-to-speech.
+      await _speakWithOs(word);
     } catch (e) {
       debugPrint('Error playing pronunciation for $word: $e');
     } finally {
@@ -108,6 +99,46 @@ class AudioManager {
           onStateChanged?.call(false);
         }
       });
+    }
+  }
+
+  /// Downloads one dictionary-voice clip and caches it on disk.
+  ///
+  /// Returns the cached file path, or null when the network is unavailable.
+  Future<String?> _cachedOnlineClip(String word, String accent) async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final safe = word.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
+      final file = File(p.join(tempDir.path, 'tts_${accent}_$safe.mp3'));
+      if (file.existsSync() && file.lengthSync() > 500) return file.path;
+
+      // type=1 -> British voice, type=2 -> American voice.
+      final type = accent == 'uk' ? 1 : 2;
+      final url = Uri.parse(
+        'https://dict.youdao.com/dictvoice?audio=${Uri.encodeComponent(word)}&type=$type',
+      );
+      final res = await http.get(url).timeout(const Duration(seconds: 4));
+      if (res.statusCode == 200 && res.bodyBytes.length > 500) {
+        await file.writeAsBytes(res.bodyBytes, flush: true);
+        return file.path;
+      }
+    } catch (e) {
+      debugPrint('Failed to download $accent audio for $word: $e');
+    }
+    return null;
+  }
+
+  /// Last-resort speech synthesis; only Windows exposes a usable CLI.
+  Future<void> _speakWithOs(String word) async {
+    if (!Platform.isWindows) return;
+    final clean = word.replaceAll("'", '').replaceAll('"', '');
+    try {
+      await Process.run('powershell', [
+        '-Command',
+        "(New-Object -ComObject SAPI.SpVoice).Speak('$clean')",
+      ]);
+    } catch (e) {
+      debugPrint('OS speech failed for $word: $e');
     }
   }
 

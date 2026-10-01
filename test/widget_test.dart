@@ -13,12 +13,14 @@ import 'package:local_dict/providers/favorites_provider.dart';
 import 'package:local_dict/providers/history_provider.dart';
 import 'package:local_dict/providers/frequency_provider.dart';
 import 'package:local_dict/providers/settings_provider.dart';
+import 'package:local_dict/core/services/dictionary_service_native.dart';
 import 'package:local_dict/providers/ipa_provider.dart';
 import 'package:local_dict/core/ipa/ipa_data.dart';
 import 'package:local_dict/core/ipa/ipa_model.dart';
 import 'package:local_dict/providers/alphabet_provider.dart';
 import 'package:local_dict/core/alphabet/alphabet_data.dart';
 import 'package:local_dict/core/alphabet/alphabet_model.dart';
+import 'package:local_dict/core/services/dictionary_service_native.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 void main() {
@@ -326,6 +328,32 @@ void main() {
       ipaProvider.selectCategory(IpaCategory.plosive);
       expect(ipaProvider.filteredPhonemes.length, equals(6));
       expect(ipaProvider.selectedSymbol, equals('/p/'));
+    });
+
+    test('requiresDurableImport adopts only transient Android picker paths', () {
+      const pickerCache =
+          '/data/user/0/com.example.local_dict/cache/file_picker/1727/X.mdx';
+      const appDicts =
+          '/data/user/0/com.example.local_dict/files/local_dict/dicts';
+
+      // Desktop archives are the user's own files: reference in place, never
+      // duplicate a multi-gigabyte .mdd.
+      expect(
+        requiresDurableImport(isAndroid: false, path: r'D:\dicts\X.mdx', appDictDir: null),
+        isFalse,
+      );
+
+      // Android's SAF copy is evictable and has no sibling .mdd beside it.
+      expect(
+        requiresDurableImport(isAndroid: true, path: pickerCache, appDictDir: appDicts),
+        isTrue,
+      );
+
+      // Already inside app storage: do not copy onto itself.
+      expect(
+        requiresDurableImport(isAndroid: true, path: '$appDicts/X.mdx', appDictDir: appDicts),
+        isFalse,
+      );
     });
 
     test('AlphabetData covers all 26 letters A-Z with phonics and audio keys', () {
