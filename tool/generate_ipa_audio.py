@@ -134,11 +134,6 @@ PHONES: dict[str, Phone] = {
     "r":           Phone("r",  "red",     CONSONANT),
     "w":           Phone("w",  "wet",     CONSONANT),
     "j":           Phone("j",  "yes",     CONSONANT),
-    # ---- clusters ----
-    "tr":          Phone("tr", "tree",    CONSONANT),
-    "dr":          Phone("dr", "dream",   CONSONANT),
-    "ts":          Phone("ts", "cats",    CONSONANT),
-    "dz":          Phone("dz", "beds",    CONSONANT),
 }
 
 

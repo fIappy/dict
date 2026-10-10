@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
+import 'package:local_dict/core/audio/ipa_asset.dart';
 import 'package:local_dict/core/frequency/frequency_service.dart';
 import 'package:local_dict/core/mdx/mdd_reader.dart';
 import 'package:local_dict/core/mdx/mdx_entry.dart';
@@ -20,7 +21,6 @@ import 'package:local_dict/core/ipa/ipa_model.dart';
 import 'package:local_dict/providers/alphabet_provider.dart';
 import 'package:local_dict/core/alphabet/alphabet_data.dart';
 import 'package:local_dict/core/alphabet/alphabet_model.dart';
-import 'package:local_dict/core/services/dictionary_service_native.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 void main() {
@@ -284,8 +284,10 @@ void main() {
       expect(provider.currentPageItems.last.rank, equals(5019));
     });
 
-    test('IpaData covers all 48 phonemes with examples and combinations', () {
-      expect(IpaData.allPhonemes.length, equals(48));
+    test('IpaData covers every Cambridge phoneme with examples and combinations', () {
+      // 44 rows on Cambridge's phonetics page that this app lists in the base
+      // grid; /tr/ /dr/ /ts/ /dz/ are not Cambridge symbols and were removed.
+      expect(IpaData.allPhonemes.length, equals(44));
 
       // Monophthongs: 12, paired in rows of (long, short)
       final monos = IpaData.getByCategory(IpaCategory.monophthong);
@@ -307,8 +309,8 @@ void main() {
       expect(IpaData.getByCategory(IpaCategory.plosive).length, equals(6));
       // Fricatives: 9
       expect(IpaData.getByCategory(IpaCategory.fricative).length, equals(9));
-      // Affricates: 6
-      expect(IpaData.getByCategory(IpaCategory.affricate).length, equals(6));
+      // Affricates: 2 (/tʃ/ /dʒ/; /tr/ /dr/ /ts/ /dz/ are not IPA phonemes)
+      expect(IpaData.getByCategory(IpaCategory.affricate).length, equals(2));
       // Nasals: 3
       expect(IpaData.getByCategory(IpaCategory.nasal).length, equals(3));
       // Approximants: 4
@@ -323,31 +325,141 @@ void main() {
       // Verify provider
       final ipaProvider = IpaProvider();
       expect(ipaProvider.selectedSymbol, equals('/iː/'));
-      expect(ipaProvider.filteredPhonemes.length, equals(48));
+      expect(ipaProvider.filteredPhonemes.length, equals(44));
 
       ipaProvider.selectCategory(IpaCategory.plosive);
       expect(ipaProvider.filteredPhonemes.length, equals(6));
       expect(ipaProvider.selectedSymbol, equals('/p/'));
     });
 
-    test('every IPA phoneme has a bundled audio clip', () {
-      // The grid plays these by asset key; a phoneme added without regenerating
-      // its clip (tool/generate_ipa_audio.py) would otherwise fail silently.
-      final missing = <String>[];
-      final stubs = <String>[];
-      for (final phoneme in IpaData.allPhonemes) {
-        final file = File('assets/audio/ipa/${phoneme.audioAssetKey}.mp3');
-        if (!file.existsSync()) {
-          missing.add(phoneme.audioAssetKey);
-          continue;
+    test('the IPA asset set is exactly the reference clips the data asks for', () {
+      // Cards play `<key>_uk` / `<key>_us` (AudioManager.playIpaPhoneme). Anything
+      // else in the directory is a leftover from an older generator, and a
+      // missing entry means a phoneme added without running
+      // tool/fetch_cambridge_ipa_audio.py would play nothing.
+      final expected = <String>{};
+      for (final phoneme in IpaData.allWithCambridgeVariants) {
+        if (phoneme.accent != IpaAccent.usOnly) {
+          expected.add('${phoneme.audioAssetKey}_uk.mp3');
         }
-        // a real clip is 0.3-0.5 s of 64 kbps mono: ~1.1-5 KB
-        if (file.lengthSync() < 1000) {
-          stubs.add('${phoneme.audioAssetKey} (${file.lengthSync()} B)');
+        if (phoneme.accent != IpaAccent.ukOnly) {
+          expected.add('${phoneme.audioAssetKey}_us.mp3');
         }
       }
-      expect(missing, isEmpty, reason: 'phonemes with no clip: $missing');
-      expect(stubs, isEmpty, reason: 'truncated clips: $stubs');
+      final onDisk = Directory('assets/audio/ipa')
+          .listSync()
+          .whereType<File>()
+          .map((file) => file.path.split(RegExp(r'[\\/]')).last)
+          .where((name) => name.endsWith('.mp3'))
+          .toSet();
+
+      expect(onDisk.difference(expected), isEmpty,
+          reason: 'stale clips: ${onDisk.difference(expected).toList()..sort()}');
+      expect(expected.difference(onDisk), isEmpty,
+          reason: 'missing clips: ${expected.difference(onDisk).toList()..sort()}');
+
+      // Cambridge reference sounds are ~20-27 KB at 48 kHz stereo; a word-level
+      // TTS clip is ~2-3 KB, which is how the "plays the example word" regression
+      // looked. UK and US must not be the same recording either.
+      final stubs = <String>[];
+      final sameAccent = <String>[];
+      for (final phoneme in IpaData.allWithCambridgeVariants) {
+        final bytes = <String, List<int>>{};
+        for (final accent in const ['uk', 'us']) {
+          final file = File('assets/audio/ipa/${phoneme.audioAssetKey}_$accent.mp3');
+          if (!file.existsSync()) continue;
+          if (file.lengthSync() < 8000) {
+            stubs.add('${file.path.split(RegExp(r'[\\/]')).last} (${file.lengthSync()} B)');
+          }
+          bytes[accent] = file.readAsBytesSync();
+        }
+        final uk = bytes['uk'];
+        final us = bytes['us'];
+        if (uk != null && us != null && uk.length == us.length) {
+          var identical = true;
+          for (var i = 0; i < uk.length; i++) {
+            if (uk[i] != us[i]) {
+              identical = false;
+              break;
+            }
+          }
+          if (identical) sameAccent.add(phoneme.audioAssetKey);
+        }
+      }
+      expect(stubs, isEmpty, reason: 'clips too small to be a reference sound: $stubs');
+      expect(sameAccent, isEmpty,
+          reason: 'UK and US clip are the same recording: $sameAccent');
+
+      // The UK-only rows' US button plays the counterpart entry instead of the
+      // missing US sound, so that entry must carry a US clip.
+      final counterpartProblems = <String>[];
+      for (final phoneme in IpaData.allWithCambridgeVariants) {
+        if (phoneme.accent != IpaAccent.ukOnly) continue;
+        final counterpart = IpaData.counterpartPhoneme(phoneme);
+        if (counterpart == null) continue;
+        final file = File('assets/audio/ipa/${counterpart.audioAssetKey}_us.mp3');
+        if (!file.existsSync() || file.lengthSync() < 8000) {
+          counterpartProblems.add('${phoneme.symbol} -> ${counterpart.symbol}');
+        }
+      }
+      expect(counterpartProblems, isEmpty,
+          reason: 'counterpart without a US clip: $counterpartProblems');
+    });
+
+    test('asset resolution picks the requested accent and reports gaps', () async {
+      // AudioManager plays whatever resolveIpaAsset() returns, so this covers the
+      // real lookup instead of only the files on disk.
+      for (final phoneme in IpaData.allWithCambridgeVariants) {
+        if (phoneme.accent != IpaAccent.both) continue;
+        for (final accent in const ['uk', 'us']) {
+          expect(
+            await resolveIpaAsset(phoneme.audioAssetKey, accent),
+            equals('audio/ipa/${phoneme.audioAssetKey}_$accent.mp3'),
+            reason: '${phoneme.symbol} ($accent) should not fall back',
+          );
+        }
+      }
+      expect(await resolveIpaAsset('no_such_phoneme', 'uk'), isNull);
+    });
+
+    test('Cambridge IPA system distinguishes UK and US accents and pronunciations', () {
+      // 1. UK-only phonemes
+      final oShort = IpaData.findBySymbol('/ɒ/');
+      expect(oShort.accent, equals(IpaAccent.ukOnly));
+      expect(oShort.cambridgeExampleWord, equals('sock'));
+      expect(oShort.counterpartSymbol, contains('/ɑː/'));
+
+      final erLong = IpaData.findBySymbol('/ɜː/');
+      expect(erLong.accent, equals(IpaAccent.ukOnly));
+      expect(erLong.counterpartSymbol, contains('/ɝː/'));
+
+      // 2. Both accents
+      final iLong = IpaData.findBySymbol('/iː/');
+      expect(iLong.accent, equals(IpaAccent.both));
+      expect(iLong.cambridgeExampleWord, equals('sheep'));
+
+      // 3. Cambridge specials
+      final erUs = IpaData.findBySymbol('/ɝː/');
+      expect(erUs.accent, equals(IpaAccent.usOnly));
+      expect(erUs.audioAssetKey, equals('er_long_us'));
+
+      final flapT = IpaData.findBySymbol('/t̬/');
+      expect(flapT.accent, equals(IpaAccent.usOnly));
+      expect(flapT.cambridgeExampleWord, equals('cutting'));
+
+      // 4. Accent filtering via IpaProvider
+      final provider = IpaProvider();
+      provider.selectAccent(IpaAccent.ukOnly);
+      expect(provider.filteredPhonemes.any((p) => p.symbol == '/ɒ/'), isTrue);
+      expect(provider.filteredPhonemes.any((p) => p.symbol == '/t̬/'), isFalse);
+
+      provider.selectAccent(IpaAccent.usOnly);
+      expect(provider.filteredPhonemes.any((p) => p.symbol == '/t̬/'), isTrue);
+      expect(provider.filteredPhonemes.any((p) => p.symbol == '/ɒ/'), isFalse);
+
+      // 5. Example word has UK & US phonetics
+      expect(iLong.examples.first.ukPhonetic, isNotEmpty);
+      expect(iLong.examples.first.usPhonetic, isNotEmpty);
     });
 
     test('requiresDurableImport adopts only transient Android picker paths', () {

@@ -33,6 +33,24 @@ Web 端由两个容器组成，但对外**只暴露一个入口**：
 | 跨词典归属 | 停用大词典后 `GET /api/lookup?word=damson` 由 `Mini Test Dictionary` 返回（音标 `[dam-zuhn]`、标签 `American/Examples`），`dictionaryName` 正确标明来源 |
 | 启用状态保持 | 停用大词典 → reload 后 `enabled` 由 2 变为 **1**，即热加载不会重置启用/停用选择 |
 
+### 0.1 音标示范音更新（剑桥原声）
+
+`assets/audio/ipa/` 现为剑桥音标表自己的示范音（`<key>_uk.mp3` / `<key>_us.mp3`，
+48 条音标 / 86 个文件，来源与生成方式见
+[README「音标音频的来源」](../README.md#音标音频的来源)）。前端镜像在构建阶段执行
+`flutter build web --release`，所以 `up -d --build` 就会带上新资源，不需要手工传产物。
+
+前端资源的核对（静态方式：`python -m http.server` + 浏览器打开 `build/web`）：
+
+| 项目 | 结果 |
+|---|---|
+| 打包完整性 | `build/web/assets/assets/audio/ipa/` 内 86 条 mp3 与 `assets/audio/ipa/` **逐文件 hash 一致**（无残留、无缺失） |
+| 音标栏内容 | 全部分类 **44** 条 + 4 条剑桥美音特例；破擦音只剩 **2** 条（`/tr/ /dr/ /ts/ /dz/` 非剑桥音标，已移除） |
+| 纯音播放 | 点 `/iː/` 的「音标读音」→ 请求 `assets/assets/audio/ipa/i_long_uk.mp3`，`200 audio/mpeg`（23,277 B），**0 media error** |
+| 英音专有行 | `/ɒ/` 播 `o_short_uk.mp3`；其「美音转」按钮播对等音标 `/ɑː/` 的 `a_long_us.mp3`；`/ɪə/ /eə/ /ʊə/` 无美音对应行时按钮置灰 |
+
+> 更新后若浏览器仍播旧音，见 [§9 故障排查](#9-故障排查) 的 Service Worker 强制刷新一条。
+
 ---
 
 ## 1. 架构总览

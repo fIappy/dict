@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../services/dictionary_service.dart';
+import 'ipa_asset.dart';
 
 class AudioManager {
   static final AudioManager _instance = AudioManager._();
@@ -144,18 +145,24 @@ class AudioManager {
 
   Future<void> playIpaPhoneme(
     String audioAssetKey, {
+    String accent = 'uk',
     void Function(bool isPlaying)? onStateChanged,
   }) async {
-    final playTag = 'ipa_$audioAssetKey';
+    final playTag = 'ipa_${audioAssetKey}_$accent';
     _currentlyPlayingTag = playTag;
     _isPlaying = true;
     onStateChanged?.call(true);
 
     try {
       await _player.stop();
-      await _player.play(AssetSource('audio/ipa/$audioAssetKey.mp3'));
+      final asset = await resolveIpaAsset(audioAssetKey, accent);
+      if (asset == null) {
+        debugPrint('No bundled IPA clip for $audioAssetKey ($accent)');
+        return;
+      }
+      await _player.play(AssetSource(asset));
     } catch (e) {
-      debugPrint('Error playing IPA phoneme audio $audioAssetKey: $e');
+      debugPrint('Error playing IPA phoneme audio $audioAssetKey ($accent): $e');
     } finally {
       Future.delayed(const Duration(milliseconds: 1000), () {
         if (_currentlyPlayingTag == playTag) {

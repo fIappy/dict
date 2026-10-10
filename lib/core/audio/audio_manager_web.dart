@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import '../api/api_config.dart';
 import '../services/dictionary_service.dart';
+import 'ipa_asset.dart';
 
 /// Web implementation of the audio manager.
 ///
@@ -88,11 +89,17 @@ class AudioManager {
 
   Future<void> playIpaPhoneme(
     String audioAssetKey, {
+    String accent = 'uk',
     void Function(bool isPlaying)? onStateChanged,
   }) async {
+    final asset = await resolveIpaAsset(audioAssetKey, accent);
+    if (asset == null) {
+      debugPrint('No bundled IPA clip for $audioAssetKey ($accent)');
+      return;
+    }
     await _play(
-      'ipa_$audioAssetKey',
-      AssetSource('audio/ipa/$audioAssetKey.mp3'),
+      'ipa_${audioAssetKey}_$accent',
+      AssetSource(asset),
       onStateChanged: onStateChanged,
       resetAfter: const Duration(milliseconds: 1000),
     );

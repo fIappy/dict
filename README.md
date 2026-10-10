@@ -11,9 +11,10 @@
 - **多词典** — 同时加载多本词典联合查词，可逐本启用/停用。
 - **发音** — 优先播放 `.mdd` 内的高保真原声；缺失时回退系统语音/在线音源。
   美音、英音双轨；`lead` / `read` 等同形异音词的多个读音分别提供。
-- **音标（IPA）** — 48 个英式音标全量数据：发音要领、口型舌位、拼写规律、
-  例词试听，以及与其它音标的组合发音（声母拼读、辅音连缀、尾音闭合、不送气浊化）。
-  单元音按「长元音 + 对应短元音」成对同排展示。
+- **音标（IPA）** — 48 条音标数据，与[剑桥音标表](https://dictionary.cambridge.org/help/phonetics.html)
+  逐行对应（含 `/ɒ/ /ɜː/ /əʊ/` 等英音专有、`/ɝː/ /ɚ/ /oʊ/ /t̬/` 等美音专有）：发音要领、口型舌位、
+  拼写规律、例词试听，以及与其它音标的组合发音（声母拼读、辅音连缀、尾音闭合、不送气浊化）。
+  示范音是剑桥自己的原声、UK/US 分轨；单元音按「长元音 + 对应短元音」成对同排展示。
 - **字母** — 26 个字母的标准发音（美/英双音，如 `Z` 的 `zee` / `zed`）与自然拼读规律。
 - **词频** — Top 20,000 词频榜单，支持自定义区间（如 `5000-6000`）、分页与跳页；
   区间设置持久化，重启后自动恢复。
@@ -125,7 +126,7 @@ lib/
 │   ├── database/     # sqflite（原生）/ localStorage（Web）双实现
 │   ├── services/     # 词典服务（原生文件系统 / Web HTTP）
 │   ├── audio/        # 音频播放（原生 mdd+系统语音 / Web 后端+在线）
-│   ├── ipa/          # 48 音标数据
+│   ├── ipa/          # 48 条音标数据（剑桥音标表口径）
 │   ├── alphabet/     # 26 字母数据
 │   └── frequency/    # 词频库
 ├── providers/        # 状态管理（provider）
@@ -138,7 +139,7 @@ docker/
 ├── nginx.conf
 └── docker-compose.yml
 assets/
-├── audio/ipa/        # 48 个音标示范音（见「音标音频的来源」）
+├── audio/ipa/        # 86 个音标示范音（剑桥原声，UK/US 分轨，见「音标音频的来源」）
 ├── audio/letters/    # 26 字母 × 美/英音
 └── data/             # Top 20,000 词频表
 ```
@@ -158,56 +159,88 @@ export 'mdx_reader_web.dart' if (dart.library.io) 'mdx_reader_native.dart';
 
 ```bash
 flutter analyze          # 静态分析（0 issues）
-flutter test             # 单元与 Widget 测试（11 项）
+flutter test             # 单元与 Widget 测试（13 项）
 dart analyze server      # 后端静态分析
 ```
 
+### Windows 打包
+
+`flutter build windows --release` 要求两样本机可能没有的东西，缺一个就直接退出（与代码无关）：
+
+| 报错 | 原因 | 处理 |
+|---|---|---|
+| `Building with plugins requires symlink support` | 未开开发者模式且当前不是管理员终端，Flutter 无法给 5 个 Windows 插件建符号链接 | 用 junction 顶替：`cmd /c mklink /J windows\flutter\ephemeral\.plugin_symlinks\<插件> <pub-cache 路径>`（清单见 `.flutter-plugins-dependencies` 的 `windows` 段）。已存在的链接会被跳过，因此不需要开发者模式 |
+| `Unable to find suitable Visual Studio toolchain` | VS 2022 缺 `Microsoft.VisualStudio.Component.VC.CMake.Project`（C++ CMake 工具） | VS Installer 补装该组件；或按下面绕过 Flutter 直接构建 |
+
+绕过方式（本机可用：pip 装的独立 CMake + 已配置过的 `build/windows/x64`）：
+
+```bash
+cmake --build build/windows/x64 --config Release --target INSTALL
+```
+
+CMake 的 `flutter_assemble` 目标仍会调用 Flutter 工具，所以 `data/app.so`（AOT）与
+`data/flutter_assets` 都会重新生成，产物落到 `build/windows/x64/runner/Release/`。
+
+**构建前先关掉正在运行的 `local_dict.exe`**：引擎映射着 `data/flutter_assets/fonts/*.otf`，
+覆盖被映射的文件时 INSTALL 会报 `Invalid argument`。（Android 打包需要完整的 Android SDK + JDK，
+只有 platform-tools 时 `flutter doctor` 会报 `[X] Android toolchain`，无法出 APK。）
+
 ### 音标音频的来源
 
-`assets/audio/ipa/` 里的 48 个示范音**从词典自带的 `.mdd` 真人录音里剪出来**，
-和查词时播放的发音是同一个声音：
+`assets/audio/ipa/<key>_uk.mp3` 与 `<key>_us.mp3` **就是剑桥词典自己播放的那几条示范音**：
+[剑桥音标表](https://dictionary.cambridge.org/help/phonetics.html) 每行喇叭对应的
+`{uk,us}_phonetics_sound_<例词>_2023feb.mp3`。音标卡片的「音标纯音示范」按钮播的就是它，
+与你在那页上点喇叭听到的逐条一致：
+
+```bash
+python tool/fetch_cambridge_ipa_audio.py --check          # 只对照 ipa_data.dart 报告缺口
+python tool/fetch_cambridge_ipa_audio.py                  # 抓全量（48 音标 / 86 条）
+python tool/fetch_cambridge_ipa_audio.py --force --prune   # 重抓，并删掉多余文件
+```
+
+脚本直接读 `lib/core/ipa/ipa_data.dart`：每个音素用它那一行的 `cambridgeExampleWord`
+换算出 URL，所以「数据里加了音标却没抓音频」会被 `--check` 直接报出来。三条约束是硬性的：
+
+- 只接受 `_phonetics_sound_`（孤立音素），永不取 `_phonetics_word_`（整词录音）；
+- 只写剑桥真的提供的口音——`/ɒ/ /ɜː/ /əʊ/ /ɪə/ /eə/ /ʊə/` 只有英音，`/ɝː/ /ɚ/ /oʊ/ /t̬/` 只有美音；
+- 数据里出现剑桥音标表没有的符号（`/tr/ /dr/ /ts/ /dz/` 已按此移除）时直接失败，不伪造音频。
+
+UK-only 行的美音按钮播放对应音标（`/ɒ/`→`/ɑː/`、`/ɜː/`→`/ɝː/`、`/əʊ/`→`/oʊ/`）的录音；
+`/ɪə/ /eə/ /ʊə/` 在剑桥表里没有美音对应行，按钮置灰，而不是"点了没声音"。
+
+字典站点在 Cloudflare 后面，直连、curl、无头 Chromium 一律 403，脚本因此从 Wayback Machine
+的同一条 URL 取原始字节（体积一致，再校验 ID3 / MPEG 帧同步），第二来源是公共 CORS 代理。
+
+**离线回退**（拿不到网络时才用）：两个生成器都产出不带口音后缀的 `<key>.mp3`。
+播放统一走 `lib/core/audio/ipa_asset.dart` 的 `resolveIpaAsset()`，按
+`<key>_<accent>` → 另一个口音 → `<key>` 取第一个存在的资源（查 AssetManifest，
+原生与 Web 行为一致）；三者都不存在时静默返回、不播错口音：
+
+| 工具 | 音源 | 代价 |
+|---|---|---|
+| `tool/generate_ipa_audio_from_mdd.dart` | 词典自带 `.mdd` 真人录音，按例词切一段 | 需要那 1.7 GB 的 `.mdd`；只有美音一条轨 |
+| `tool/generate_ipa_audio.py` | espeak-ng 现场合成 | 共振峰合成器，电子音 |
 
 ```bash
 dart run tool/generate_ipa_audio_from_mdd.dart --check   # 只出报告，不写文件
-dart run tool/generate_ipa_audio_from_mdd.dart           # 重新生成 48 个 mp3
-# 需要 ffmpeg；--mdd / --out / --ffmpeg 可覆盖默认路径
+dart run tool/generate_ipa_audio_from_mdd.dart           # 需要 ffmpeg
+python tool/generate_ipa_audio.py --check                # 只校验音素映射
+python tool/generate_ipa_audio.py                        # 需要 espeak-ng + ffmpeg
 ```
 
-工具直接复用 `lib/core/mdx/mdd_reader_native.dart`——MDict 容器全项目只有一份解析实现。
-每个音素绑定一个例词（与 `ipa_data.dart` 里卡片显示的例词一致），按下面规则从录音里取一段：
+`.mdd` 生成器复用 `lib/core/mdx/mdd_reader_native.dart`（MDict 容器全项目只有一份解析实现），
+按 `vowel`（词中能量最高段）/`onset`（词首 160 ms）/`coda`（词尾 160 ms）/`word` 四种模式取段；
+像 `cats` 这种词内本就有两次能量隆起（元音、`/ts/` 摩擦）的会按 ≥350 ms 静音间隔判为一遍。
+剪完做 RMS 归一化（−20 dBFS，峰值上限 −1 dBFS，首尾 5 ms 淡入淡出）再编码成 64 kbps 单声道 mp3，
+并**与源录音做滑动互相关**（48 条全部在预期偏移处 Pearson ≥ 0.917），而不是"听着像"。
 
-| 模式 | 取法 | 用在 |
-|---|---|---|
-| `vowel` | 取词中能量最高的连续段（峰值的 25% 以上）并向两侧各留 10% | 单元音、双元音 |
-| `onset` | 词首 160 ms——辅音加上它的除阻 | 词首辅音 |
-| `coda` | 词尾 160 ms | `/ŋ/` `/ts/` `/dz/` `/ʒ/` |
-| `word` | 整遍 | 备用 |
-
-Dictionary.com 有些词是**同一个词录了多遍**装在一个文件里（`door` 2.7 s 里 3 遍、
-`you` 4.3 s 里 5 遍）。工具按「两段各 ≥150 ms 的活跃区间之间隔着 ≥350 ms 静音」判定多遍，
-只取第一遍。像 `cats` 这种词内本来就有两次能量隆起（元音、`/ts/` 摩擦）的，间隔只有约 120 ms，
-会正确判为一遍。
-
-剪完统一做 RMS 归一化（−20 dBFS，峰值上限 −1 dBFS，首尾 5 ms 淡入淡出）再编码成 64 kbps 单声道 mp3。
-
-验证方式不是"听着像"，而是**把成品和源录音做滑动互相关**：48 条全部在预期偏移处
-Pearson ≥ 0.917（只有 `/ʃ/` `/ts/` 两个摩擦音略低，是 64 kbps 编码噪声导致的），
-即每条都确实是那段真人录音的一段截取。
-
-> 为什么不用原来的方案：最早那批是按文件名从第三方仓库挑的，挑到的是**基本元音
-> （cardinal vowel）** 的孤立录音而不是英语音位——cardinal [ʌ] 是后半开元音，英语 /ʌ/
-> （cup）是央化的 [ɐ]；cardinal [e] 是次闭前元音，英语 /e/（bed）实际是 [ɛ]。
-> 音标表播的所以不对。
-
-**离线回退方案**：`tool/generate_ipa_audio.py` 用 espeak-ng 现场合成，不需要那 1.7 GB 的
-`.mdd`，只要 espeak-ng + ffmpeg。音素身份同样可校验（每个音素绑定 espeak 专有符号，
-运行时用 `espeak-ng -x` 反查例词确认，48/48），但 espeak-ng 是**共振峰合成器**，
-听起来是电子音——只在拿不到词典文件时用它。
-
-```bash
-python tool/generate_ipa_audio.py --check   # 只校验音素映射
-python tool/generate_ipa_audio.py           # 生成（机械音色）
-```
+> 别用单词读音冒充音素示范。`/ts/` 播 "cats"、`/dr/` 播 "dream"、`/ɚ/` 播 "water"
+> 这类"念例词"的做法，时长会从 0.16 s 涨到 0.4 s 以上，听起来像读对了，实际是把整词塞进音标栏。
+> 要用 TTS 就必须走音素输入（espeak-ng 的 `[[...]]`）；词级 TTS（Edge/Azure 的明文接口）
+> 给不了孤立音素，摩擦音、破擦音尤其无解。
+>
+> 也别用按文件名从第三方仓库挑的录音：那类多是**基本元音（cardinal vowel）**，cardinal [ʌ]
+> 是后半开元音，英语 /ʌ/（cup）是央化的 [ɐ]；cardinal [e] 是次闭前元音，英语 /e/（bed）实际是 [ɛ]。
 
 ## 文档
 

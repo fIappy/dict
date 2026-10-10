@@ -100,10 +100,6 @@ const Map<String, Spec> clips = {
   'r':           Spec('red', Mode.onset),
   'w':           Spec('we', Mode.onset),
   'j':           Spec('yes', Mode.onset),
-  'tr':          Spec('tree', Mode.onset),
-  'dr':          Spec('dry', Mode.onset),
-  'ts':          Spec('cats', Mode.coda),
-  'dz':          Spec('beds', Mode.coda),
 };
 
 class Clip {

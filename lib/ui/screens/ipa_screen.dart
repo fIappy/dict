@@ -39,17 +39,18 @@ class IpaScreen extends StatelessWidget {
     final ipaProvider = context.watch<IpaProvider>();
 
     final selectedCat = ipaProvider.selectedCategory;
+    final selectedAccent = ipaProvider.selectedAccent;
     final phonemes = ipaProvider.filteredPhonemes;
 
     return Scaffold(
       appBar: isPaneView
           ? null
           : AppBar(
-              title: const Text('国际音标 (IPA) 学习', style: TextStyle(fontWeight: FontWeight.bold)),
+              title: const Text('剑桥国际音标 (IPA) 学习', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
       body: Column(
         children: [
-          // Category Filter Chips
+          // Filter Header: Accents & Categories
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
@@ -63,24 +64,66 @@ class IpaScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Accent Filter Bar
                 Row(
                   children: [
-                    Icon(Icons.graphic_eq_rounded, color: theme.colorScheme.primary, size: 18),
-                    const SizedBox(width: 8),
+                    Icon(Icons.public_rounded, color: theme.colorScheme.primary, size: 17),
+                    const SizedBox(width: 6),
                     const Text(
-                      'IPA 音标分类 (48音标)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                      '发音体系:',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            ChoiceChip(
+                              label: const Text('全部体系', style: TextStyle(fontSize: 12)),
+                              selected: selectedAccent == null,
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              onSelected: (_) => ipaProvider.selectAccent(null),
+                            ),
+                            const SizedBox(width: 6),
+                            ChoiceChip(
+                              avatar: const Text('🇬🇧', style: TextStyle(fontSize: 11)),
+                              label: const Text('英音体系 (UK)', style: TextStyle(fontSize: 12)),
+                              selected: selectedAccent == IpaAccent.ukOnly,
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              onSelected: (_) => ipaProvider.selectAccent(
+                                selectedAccent == IpaAccent.ukOnly ? null : IpaAccent.ukOnly,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            ChoiceChip(
+                              avatar: const Text('🇺🇸', style: TextStyle(fontSize: 11)),
+                              label: const Text('美音体系 (US)', style: TextStyle(fontSize: 12)),
+                              selected: selectedAccent == IpaAccent.usOnly,
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              onSelected: (_) => ipaProvider.selectAccent(
+                                selectedAccent == IpaAccent.usOnly ? null : IpaAccent.usOnly,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
+
+                // Category Filter Chips
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
                   children: [
                     FilterChip(
                       selected: selectedCat == null,
-                      label: const Text('全部 (48)', style: TextStyle(fontSize: 12)),
+                      label: Text('全部分类 (${phonemes.length})', style: const TextStyle(fontSize: 11.5)),
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       onSelected: (_) => ipaProvider.selectCategory(null),
@@ -90,7 +133,7 @@ class IpaScreen extends StatelessWidget {
                         selected: selectedCat == cat,
                         label: Text(
                           '${cat.labelZh} (${IpaData.getByCategory(cat).length})',
-                          style: const TextStyle(fontSize: 12),
+                          style: const TextStyle(fontSize: 11.5),
                         ),
                         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -108,7 +151,7 @@ class IpaScreen extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                childAspectRatio: 1.5,
+                childAspectRatio: 1.28,
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
               ),
@@ -132,7 +175,16 @@ class IpaScreen extends StatelessWidget {
     ThemeData theme,
     bool isDark,
   ) {
-    final firstExample = phoneme.examples.isNotEmpty ? phoneme.examples.first : null;
+    final audio = AudioManager();
+    final exampleWord = phoneme.cambridgeExampleWord.isNotEmpty
+        ? phoneme.cambridgeExampleWord
+        : (phoneme.examples.isNotEmpty ? phoneme.examples.first.word : '');
+    final ukP = phoneme.cambridgeUkPhonetic.isNotEmpty
+        ? phoneme.cambridgeUkPhonetic
+        : (phoneme.examples.isNotEmpty ? phoneme.examples.first.ukPhonetic : '');
+    final usP = phoneme.cambridgeUsPhonetic.isNotEmpty
+        ? phoneme.cambridgeUsPhonetic
+        : (phoneme.examples.isNotEmpty ? phoneme.examples.first.usPhonetic : '');
 
     return Material(
       color: isSelected
@@ -144,7 +196,7 @@ class IpaScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: () => _onPhonemeTapped(context, phoneme),
         child: Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
@@ -158,13 +210,15 @@ class IpaScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              // Top Row: Big Symbol & Badges
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     phoneme.symbol,
                     style: TextStyle(
-                      fontSize: 20,
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
                       fontFamily: 'Gentium Plus DC',
                       color: isSelected
@@ -172,58 +226,123 @@ class IpaScreen extends StatelessWidget {
                           : (isDark ? Colors.white : Colors.black87),
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                    decoration: BoxDecoration(
-                      color: _getPhonemeBadgeColor(phoneme, isDark),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      phoneme.category == IpaCategory.monophthong
-                          ? (phoneme.symbol.contains('ː') ? '长元音' : '短元音')
-                          : phoneme.category.labelZh,
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Accent badge
+                      _buildAccentBadge(phoneme.accent),
+                      const SizedBox(width: 4),
+                      // Category badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: _getPhonemeBadgeColor(phoneme, isDark),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          phoneme.category == IpaCategory.monophthong
+                              ? (phoneme.symbol.contains('ː') ? '长元音' : '短元音')
+                              : phoneme.category.labelZh,
+                          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
+
+              // Middle: Pure Phoneme Audio Button & Note
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  if (firstExample != null)
-                    Expanded(
+                  InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () {
+                      final targetAccent = phoneme.accent == IpaAccent.usOnly ? 'us' : 'uk';
+                      audio.playIpaPhoneme(phoneme.audioAssetKey, accent: targetAccent);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withValues(alpha: isDark ? 0.2 : 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                        ),
+                      ),
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
+                          Icon(Icons.volume_up_rounded, size: 14, color: theme.colorScheme.primary),
+                          const SizedBox(width: 3),
                           Text(
-                            firstExample.word,
+                            '音标读音',
                             style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white70 : Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              firstExample.phonetic,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: theme.hintColor,
-                                fontFamily: 'Gentium Plus DC',
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.primary,
                             ),
                           ),
                         ],
                       ),
                     ),
+                  ),
+                  if (phoneme.counterpartSymbol != null)
+                    Flexible(
+                      child: Text(
+                        phoneme.accent == IpaAccent.ukOnly
+                            ? '美:${phoneme.counterpartSymbol}'
+                            : '英:${phoneme.counterpartSymbol}',
+                        style: TextStyle(fontSize: 10, color: theme.hintColor),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+              ),
+
+              const Divider(height: 1),
+
+              // Bottom Row: Example Word with UK/US audio
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '例: $exampleWord',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white70 : Colors.black87,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          ukP != usP && usP.isNotEmpty ? '🇬🇧$ukP 🇺🇸$usP' : ukP,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: theme.hintColor,
+                            fontFamily: 'Gentium Plus DC',
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
                   IconButton(
-                    icon: const Icon(Icons.volume_up_rounded, size: 16),
-                    tooltip: '试听音标发音',
+                    icon: const Icon(Icons.music_note_rounded, size: 16),
+                    tooltip: '试听例词发音: $exampleWord',
                     splashRadius: 14,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                    onPressed: () => AudioManager().playIpaPhoneme(phoneme.audioAssetKey),
+                    onPressed: () {
+                      final acc = phoneme.accent == IpaAccent.usOnly ? 'us' : 'uk';
+                      audio.playWord(word: exampleWord, accent: acc);
+                    },
                   ),
                 ],
               ),
@@ -234,27 +353,58 @@ class IpaScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildAccentBadge(IpaAccent accent) {
+    Color bg;
+    String label;
+    switch (accent) {
+      case IpaAccent.ukOnly:
+        bg = const Color(0xFF1E40AF); // Deep blue
+        label = '🇬🇧 英音';
+        break;
+      case IpaAccent.usOnly:
+        bg = const Color(0xFFB45309); // Amber
+        label = '🇺🇸 美音';
+        break;
+      case IpaAccent.both:
+        bg = const Color(0xFF0F766E); // Teal
+        label = '🌐 通用';
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white),
+      ),
+    );
+  }
+
   Color _getPhonemeBadgeColor(IpaPhoneme phoneme, bool isDark) {
     if (phoneme.category == IpaCategory.monophthong) {
       return phoneme.symbol.contains('ː')
-          ? const Color(0xFF1D4ED8) // Deep Blue for Long Vowels
-          : const Color(0xFF0284C7); // Cyan / Sky Blue for Short Vowels
+          ? const Color(0xFF1D4ED8)
+          : const Color(0xFF0284C7);
     }
     switch (phoneme.category) {
       case IpaCategory.monophthong:
         return const Color(0xFF2563EB);
       case IpaCategory.diphthong:
-        return const Color(0xFF7C3AED); // Purple
+        return const Color(0xFF7C3AED);
       case IpaCategory.plosive:
-        return const Color(0xFFDC2626); // Red
+        return const Color(0xFFDC2626);
       case IpaCategory.fricative:
-        return const Color(0xFFD97706); // Amber
+        return const Color(0xFFD97706);
       case IpaCategory.affricate:
-        return const Color(0xFF059669); // Emerald
+        return const Color(0xFF059669);
       case IpaCategory.nasal:
-        return const Color(0xFF0891B2); // Cyan
+        return const Color(0xFF0891B2);
       case IpaCategory.approximant:
-        return const Color(0xFF4F46E5); // Indigo
+        return const Color(0xFF4F46E5);
     }
   }
 }
