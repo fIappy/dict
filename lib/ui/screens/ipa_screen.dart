@@ -88,7 +88,7 @@ class IpaScreen extends StatelessWidget {
                             ),
                             const SizedBox(width: 6),
                             ChoiceChip(
-                              avatar: const Text('🇬🇧', style: TextStyle(fontSize: 11)),
+                              avatar: const Text('英', style: TextStyle(fontSize: 11)),
                               label: const Text('英音体系 (UK)', style: TextStyle(fontSize: 12)),
                               selected: selectedAccent == IpaAccent.ukOnly,
                               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
@@ -99,7 +99,7 @@ class IpaScreen extends StatelessWidget {
                             ),
                             const SizedBox(width: 6),
                             ChoiceChip(
-                              avatar: const Text('🇺🇸', style: TextStyle(fontSize: 11)),
+                              avatar: const Text('美', style: TextStyle(fontSize: 11)),
                               label: const Text('美音体系 (US)', style: TextStyle(fontSize: 12)),
                               selected: selectedAccent == IpaAccent.usOnly,
                               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
@@ -321,7 +321,7 @@ class IpaScreen extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          ukP != usP && usP.isNotEmpty ? '🇬🇧$ukP 🇺🇸$usP' : ukP,
+                          ukP != usP && usP.isNotEmpty ? '英 $ukP  美 $usP' : ukP,
                           style: TextStyle(
                             fontSize: 10,
                             color: theme.hintColor,
@@ -359,11 +359,11 @@ class IpaScreen extends StatelessWidget {
     switch (accent) {
       case IpaAccent.ukOnly:
         bg = const Color(0xFF1E40AF); // Deep blue
-        label = '🇬🇧 英音';
+        label = '英音';
         break;
       case IpaAccent.usOnly:
         bg = const Color(0xFFB45309); // Amber
-        label = '🇺🇸 美音';
+        label = '美音';
         break;
       case IpaAccent.both:
         bg = const Color(0xFF0F766E); // Teal

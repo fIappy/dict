@@ -14,8 +14,8 @@ enum IpaCategory {
 
 enum IpaAccent {
   both('英美通用', 'UK & US', '🌐'),
-  ukOnly('英音专有', 'UK Only', '🇬🇧'),
-  usOnly('美音专有', 'US Only', '🇺🇸');
+  ukOnly('英音专有', 'UK Only', '英'),
+  usOnly('美音专有', 'US Only', '美');
 
   final String labelZh;
   final String labelEn;
@@ -65,7 +65,7 @@ class IpaPhoneme {
   final String subCategory; // e.g. "前元音 · 长元音"
   final String voiceType; // e.g. "浊音", "清辅音", "浊辅音"
   final String audioAssetKey; // 音标本身的发音音频资源键
-  final IpaAccent accent; // 🇬🇧 英音标准, 🇺🇸 美音标准, 或 🌐 英美通用
+  final IpaAccent accent; // 英音标准音标 / 美音标准音标 / 🌐 英美通用
   final String cambridgeExampleWord; // 剑桥基准代表例词 (e.g. "sheep", "ship", "sock", "bird", "cutting")
   final String cambridgeUkPhonetic; // 剑桥例词英音音标
   final String cambridgeUsPhonetic; // 剑桥例词美音音标

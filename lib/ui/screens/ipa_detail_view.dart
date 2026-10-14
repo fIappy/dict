@@ -87,7 +87,7 @@ class IpaDetailView extends StatelessWidget {
             ? '试听美音纯音'
             : '美音转 ${counterpart.symbol}';
     return OutlinedButton.icon(
-      icon: const Text('🇺🇸', style: TextStyle(fontSize: 14)),
+      icon: const Text('美', style: TextStyle(fontSize: 14)),
       label: Text(
         label,
         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
@@ -292,7 +292,7 @@ class IpaDetailView extends StatelessWidget {
                       // UK Phoneme Button
                       Expanded(
                         child: OutlinedButton.icon(
-                          icon: const Text('🇬🇧', style: TextStyle(fontSize: 14)),
+                          icon: const Text('英', style: TextStyle(fontSize: 14)),
                           label: Text(
                             phoneme.accent == IpaAccent.usOnly ? '英音无此音标' : '试听英音纯音',
                             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
@@ -388,11 +388,11 @@ class IpaDetailView extends StatelessWidget {
     switch (accent) {
       case IpaAccent.ukOnly:
         bg = const Color(0xFF1E40AF);
-        label = '🇬🇧 英音标准音标';
+        label = '英音标准音标';
         break;
       case IpaAccent.usOnly:
         bg = const Color(0xFFB45309);
-        label = '🇺🇸 美音标准音标';
+        label = '美音标准音标';
         break;
       case IpaAccent.both:
         bg = const Color(0xFF0F766E);
@@ -489,7 +489,7 @@ class IpaDetailView extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '🇬🇧 ${phoneme.cambridgeUkPhonetic}   🇺🇸 ${phoneme.cambridgeUsPhonetic}',
+                            '英音 ${phoneme.cambridgeUkPhonetic}   美音 ${phoneme.cambridgeUsPhonetic}',
                             style: TextStyle(
                               fontSize: 12,
                               color: theme.hintColor,
@@ -500,7 +500,7 @@ class IpaDetailView extends StatelessWidget {
                       ),
                     ),
                     FilledButton.tonalIcon(
-                      icon: const Text('🇬🇧', style: TextStyle(fontSize: 12)),
+                      icon: const Text('英', style: TextStyle(fontSize: 12)),
                       label: const Text('英音词', style: TextStyle(fontSize: 11.5)),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -511,7 +511,7 @@ class IpaDetailView extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     FilledButton.tonalIcon(
-                      icon: const Text('🇺🇸', style: TextStyle(fontSize: 12)),
+                      icon: const Text('美', style: TextStyle(fontSize: 12)),
                       label: const Text('美音词', style: TextStyle(fontSize: 11.5)),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -599,7 +599,7 @@ class IpaDetailView extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                '🇬🇧 英音 / 🇺🇸 美音 独立试听，点击卡片查词',
+                '英音 / 美音 独立试听，点击卡片查词',
                 style: TextStyle(fontSize: 11.5, color: theme.hintColor),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -686,7 +686,7 @@ class IpaDetailView extends StatelessWidget {
                       // UK Pronunciation Row
                       Row(
                         children: [
-                          const Text('🇬🇧', style: TextStyle(fontSize: 12)),
+                          const Text('英', style: TextStyle(fontSize: 12)),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
@@ -714,7 +714,7 @@ class IpaDetailView extends StatelessWidget {
                       // US Pronunciation Row
                       Row(
                         children: [
-                          const Text('🇺🇸', style: TextStyle(fontSize: 12)),
+                          const Text('美', style: TextStyle(fontSize: 12)),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
