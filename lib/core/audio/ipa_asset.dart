@@ -1,4 +1,4 @@
-import 'package:flutter/services.dart';
+import 'asset_manifest.dart';
 
 /// Resolves which bundled IPA clip to play for [audioAssetKey].
 ///
@@ -21,12 +21,9 @@ Future<String?> resolveIpaAsset(String audioAssetKey, String accent) async {
   // Manifest keys are pubspec-relative ('assets/audio/ipa/x.mp3'), while
   // audioplayers' AssetSource takes the path inside `assets/`, so probe with the
   // prefix and hand back the path without it.
-  final assets = _assets ??=
-      (await AssetManifest.loadFromAssetBundle(rootBundle)).listAssets().toSet();
+  final assets = await audioAssetManifest();
   for (final asset in candidates) {
     if (assets.contains('assets/$asset')) return asset;
   }
   return null;
 }
-
-Set<String>? _assets;

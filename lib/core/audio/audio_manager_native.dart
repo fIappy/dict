@@ -6,8 +6,10 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../services/dictionary_service.dart';
 import 'ipa_asset.dart';
+import 'sentence_voice.dart';
+import 'speech_clip_player.dart';
 
-class AudioManager {
+class AudioManager implements SpeechClipPlayer {
   static final AudioManager _instance = AudioManager._();
   factory AudioManager() => _instance;
   AudioManager._();
@@ -201,7 +203,153 @@ class AudioManager {
     }
   }
 
+  /// Plays one bundled clip and completes when it has finished sounding.
+  ///
+  /// The number module assembles a sentence out of single-word clips, so the
+  /// caller must know when the current word ends before starting the next one —
+  /// otherwise the words overlap. [rate] is applied by the player rather than
+  /// baked into the clip, so one recording serves every speed.
+  @override
+  Future<void> playSpeechClip(String assetPath, {double rate = 1.0}) async {
+    final playTag = 'clip_$assetPath';
+    _currentlyPlayingTag = playTag;
+    _isPlaying = true;
+    try {
+      if (rate != 1.0) {
+        try {
+          await _player.setPlaybackRate(rate);
+        } catch (e) {
+          // Not every platform implements rate control; the clip still plays.
+          debugPrint('Playback rate $rate unsupported: $e');
+        }
+      }
+      // The wait is raced against a delay with Future.any, NOT with
+      // `timeout(onTimeout:)`: that callback has to return the stream's own
+      // element type, so a `() { … }` closure compiles but fails at runtime
+      // ("type '() => Null' is not a subtype of '(() => FutureOr<AudioEvent>)?'")
+      // — which returned immediately and cut every word short.
+      //
+      // Completion is what advances the queue: the clip must finish sounding
+      // before the next word starts. The stall guard can never cut a word short
+      // (its floor is longer than the longest clip, 1.0 s). No stop() before
+      // play() either: replacing the source already ends whatever is sounding.
+      final length = Future.any<Duration?>([
+        _player.onDurationChanged.first,
+        Future<Duration?>.delayed(const Duration(milliseconds: 600)),
+      ]);
+      final finished = _player.onPlayerComplete.first.then<void>((_) {});
+      await _player.play(AssetSource(assetPath));
+      final reported = await length;
+      const floor = Duration(milliseconds: 1500);
+      final cap = (reported ?? floor) * 1.4 + const Duration(milliseconds: 300);
+      var completed = false;
+      await Future.any<void>([
+        finished.then((_) => completed = true),
+        Future<void>.delayed(cap > floor ? cap : floor).then((_) {
+          // The loser of the race still runs, so only a real stall is reported.
+          if (!completed) {
+            debugPrint('Speech clip $assetPath did not report completion');
+          }
+        }),
+      ]);
+    } catch (e) {
+      debugPrint('Speech clip $assetPath failed: $e');
+    } finally {
+      if (_currentlyPlayingTag == playTag) {
+        _isPlaying = false;
+        _currentlyPlayingTag = null;
+      }
+      try {
+        await _player.setPlaybackRate(1.0);
+      } catch (_) {}
+    }
+  }
+
+  // ------------------------------------------------------------ sentence speech
+  //
+  // A number sentence ("one thousand two hundred and thirty-four") is spoken by
+  // the system voice in one utterance, because recorded words played back to back
+  // keep each word's citation form — its own final fall and its own pause. The
+  // engine is SAPI: offline, free-form, and the only English voice this machine
+  // has; when the requested accent has no voice here the manager says so and the
+  // caller falls back to the recordings.
+
+  /// The voice this machine would speak [accent] with, or null when it has no
+  /// English voice at all (the UI then says the recordings are in use).
+  @override
+  Future<String?> sentenceVoiceLabel(String accent) async {
+    final voice = await chosenSentenceVoice(accent);
+    return voice == null ? null : sentenceVoiceDescription(voice, accent);
+  }
+
+  /// Speaks [sentence] as one utterance through this machine's own voice: the
+  /// modern OneCore voices first (they render to a wav, which the player plays so
+  /// the UI keeps control of speed and stopping), then SAPI. Returns false when
+  /// there is no English voice, and the caller plays the recorded words instead.
+  ///
+  /// Never touches the network — the module has to work offline.
+  @override
+  Future<bool> speakSentence(
+    String sentence, {
+    String accent = 'us',
+    double rate = 1.0,
+  }) async {
+    final voice = await chosenSentenceVoice(accent);
+    if (voice == null) return false;
+    // Engines use punctuation for sentence-level prosody, so a bare phrase gets
+    // a capital and a full stop even though the card shows it without.
+    final text = _asSentence(sentence);
+
+    _currentlyPlayingTag = 'sentence_$accent';
+    _isPlaying = true;
+    try {
+      if (voice.engine == VoiceEngine.oneCore) {
+        final wav = await synthesizeWithVoice(text, voice, rate: rate);
+        if (wav != null && await _playFileToCompletion(wav)) return true;
+        // Fall through to SAPI if the modern engine could not produce audio.
+        final sapi = chooseSentenceVoice(
+          (await systemVoices()).where((v) => v.engine == VoiceEngine.sapi).toList(),
+          accent,
+        );
+        if (sapi == null) return false;
+        return await speakWithSapi(text, sapi, rate: rate);
+      }
+      return await speakWithSapi(text, voice, rate: rate);
+    } finally {
+      _isPlaying = false;
+      _currentlyPlayingTag = null;
+    }
+  }
+
+  static String _asSentence(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return trimmed;
+    final capitalised =
+        trimmed[0].toUpperCase() + (trimmed.length > 1 ? trimmed.substring(1) : '');
+    return RegExp(r'[.!?]$').hasMatch(capitalised) ? capitalised : '$capitalised.';
+  }
+
+  /// Plays a rendered wav and completes when it has finished sounding.
+  Future<bool> _playFileToCompletion(String path) async {
+    try {
+      final finished = _player.onPlayerComplete.first.then<void>((_) {});
+      await _player.play(DeviceFileSource(path));
+      await Future.any<void>([
+        finished,
+        Future<void>.delayed(const Duration(seconds: 30)),
+      ]);
+      return true;
+    } catch (e) {
+      debugPrint('Playing the rendered sentence failed: $e');
+      return false;
+    }
+  }
+
+  @override
   Future<void> stop() async {
+    // A sentence is spoken by a child process (or played from a rendered file),
+    // so stopping means killing the process and silencing the player.
+    cancelSystemVoice();
     try {
       await _player.stop();
       _isPlaying = false;
