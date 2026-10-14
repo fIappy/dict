@@ -16,6 +16,7 @@ import '../core/numbers/number_speller.dart';
 /// persisted, so the drill comes back exactly as it was left.
 class NumbersProvider extends ChangeNotifier {
   static const String _kRate = 'numbers_rate';
+  static const String _kRateAnchored = 'numbers_rate_anchored';
   static const String _kGap = 'numbers_gap_ms';
   static const String _kKind = 'numbers_kind';
   static const String _kDigits = 'numbers_digits';
@@ -103,7 +104,7 @@ class NumbersProvider extends ChangeNotifier {
 
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
-    _rate = prefs.getDouble(_kRate) ?? 1.0;
+    _rate = await _loadRate(prefs);
     _gapMs = (prefs.getInt(_kGap) ?? 1000)
         .clamp(NumbersLimits.minGapMs, NumbersLimits.maxGapMs);
     _digits = prefs.getInt(_kDigits) ?? 4;
@@ -125,6 +126,21 @@ class NumbersProvider extends ChangeNotifier {
       orElse: () => TrainingKind.integer,
     );
     notifyListeners();
+  }
+
+  /// The slider's ×1.0 used to mean the voice's natural rate; it now means the
+  /// teaching pace, which is half of it. A value stored before that change is
+  /// doubled so the learner keeps the pace they picked. Anything landing past the
+  /// top of the new range is clamped — the old ×1.0 and above no longer exist.
+  static Future<double> _loadRate(SharedPreferences prefs) async {
+    final stored = prefs.getDouble(_kRate);
+    if (stored == null) return 1.0;
+    final alreadyAnchored = prefs.getBool(_kRateAnchored) ?? false;
+    final migrated = (alreadyAnchored ? stored : stored * 2)
+        .clamp(NumbersLimits.minRate, NumbersLimits.maxRate);
+    if (!alreadyAnchored) await prefs.setBool(_kRateAnchored, true);
+    if (migrated != stored) await prefs.setDouble(_kRate, migrated);
+    return migrated;
   }
 
   void selectCategory(NumberCategory? category) {
@@ -307,6 +323,9 @@ class NumbersProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_kRate, rate);
+    // Without this the re-anchoring migration would treat a value saved by this
+    // very version as a pre-anchoring one and double it on the next launch.
+    await prefs.setBool(_kRateAnchored, true);
   }
 
   Future<void> setGapMs(int gapMs) async {

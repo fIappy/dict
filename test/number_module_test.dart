@@ -1193,54 +1193,89 @@ void main() {
   });
 
   group('Speech rate', () {
-    test('the slider reaches both ends of what OneCore can actually do', () {
-      // The bug this replaced: `percent = rate * 100` mapped the slider's
-      // 0.5-1.5 onto prosody 50-150%, four of the engine's eleven plateaus,
-      // i.e. 1.24x slower to 0.81x faster — so the control looked dead.
-      expect(oneCoreProsodyPercent(0.5), 3); // slowest plateau, 0.50x
-      expect(oneCoreProsodyPercent(1.5), 200); // fastest plateau, 1.52x
+    test('x1.0 is the teaching pace, not the voice native rate', () {
+      // Anchoring regression. Under the old meaning x1.0 asked the engine for
+      // prosody 95-100%, i.e. the voice's native speed — the fast end of what a
+      // listening drill can use, which left the whole useful band crammed at the
+      // bottom of the slider. x1.0 now sits on the prosody floor.
+      expect(engineRateFor(1.0), 0.5);
+      final plan = speechPlanFor(1.0, wordCount: 7);
+      expect(plan.prosodyPercent, oneCoreSteps.first.setting);
+      expect(plan.wordGapMs, 0);
     });
 
-    test('the reachable speed range spans the slider', () {
-      final speeds = oneCoreSteps.map((step) => step.speed).toList();
-      expect(speeds.first, lessThanOrEqualTo(0.5));
-      expect(speeds.last, greaterThanOrEqualTo(1.5));
-      // the old linear mapping could only reach 0.80x..1.24x, a 1.55x span
-      expect(speeds.last / speeds.first, greaterThan(2.5));
+    test('the slider spans 0.25x to 0.75x of natural', () {
+      expect(engineRateFor(NumbersLimits.minRate), closeTo(0.25, 1e-9));
+      expect(engineRateFor(NumbersLimits.maxRate), closeTo(0.75, 1e-9));
+      // native speed is deliberately no longer reachable from the drill
+      expect(engineRateFor(NumbersLimits.maxRate), lessThan(1.0));
     });
 
-    test('neutral stays neutral on both engines', () {
-      expect(oneCoreProsodyPercent(1.0), 95);
-      expect(sapiRate(1.0), 0);
+    test('below the anchor the shortfall is carried by pauses', () {
+      final slow = speechPlanFor(NumbersLimits.minRate, wordCount: 7);
+      expect(slow.prosodyPercent, oneCoreSteps.first.setting,
+          reason: 'articulation is already at the floor');
+      expect(slow.wordGapMs, greaterThan(0));
+      expect(slow.wordGapMs, lessThanOrEqualTo(1200));
     });
 
-    test('the setting never decreases as the speed rises', () {
-      var previous = -1000;
-      for (var rate = 0.5; rate <= 1.5001; rate += 0.01) {
-        final setting = oneCoreProsodyPercent(rate);
-        expect(setting, greaterThanOrEqualTo(previous), reason: 'rate $rate');
-        previous = setting;
+    test('the pause makes up the missing time', () {
+      // floor = 2.0x the 1548 ms calibration phrase = 3096 ms; x0.5 asks for
+      // 0.25x natural = 6192 ms, so 3096 ms across 6 gaps = ~516 ms each.
+      final plan = speechPlanFor(NumbersLimits.minRate, wordCount: 7);
+      expect(plan.wordGapMs, inInclusiveRange(450, 580));
+    });
+
+    test('nothing gets faster as the rate rises', () {
+      var lastProsody = -1;
+      var lastGap = 1 << 30;
+      for (var rate = NumbersLimits.minRate;
+          rate <= NumbersLimits.maxRate + 1e-9;
+          rate += 0.05) {
+        final plan = speechPlanFor(rate, wordCount: 7);
+        expect(plan.prosodyPercent, greaterThanOrEqualTo(lastProsody),
+            reason: 'rate $rate');
+        expect(plan.wordGapMs, lessThanOrEqualTo(lastGap), reason: 'rate $rate');
+        lastProsody = plan.prosodyPercent;
+        lastGap = plan.wordGapMs;
       }
     });
 
-    test('each plateau is reached by its own speed', () {
-      expect(oneCoreProsodyPercent(0.56), 11); // 0.57x plateau
-      expect(oneCoreProsodyPercent(0.58), 11);
-      expect(oneCoreProsodyPercent(0.63), 24); // 0.64x plateau
-      expect(oneCoreProsodyPercent(0.65), 24);
-      expect(oneCoreProsodyPercent(0.85), 75); // 0.90x plateau
+    test('a one-word utterance has no gap to slow down with', () {
+      final plan = speechPlanFor(NumbersLimits.minRate, wordCount: 1);
+      expect(plan.wordGapMs, 0);
+      expect(plan.prosodyPercent, oneCoreSteps.first.setting);
     });
 
-    test('SAPI travels too, on its own scale', () {
-      expect(sapiRate(0.5), lessThanOrEqualTo(-4));
-      expect(sapiRate(1.5), greaterThanOrEqualTo(2));
-      expect(sapiRate(0.5), greaterThanOrEqualTo(-10));
-      expect(sapiRate(1.5), lessThanOrEqualTo(10));
+    test('SAPI runs off the same anchored scale', () {
+      expect(sapiRate(1.0), -6); // 0.50x natural
+      expect(sapiRate(NumbersLimits.maxRate), -2); // 0.75x natural
+      expect(sapiRate(NumbersLimits.minRate), sapiSteps.first.setting); // clamped
     });
 
     test('a stored zero rate cannot break the mapping', () {
-      expect(oneCoreProsodyPercent(0), oneCoreSteps.first.setting);
+      expect(speechPlanFor(0, wordCount: 7).prosodyPercent, oneCoreSteps.first.setting);
       expect(sapiRate(-2), sapiSteps.first.setting);
+    });
+
+    test('a rate stored before the re-anchoring keeps its pace', () async {
+      // 0.5 under the old meaning is the same pace x1.0 means now, so the stored
+      // value is doubled — and only once.
+      SharedPreferences.setMockInitialValues(<String, Object>{'numbers_rate': 0.5});
+      final first = NumbersProvider();
+      await first.initialize();
+      expect(first.rate, 1.0);
+
+      final second = NumbersProvider();
+      await second.initialize();
+      expect(second.rate, 1.0, reason: 'must not be doubled twice');
+    });
+
+    test('a stale fast setting is clamped into the new range', () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{'numbers_rate': 1.5});
+      final provider = NumbersProvider();
+      await provider.initialize();
+      expect(provider.rate, NumbersLimits.maxRate);
     });
   });
 }

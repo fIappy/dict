@@ -865,9 +865,15 @@ class _NumbersTrainingSectionState extends State<NumbersTrainingSection> {
         _SliderRow(
           label: '语速',
           value: provider.rate,
-          min: 0.5,
-          max: 1.5,
-          divisions: 20,
+          min: NumbersLimits.minRate,
+          max: NumbersLimits.maxRate,
+          divisions: NumbersLimits.rateDivisions,
+          // ×1.00 is the teaching pace, not the voice's native speed. The hint
+          // rides on a tooltip because `display` sits in a fixed 62 px box and a
+          // longer string wraps, which grows the row and pushes the buttons off
+          // a small window.
+          tooltip: '×1.00 为教学语速，约为母语者自然语速的一半；往上更快，'
+              '往下更慢（慢于引擎极限的部分由词间停顿补足）。',
           display: '×${provider.rate.toStringAsFixed(2)}',
           onChanged: provider.setRate,
         ),
@@ -1247,6 +1253,7 @@ class _SliderRow extends StatelessWidget {
     required this.divisions,
     required this.display,
     required this.onChanged,
+    this.tooltip,
   });
 
   final String label;
@@ -1257,6 +1264,10 @@ class _SliderRow extends StatelessWidget {
   final String display;
   final ValueChanged<double> onChanged;
 
+  /// Optional explanation shown on hover; wrapped around the label so it costs
+  /// no layout space of its own.
+  final String? tooltip;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1264,7 +1275,13 @@ class _SliderRow extends StatelessWidget {
       children: [
         SizedBox(
           width: 40,
-          child: Text(label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+          child: tooltip == null
+              ? Text(label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600))
+              : Tooltip(
+                  message: tooltip!,
+                  child: Text(label,
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                ),
         ),
         Expanded(
           child: Slider(

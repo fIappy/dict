@@ -20,6 +20,13 @@ class NumbersLimits {
   static const int minGapMs = 0;
   static const int maxGapMs = 5000;
 
+  /// 语速. ×1.0 is the teaching pace — half the voice's natural rate — because a
+  /// native-speaker pace is the fast end of what a listening drill can use. The
+  /// slow end is past the engine's prosody floor and is carried by pauses.
+  static const double minRate = 0.5;
+  static const double maxRate = 1.5;
+  static const int rateDivisions = 20;
+
   /// 多组连读 (integer mode): how long a run may be, and how tightly its numbers
   /// follow each other. The gap *between* runs is the ordinary [minGapMs]…
   /// [maxGapMs] one.

@@ -68,7 +68,8 @@ Future<File> _helperScript() async {
   await file.writeAsString(r"""
 param(
   [string]$Action = 'list', [string]$Voice = '', [string]$Engine = 'sapi',
-  [int]$RatePercent = 100, [int]$SapiRate = 0, [string]$Text = '', [string]$Out = ''
+  [int]$RatePercent = 100, [int]$SapiRate = 0, [int]$WordGapMs = 0,
+  [string]$Text = '', [string]$Out = ''
 )
 # SAPI: `$voice` would BE the -Voice parameter (names are case-insensitive), so
 # the COM object needs a name of its own.
@@ -101,7 +102,16 @@ if ($Engine -eq 'onecore') {
       if ($candidate.DisplayName -eq $Voice) { $synth.Voice = $candidate; break }
     }
   }
-  $escaped = [System.Security.SecurityElement]::Escape($Text)
+  # Below the prosody floor the only way further down is silence between words:
+  # each word keeps its natural articulation and the gaps do the slowing.
+  if ($WordGapMs -gt 0) {
+    $break = "<break time=""${WordGapMs}ms""/>"
+    $escaped = (($Text -split '\s+') | Where-Object { $_ } | ForEach-Object {
+        [System.Security.SecurityElement]::Escape($_)
+      }) -join $break
+  } else {
+    $escaped = [System.Security.SecurityElement]::Escape($Text)
+  }
   $ssml = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>" +
           "<prosody rate=""$RatePercent%"">$escaped</prosody></speak>"
   # The 1-argument AsTask overload, matched by interface name: these are open
@@ -177,9 +187,10 @@ Future<String?> synthesizeWithVoice(
     for (final unit in text.codeUnits) {
       hash = (hash * 31 + unit) & 0x7fffffff;
     }
+    final plan = speechPlanFor(rate, wordCount: RegExp(r'\S+').allMatches(text).length);
     final out = File(p.join(
       dir.path,
-      'sentence_${hash.toRadixString(16)}_${oneCoreProsodyPercent(rate)}.wav',
+      'sentence_${hash.toRadixString(16)}_${plan.prosodyPercent}_${plan.wordGapMs}.wav',
     ));
     if (out.existsSync() && out.lengthSync() > 4000) return out.path;
 
@@ -187,7 +198,9 @@ Future<String?> synthesizeWithVoice(
     final result = await Process.run('powershell', [
       '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script.path,
       '-Action', 'wav', '-Engine', 'onecore', '-Voice', voice.name,
-      '-RatePercent', '${oneCoreProsodyPercent(rate)}', '-Text', text, '-Out', out.path,
+      '-RatePercent', '${plan.prosodyPercent}',
+      '-WordGapMs', '${plan.wordGapMs}',
+      '-Text', text, '-Out', out.path,
     ]);
     if (result.exitCode != 0) {
       debugPrint('OneCore synthesis exited with ${result.exitCode}: ${result.stderr}');
