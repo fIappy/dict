@@ -76,6 +76,7 @@ flutter:
     - assets/data/
     - assets/audio/ipa/
     - assets/audio/letters/
+    - assets/audio/numbers/
   # https://flutter.dev/to/resolution-aware-images
 
   # For details regarding adding assets from package dependencies, see

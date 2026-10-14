@@ -7,6 +7,7 @@ import '../../providers/settings_provider.dart';
 import '../../providers/frequency_provider.dart';
 import '../../providers/ipa_provider.dart';
 import '../../providers/alphabet_provider.dart';
+import '../../providers/numbers_provider.dart';
 import 'alphabet_detail_view.dart';
 import 'alphabet_screen.dart';
 import 'dictionary_manager_screen.dart';
@@ -15,6 +16,8 @@ import 'frequency_screen.dart';
 import 'history_screen.dart';
 import 'ipa_detail_view.dart';
 import 'ipa_screen.dart';
+import 'numbers_detail_view.dart';
+import 'numbers_screen.dart';
 import 'search_screen.dart';
 import 'word_detail_screen.dart';
 
@@ -38,6 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context.read<FavoritesProvider>().initialize();
       context.read<HistoryProvider>().initialize();
       context.read<FrequencyProvider>().initialize();
+      context.read<NumbersProvider>().initialize();
       context.read<SettingsProvider>().initialize();
     });
   }
@@ -122,7 +126,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            labelType: NavigationRailLabelType.all,
+            // Eight destinations no longer fit the 720 px default window with
+            // a label under every icon (历史/词典 were already clipped before the
+            // numbers module was added). Showing the label of the selected item
+            // only — the rest keep their tooltips — fits them all. `scrollable`
+            // is not an option here: it hands the trailing widget unbounded
+            // height, and the trailing widget is an Expanded theme toggle.
+            labelType: NavigationRailLabelType.selected,
             destinations: const [
               NavigationRailDestination(
                 icon: Icon(Icons.search_rounded),
@@ -148,6 +158,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: Icon(Icons.text_fields_outlined),
                 selectedIcon: Icon(Icons.text_fields_rounded),
                 label: Text('字母'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.numbers_outlined),
+                selectedIcon: Icon(Icons.numbers_rounded),
+                label: Text('数字'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.history_rounded),
@@ -220,10 +235,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         isPaneView: true,
                         letter: alphabetProvider.currentLetter,
                       )
-                    : WordDetailScreen(
-                        isPaneView: true,
-                        word: dictProvider.currentWord ?? 'hello',
-                      )),
+                    : (_selectedIndex == 5
+                        ? const NumbersDetailView(isPaneView: true)
+                        : WordDetailScreen(
+                            isPaneView: true,
+                            word: dictProvider.currentWord ?? 'hello',
+                          ))),
           ),
         ],
       ),
@@ -243,8 +260,10 @@ class _HomeScreenState extends State<HomeScreen> {
       case 4:
         return const AlphabetScreen(isPaneView: true);
       case 5:
-        return const HistoryScreen(isPaneView: true);
+        return const NumbersScreen(isPaneView: true);
       case 6:
+        return const HistoryScreen(isPaneView: true);
+      case 7:
         return const DictionaryManagerScreen();
       default:
         return const SearchScreen(isPaneView: true);
@@ -261,6 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
           FrequencyScreen(isPaneView: false),
           IpaScreen(isPaneView: false),
           AlphabetScreen(isPaneView: false),
+          NumbersScreen(isPaneView: false),
           HistoryScreen(isPaneView: false),
           DictionaryManagerScreen(),
         ],
@@ -293,6 +313,11 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.text_fields_outlined),
             selectedIcon: Icon(Icons.text_fields_rounded),
             label: '字母',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.numbers_outlined),
+            selectedIcon: Icon(Icons.numbers_rounded),
+            label: '数字',
           ),
           NavigationDestination(
             icon: Icon(Icons.history_rounded),

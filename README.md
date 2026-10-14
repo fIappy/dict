@@ -16,6 +16,22 @@
   拼写规律、例词试听，以及与其它音标的组合发音（声母拼读、辅音连缀、尾音闭合、不送气浊化）。
   示范音是剑桥自己的原声、UK/US 分轨；单元音按「长元音 + 对应短元音」成对同排展示。
 - **字母** — 26 个字母的标准发音（美/英双音，如 `Z` 的 `zee` / `zed`）与自然拼读规律。
+- **数字** — 15 类数字表达方式（基数/序数/大数字/小数/分数/百分数/温度/倍数与次数/比例/年份/时刻/金额/
+  电话号码/日期/零的读法），
+  每个数字给出 🇬🇧 / 🇺🇸 两种读法，可分别试听；输入任意数字即时生成英语句子（`1,234` →
+  one thousand two hundred and thirty-four，英音多一个 `and`）。词汇按**规律性**整理：1–12、13–19、
+  整十、1st–12th、‑teenth/‑tieth 这些**不规则**形式逐个列卡（附拼写提示：forty 没有 u、fifth/ninth/
+  twelfth、twenty→twentieth、y→ie），而 `21–99`、`21st–99th`、`hundred 以上` 只给**一条规则卡**
+  （各附 3 个可试听样例），不逐个重复。日期类目另收录**12 个月份与 7 个星期**的全部词汇卡
+  （含缩写 Jan. / Sept. / Wed.，以及 Wednesday 的 d 不发音、Tuesday 英 /ˈtjuːzdeɪ/ 等读音要点），
+  每月/每周一张、可分别试听英美两音。训练模式随机出一组数字、**默认隐藏**，点「显示数字」再对照，
+  朗读语速（×0.5–×1.5）与数字之间的间隔（0–3 秒，滑到 0 即连读）可调并持久化；
+  每组数量滑杆到 100，更多可在「自定义」里直接输入（最多 1000，列表懒加载渲染）。
+  训练类型共 13 种：整数 / 大数字 / 小数 / 年份 / 序数词 / 分数 / 百分数 / 温度 / 时刻 / 货币 /
+  日期 / 电话号码 / 混合。整数模式另有**多组连读**：每组随机 3–7 个数字（区间可调 2–12）一次念完，
+  组内间隔可调到 0（连读），组与组之间用「组间」间隔隔开，适合听写练习；整句朗读时一组念成一句，
+  逐词拼读时按组内间隔逐个词播放。**同一组内尽量不重复**——先用该类型还没出现过的数字，可选值用尽后（例如一位整数只有 9 个）
+  剩余名额按洗牌轮次补足，同一个数字不会紧挨着出现两次，界面会标注这组实际有几个不同值。
 - **词频** — Top 20,000 词频榜单，支持自定义区间（如 `5000-6000`）、分页与跳页；
   区间设置持久化，重启后自动恢复。
 - **生词本** — 分组收藏、助记笔记、分组颜色标签，本地持久化。
@@ -46,7 +62,7 @@
                     └ /api/* ────────────────┘
 ```
 
-音标、字母、词频三个模块在前端完全离线可用，不依赖后端。
+音标、字母、数字、词频四个模块在前端完全离线可用，不依赖后端。
 
 ## 快速开始
 
@@ -128,6 +144,7 @@ lib/
 │   ├── audio/        # 音频播放（原生 mdd+系统语音 / Web 后端+在线）
 │   ├── ipa/          # 48 条音标数据（剑桥音标表口径）
 │   ├── alphabet/     # 26 字母数据
+│   ├── numbers/      # 数字读法引擎（拼写器 + 单词片段播放 + 训练生成器）
 │   └── frequency/    # 词频库
 ├── providers/        # 状态管理（provider）
 └── ui/               # 界面：screens / widgets / theme
@@ -141,6 +158,7 @@ docker/
 assets/
 ├── audio/ipa/        # 86 个音标示范音（剑桥原声，UK/US 分轨，见「音标音频的来源」）
 ├── audio/letters/    # 26 字母 × 美/英音
+├── audio/numbers/    # 数字单词片段 165 × 美/英音（拼句读任意数字，见「数字音频的来源」）
 └── data/             # Top 20,000 词频表
 ```
 
@@ -159,7 +177,7 @@ export 'mdx_reader_web.dart' if (dart.library.io) 'mdx_reader_native.dart';
 
 ```bash
 flutter analyze          # 静态分析（0 issues）
-flutter test             # 单元与 Widget 测试（13 项）
+flutter test             # 单元与 Widget 测试（60 项）
 dart analyze server      # 后端静态分析
 ```
 
@@ -241,6 +259,102 @@ python tool/generate_ipa_audio.py                        # 需要 espeak-ng + ff
 >
 > 也别用按文件名从第三方仓库挑的录音：那类多是**基本元音（cardinal vowel）**，cardinal [ʌ]
 > 是后半开元音，英语 /ʌ/（cup）是央化的 [ɐ]；cardinal [e] 是次闭前元音，英语 /e/（bed）实际是 [ɛ]。
+
+### 数字怎么读：整句朗读 / 逐词拼读（都在本机，不联网）
+
+| 方式 | 引擎 | 听感 | 口音 |
+|---|---|---|---|
+| **整句朗读**（默认） | 本机语音合成：优先 Windows **新一代 OneCore 自然语音**（Narrator 用的那批：Mark / Jenny / Aria / Hazel / George…），没有则用旧版 **SAPI 桌面语音**（Zira 等） | **一句话**：连读、弱读、语调一次成型 —— one thousand two hundred and thirty-four 跨 2.2 s、内部零停顿 | 有对应口音的语音就用它；只有 en-US 时英音**用词仍是英式**（`and` / `nought`），界面会注明「本机没有英音语音」 |
+| **逐词拼读** | 模块自带录音（`assets/audio/numbers/`，330 条） | 每个词单独发音，词间有接缝（同一句跨 4.9 s、6 处 ≥80 ms 断口） | 英美两条录音轨，完全离线 |
+
+同一句话的客观对比（见 `tool/` 时代的测量记录）：整句 2.20 s / 0 处停顿，逐词 4.92 s / 6 处 ≥80 ms 断口。
+
+**全程不联网**：数字模块只用本机语音与本机录音；本机没有英语语音时自动改用录音，绝不会没声音。
+语速滑杆两种方式都生效（整句走 SSML `prosody rate` 或 SAPI Rate，逐词走播放器倍速）。
+
+**想换更好听的人声**（Windows 自带语音的音色取决于装了什么）：
+
+1. 设置 → 时间和语言 → 语音 → 管理语音 → **添加语音** → English (United States) / (United Kingdom)：
+   会装上新一代 OneCore 语音，模块按 LCID/tag 优先匹配，并**优先于旧版桌面语音**被选中；
+2. 或安装第三方 **SAPI5** 语音（CereProc、Ivona、RHVoice 等），它们同样出现在 SAPI 列表里，模块会自动使用；
+3. 模块的选择顺序（`lib/core/audio/voice_choice.dart`，纯函数、有单测）：
+   请求口音的现代语音 → 请求口音的桌面语音 → 任意英语现代语音 → 任意英语桌面语音 → 无（用录音）。
+
+界面在训练区显示当前用的是哪条语音、哪一代引擎；若用的是旧版桌面语音，会附上「想更自然：设置 → …」的提示。
+
+> Web 端目前仍走「逐词拼读」（浏览器 `speechSynthesis` 可以照 SAPI 的方式接上，接口已就位）。
+
+### 数字表达的覆盖范围
+
+每个类别都按「**不规则 / 固定说法逐个列卡，有规律的给一条规则卡**」整理，规则卡附 3 个左右可试听样例：
+
+| 类别 | 规则卡（规律） | 单独列出的形式 |
+|---|---|---|
+| 基数词 | `21–99`（十位+个位）、`hundred 以上`（英 and / 美省略） | 0–12、13–19、整十、hundred、thousand |
+| 序数词 | `21st–99th`（只变最后一段） | 1st–12th、13th–19th、整十序数、100th/1,000th/1,000,000th |
+| 大数字 | `三位一组`（thousand/million/billion/trillion，million 前不加 -s） | 三个刻度词 + 4 个样例数字 |
+| 小数 | `0 的读法`（nought / zero / oh）、`逐位读`（3.14 = three point one four） | 0.5、3.14、-1.5、0.05、0.007、1,234.56 |
+| 分数 | `分母的规律`（2=half、4=quarter、其余序数词+‑s）、`over 的用法`（分母>10）、`of 搭配与弱读`（a half / a quarter） | 1/2、1/3、3/4、2/5、7/8、1 1/2 |
+| 百分数 | `per cent / percent`（英式两词）、`X percent of`（接复数名词） | 25%、99.9%、100%、0.5%、150% |
+| 年份 | `2010 起两种读法`、`年代`（the nineties / the two thousands）、`BC / AD` | 1999、1905、1900、2005、2026、1066、1100 |
+| 时刻 | `past / to 规则`（quarter / half / N past / N to）、`a.m. / p.m.` | 3:00、3:15、3:30、3:45、7:05、15:30、12:00、0:00 |
+| 货币 | `符号与单位`、`口语省略单位`（twelve fifty）、`复数位置` | $12.50、£3.99、€20、$0.99、$1、£0.50、£1.50、$2,000,000 |
+| 电话号码 | `分组与停顿`、`double / triple`（英）、`800 号段`（1-800 = one eight hundred） | +44 20 7946 0958、0755-1234-5678、007、203、1001、1-800-555-0199 |
+| 日期 | `英美写法不同`（03/05 的歧义）、`星期与介词`（on / in）、`世纪与年代` | 2026-10-08、2026-01-01、2026-05-03 |
+| 温度 | `摄氏度 / 华氏度`（°C = Celsius/Centigrade、°F = Fahrenheit，口语常省略温标）、`零下的说法`（minus five degrees / five degrees below zero） | 0°C、25°C、1°C、-5°C、37°C、98.6°F |
+| 倍数与次数 | `once / twice / N times`（1 次 once、2 次 twice）、`倍数比较`（twice as much as）、`频率表达`（once a week / once every two weeks） | 1x、2x、3x、1.5x、once a week、twice a day、three times a week、once every two weeks |
+| 比例 | `「:」读 to`（2:1 = two to one，尺寸用 by）、`in / out of`（9 out of 10） | 2:1、3:2、4:3、1 in 10、9 out of 10 |
+| 零的读法 | `五套读法`（zero / nought / oh / nil / nothing / love） | 0、0(电话)、0.5、3-0、40-0、0°C |
+
+尚未建栏目、引擎也不支持的表达方式（需要新词汇片段才能做）：运算（two plus three equals five）、
+约数（a dozen、a couple、about twenty）、单位换算（60 miles per hour）。
+
+### 数字音频的来源
+
+数字是**开放集合**（没有人能预录 `1,234,567`），但它的读法由**有限单词**拼出来：
+`assets/audio/numbers/<word>_uk.mp3` / `<word>_us.mp3` 就是那 165 个词（`zero`…`nine`、
+`twenty`…`ninety`、`hundred`…`trillion`、序数词、分数分母、`point` / `and` / `over` / `oh` /
+`nought` / `double`、货币与月份名）的单词语音，播放时**逐词拼接**，因此任意数字都能离线读出来，
+且英美两条轨各自独立——两者差别不只在口音，句子本身就不一样（英音 `one hundred and twenty-three`、
+`nought point five`；美音去掉 `and`、读 `zero point five`）。
+
+```bash
+python tool/generate_number_audio.py --check              # 只列词表，不写文件
+python tool/generate_number_audio.py                      # 重新生成全部片段
+python tool/generate_number_audio.py --only thirds --force # 只补某几个词
+python tool/generate_number_audio.py --source edge         # 换用神经语音（当前被 403 挡住）
+```
+
+音源是词典发音接口（`type=1` 英音 / `type=2` 美音，与应用在线回退播放的同一路），
+只有 `sixths`（英音）与 `sevenths`（美音）这两条它拒绝，而这两个词的读音**英美无差别**，
+脚本用另一条口音顶替并在结尾打印 `Copied across accents`。
+
+**切词规则**（`utterance_span`）：源文件里单词藏在 0.4 s 前导静音、偶尔第二遍、以及鼻音/摩擦音
+很长的弱尾之后（`one` = /wʌn/ 尾巴拖 0.3 s），所以句子是**量出来**再切的——10 ms RMS 帧，
+以**第 95 百分位**（不是最大值）下 45 dB 为静音线，间隔 < 150 ms 属于同一个词，取**能量最大且不短于
+120 ms 的那一段**（不是第一段），两侧各留 40 ms，5 ms 淡入淡出，RMS 归一到 −20 dBFS、峰值上限 −1 dBFS、
+64 kbps 单声道。每条片段最后都跟源录音做**相关性校验**（在切片位置 Pearson ≥ 0.9），不合格就不写盘。
+
+两个曾经真的踩过的坑，别重犯：
+
+- **别用 ffmpeg 的 `silenceremove`+`areverse` 去切词**：−40 dB 的门限会把弱尾（`one`→"wuh"）和
+  弱起音（/w/ /h/ /ð/）一起切掉，而且它不会告诉你切了多少——片段看起来仍是"正常的一小段"。
+  26 条片段因此少了 20%–50% 的发音，是逐个跟源录音比语音跨度才查出来的。
+- **取"第一段有声区间"会拿到爆音**：`hundredth` 美音录音是 20 ms 爆音 + 0.5 s 静音 + 单词，
+  按第一段取会得到 0.07 s 的空片段。
+
+播放侧同样有一条硬规则：**不要用 `Stream.timeout(onTimeout: () { … })`**。
+那个回调必须返回流的元素类型，`() { … }` 能编过、运行时抛
+`type '() => Null' is not a subtype of '(() => FutureOr<AudioEvent>)?'`，于是等待**立刻返回**，
+下一个词马上顶替当前音源——听感就是每个词只念出开头一小截（数字朗读曾整句只花 300 ms）。
+现在用 `Future.any` 与延时赛跑（`audio_manager_*.dart` 里 `playSpeechClip` 有注释），
+并用「时长 + 1.5 s 下限」的兜底，保证不会把词切短。
+
+词表是两侧共同遵守的契约：Python 侧 `NUMBER_WORDS` 决定生成哪些片段，Dart 侧
+`lib/core/numbers/number_audio.dart` 决定能播哪些词，`test/number_module_test.dart` 会同时校验
+「两边词表一致」「每个词两个口音都有片段」「拼写器产出的每个词都有片段」，任一侧改名都会直接失败。
+播放走 `lib/core/audio/speech_clip_player.dart` 的接口，`NumberSpeaker` 只依赖它，
+因此词序、电话分组停顿、训练间隔与「停止」都能在没有声卡的情况下被单测钉住。
 
 ## 文档
 
