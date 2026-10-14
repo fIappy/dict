@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:local_dict/core/audio/speech_clip_player.dart';
+import 'package:local_dict/core/audio/speech_rate.dart';
 import 'package:local_dict/core/audio/voice_choice.dart';
 import 'package:local_dict/core/numbers/number_audio.dart';
 import 'package:local_dict/core/numbers/number_data.dart';
@@ -1188,6 +1189,58 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('多组连读'), findsNothing);
       expect(provider.runBatch, isFalse);
+    });
+  });
+
+  group('Speech rate', () {
+    test('the slider reaches both ends of what OneCore can actually do', () {
+      // The bug this replaced: `percent = rate * 100` mapped the slider's
+      // 0.5-1.5 onto prosody 50-150%, four of the engine's eleven plateaus,
+      // i.e. 1.24x slower to 0.81x faster — so the control looked dead.
+      expect(oneCoreProsodyPercent(0.5), 3); // slowest plateau, 0.50x
+      expect(oneCoreProsodyPercent(1.5), 200); // fastest plateau, 1.52x
+    });
+
+    test('the reachable speed range spans the slider', () {
+      final speeds = oneCoreSteps.map((step) => step.speed).toList();
+      expect(speeds.first, lessThanOrEqualTo(0.5));
+      expect(speeds.last, greaterThanOrEqualTo(1.5));
+      // the old linear mapping could only reach 0.80x..1.24x, a 1.55x span
+      expect(speeds.last / speeds.first, greaterThan(2.5));
+    });
+
+    test('neutral stays neutral on both engines', () {
+      expect(oneCoreProsodyPercent(1.0), 95);
+      expect(sapiRate(1.0), 0);
+    });
+
+    test('the setting never decreases as the speed rises', () {
+      var previous = -1000;
+      for (var rate = 0.5; rate <= 1.5001; rate += 0.01) {
+        final setting = oneCoreProsodyPercent(rate);
+        expect(setting, greaterThanOrEqualTo(previous), reason: 'rate $rate');
+        previous = setting;
+      }
+    });
+
+    test('each plateau is reached by its own speed', () {
+      expect(oneCoreProsodyPercent(0.56), 11); // 0.57x plateau
+      expect(oneCoreProsodyPercent(0.58), 11);
+      expect(oneCoreProsodyPercent(0.63), 24); // 0.64x plateau
+      expect(oneCoreProsodyPercent(0.65), 24);
+      expect(oneCoreProsodyPercent(0.85), 75); // 0.90x plateau
+    });
+
+    test('SAPI travels too, on its own scale', () {
+      expect(sapiRate(0.5), lessThanOrEqualTo(-4));
+      expect(sapiRate(1.5), greaterThanOrEqualTo(2));
+      expect(sapiRate(0.5), greaterThanOrEqualTo(-10));
+      expect(sapiRate(1.5), lessThanOrEqualTo(10));
+    });
+
+    test('a stored zero rate cannot break the mapping', () {
+      expect(oneCoreProsodyPercent(0), oneCoreSteps.first.setting);
+      expect(sapiRate(-2), sapiSteps.first.setting);
     });
   });
 }

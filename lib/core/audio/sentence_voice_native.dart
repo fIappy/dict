@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'speech_rate.dart';
 import 'voice_choice.dart';
 
 /// The machine's own voices: the modern OneCore ones (Windows' "Mobile"/Natural
@@ -67,7 +68,7 @@ Future<File> _helperScript() async {
   await file.writeAsString(r"""
 param(
   [string]$Action = 'list', [string]$Voice = '', [string]$Engine = 'sapi',
-  [int]$RatePercent = 100, [string]$Text = '', [string]$Out = ''
+  [int]$RatePercent = 100, [int]$SapiRate = 0, [string]$Text = '', [string]$Out = ''
 )
 # SAPI: `$voice` would BE the -Voice parameter (names are case-insensitive), so
 # the COM object needs a name of its own.
@@ -129,7 +130,9 @@ if ($Voice) {
     if ($candidate.GetDescription() -eq $Voice) { $sapi.Voice = $candidate; break }
   }
 }
-$sapi.Rate = [Math]::Round(($RatePercent - 100) / 10)
+# The caller picks the rate off the same measured table as the OneCore path
+# (see speech_rate.dart), so `rate` means one thing across both engines.
+$sapi.Rate = $SapiRate
 [void]$sapi.Speak($Text)
 """, flush: true);
   return _script = file;
@@ -141,11 +144,10 @@ Process? _speaking;
 Future<bool> speakWithSapi(String text, SentenceVoice voice, {double rate = 1.0}) async {
   try {
     final script = await _helperScript();
-    final percent = (rate * 100).round();
     _speaking = await Process.start('powershell', [
       '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script.path,
       '-Action', 'speak', '-Engine', 'sapi', '-Voice', voice.name,
-      '-RatePercent', '$percent', '-Text', text,
+      '-SapiRate', '${sapiRate(rate)}', '-Text', text,
     ]);
     final exitCode = await _speaking!.exitCode;
     _speaking = null;
@@ -177,7 +179,7 @@ Future<String?> synthesizeWithVoice(
     }
     final out = File(p.join(
       dir.path,
-      'sentence_${hash.toRadixString(16)}_${(rate * 100).round()}.wav',
+      'sentence_${hash.toRadixString(16)}_${oneCoreProsodyPercent(rate)}.wav',
     ));
     if (out.existsSync() && out.lengthSync() > 4000) return out.path;
 
@@ -185,7 +187,7 @@ Future<String?> synthesizeWithVoice(
     final result = await Process.run('powershell', [
       '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script.path,
       '-Action', 'wav', '-Engine', 'onecore', '-Voice', voice.name,
-      '-RatePercent', '${(rate * 100).round()}', '-Text', text, '-Out', out.path,
+      '-RatePercent', '${oneCoreProsodyPercent(rate)}', '-Text', text, '-Out', out.path,
     ]);
     if (result.exitCode != 0) {
       debugPrint('OneCore synthesis exited with ${result.exitCode}: ${result.stderr}');
