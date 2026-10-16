@@ -210,9 +210,32 @@ class AudioManager implements SpeechClipPlayer {
   /// otherwise the words overlap. [rate] is applied by the player rather than
   /// baked into the clip, so one recording serves every speed.
   @override
-  Future<void> playSpeechClip(String assetPath, {double rate = 1.0}) async {
-    final playTag = 'clip_$assetPath';
-    _currentlyPlayingTag = playTag;
+  Future<void> playSpeechClip(String assetPath, {double rate = 1.0}) =>
+      _playToCompletion(
+        AssetSource(assetPath),
+        tag: 'clip_$assetPath',
+        label: assetPath,
+        rate: rate,
+      );
+
+  /// Plays audio the module built itself (a spliced sentence, or Piper's
+  /// samples) — one buffer, so nothing is read from disk on any platform.
+  @override
+  Future<void> playAudioBytes(Uint8List bytes, {double rate = 1.0}) =>
+      _playToCompletion(
+        BytesSource(bytes, mimeType: 'audio/wav'),
+        tag: 'bytes_${bytes.length}',
+        label: '${bytes.length} bytes of WAV',
+        rate: rate,
+      );
+
+  Future<void> _playToCompletion(
+    Source source, {
+    required String tag,
+    required String label,
+    required double rate,
+  }) async {
+    _currentlyPlayingTag = tag;
     _isPlaying = true;
     try {
       if (rate != 1.0) {
@@ -238,7 +261,7 @@ class AudioManager implements SpeechClipPlayer {
         Future<Duration?>.delayed(const Duration(milliseconds: 600)),
       ]);
       final finished = _player.onPlayerComplete.first.then<void>((_) {});
-      await _player.play(AssetSource(assetPath));
+      await _player.play(source);
       final reported = await length;
       const floor = Duration(milliseconds: 1500);
       final cap = (reported ?? floor) * 1.4 + const Duration(milliseconds: 300);
@@ -248,14 +271,14 @@ class AudioManager implements SpeechClipPlayer {
         Future<void>.delayed(cap > floor ? cap : floor).then((_) {
           // The loser of the race still runs, so only a real stall is reported.
           if (!completed) {
-            debugPrint('Speech clip $assetPath did not report completion');
+            debugPrint('Speech clip $label did not report completion');
           }
         }),
       ]);
     } catch (e) {
-      debugPrint('Speech clip $assetPath failed: $e');
+      debugPrint('Speech clip $label failed: $e');
     } finally {
-      if (_currentlyPlayingTag == playTag) {
+      if (_currentlyPlayingTag == tag) {
         _isPlaying = false;
         _currentlyPlayingTag = null;
       }
@@ -296,9 +319,7 @@ class AudioManager implements SpeechClipPlayer {
   }) async {
     final voice = await chosenSentenceVoice(accent);
     if (voice == null) return false;
-    // Engines use punctuation for sentence-level prosody, so a bare phrase gets
-    // a capital and a full stop even though the card shows it without.
-    final text = _asSentence(sentence);
+    final text = sentenceForSpeech(sentence);
 
     _currentlyPlayingTag = 'sentence_$accent';
     _isPlaying = true;
@@ -312,21 +333,13 @@ class AudioManager implements SpeechClipPlayer {
           accent,
         );
         if (sapi == null) return false;
-        return await speakWithSapi(text, sapi, rate: rate);
+        return await speakWithSystemVoice(text, sapi, rate: rate);
       }
-      return await speakWithSapi(text, voice, rate: rate);
+      return await speakWithSystemVoice(text, voice, rate: rate);
     } finally {
       _isPlaying = false;
       _currentlyPlayingTag = null;
     }
-  }
-
-  static String _asSentence(String text) {
-    final trimmed = text.trim();
-    if (trimmed.isEmpty) return trimmed;
-    final capitalised =
-        trimmed[0].toUpperCase() + (trimmed.length > 1 ? trimmed.substring(1) : '');
-    return RegExp(r'[.!?]$').hasMatch(capitalised) ? capitalised : '$capitalised.';
   }
 
   /// Plays a rendered wav and completes when it has finished sounding.

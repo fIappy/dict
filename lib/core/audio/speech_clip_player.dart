@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 /// The single audio operation the number module needs from [AudioManager]:
 /// play one bundled clip and complete when it has finished sounding.
 ///
@@ -7,6 +9,13 @@
 abstract class SpeechClipPlayer {
   /// Plays [assetPath] (an `assets/`-relative path) to completion.
   Future<void> playSpeechClip(String assetPath, {double rate = 1.0});
+
+  /// Plays one in-memory WAV buffer to completion.
+  ///
+  /// The engines that build a sentence themselves — splicing the recorded words,
+  /// or the bundled Piper voice — hand their audio over here instead of writing
+  /// it to a file first, so nothing touches the filesystem on any platform.
+  Future<void> playAudioBytes(Uint8List bytes, {double rate = 1.0});
 
   /// Speaks a whole sentence with the prosody of connected speech.
   ///

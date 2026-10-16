@@ -15,7 +15,11 @@ import '../audio/asset_manifest.dart';
 class NumberAudio {
   const NumberAudio._();
 
-  /// Folder inside `assets/` holding `<word>_uk.mp3` / `<word>_us.mp3`.
+  /// Folder inside `assets/` holding `<word>_uk.wav` / `<word>_us.wav`.
+  ///
+  /// WAV rather than MP3 on purpose: a sentence is spliced out of these clips, so
+  /// they are decoded and joined as PCM, and every platform then plays exactly
+  /// the same bytes.
   static const String folder = 'audio/numbers';
 
   /// Every word the speller can emit. Keep in sync with the generator.
@@ -65,9 +69,9 @@ class NumberAudio {
   static String keyFor(String word) =>
       word.toLowerCase().replaceAll("'", '').replaceAll(RegExp(r'[^a-z]'), '');
 
-  /// `assets/`-relative path handed to the player, e.g. `audio/numbers/one_uk.mp3`.
+  /// `assets/`-relative path handed to the player, e.g. `audio/numbers/one_uk.wav`.
   static String assetPath(String word, String accent) =>
-      '$folder/${keyFor(word)}_${accent == 'uk' ? 'uk' : 'us'}.mp3';
+      '$folder/${keyFor(word)}_${accent == 'uk' ? 'uk' : 'us'}.wav';
 
   /// Splits a spoken sentence into the words to play.
   ///
@@ -99,8 +103,8 @@ class NumberAudio {
   /// rather than saying the number wrong.
   static Future<String?> resolve(String word, String accent) async {
     final key = keyFor(word);
-    final primary = '$folder/${key}_${accent == 'uk' ? 'uk' : 'us'}.mp3';
-    final secondary = '$folder/${key}_${accent == 'uk' ? 'us' : 'uk'}.mp3';
+    final primary = '$folder/${key}_${accent == 'uk' ? 'uk' : 'us'}.wav';
+    final secondary = '$folder/${key}_${accent == 'uk' ? 'us' : 'uk'}.wav';
     final assets = await audioAssetManifest();
     if (assets.contains('assets/$primary')) return primary;
     if (assets.contains('assets/$secondary')) return secondary;

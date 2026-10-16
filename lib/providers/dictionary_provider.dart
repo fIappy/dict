@@ -130,6 +130,25 @@ class DictionaryProvider extends ChangeNotifier {
     }
   }
 
+  /// Registers every archive the service's probe folders hold and returns the
+  /// ones that were new. The service has already loaded them, so the registry
+  /// only needs re-reading — no reload round trip.
+  Future<List<DictionaryInfo>> autoImportDetected() async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final registered = await _service.autoImportDetectedDictionaries();
+      _allDictionaries = await _dao.getAll();
+      if (registered.isNotEmpty && _currentWord != null) {
+        await lookupWord(_currentWord!, addToHistory: false);
+      }
+      return registered;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> toggleDictionary(String id, bool isEnabled) async {
     await _service.toggleDictionary(id, isEnabled);
     _allDictionaries = await _dao.getAll();

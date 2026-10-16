@@ -46,7 +46,9 @@ class MdxReader {
   // In-memory key index for sub-millisecond prefix & substring search
   List<String> _keys = [];
   List<int> _offsets = [];
-  Map<String, int> _exactMap = {};
+  // Lowercased headword -> index of its *first* key, so the duplicate group
+  // that follows it in the sorted key list can be walked without a second map.
+  Map<String, int> _exactIndex = {};
   List<int> get allOffsets => _offsets;
 
   // Simple LRU cache for decompressed record blocks
@@ -222,15 +224,13 @@ class MdxReader {
         keys.add(key);
         offsets.add(off);
         final lower = key.toLowerCase();
-        if (!exact.containsKey(lower)) {
-          exact[lower] = off;
-        }
+        exact.putIfAbsent(lower, () => keys.length - 1);
       }
     }
 
     _keys = keys;
     _offsets = offsets;
-    _exactMap = exact;
+    _exactIndex = exact;
   }
 
   List<String> get allKeys => _keys;
@@ -243,8 +243,9 @@ class MdxReader {
     final seen = <String>{};
 
     // 1. Exact match first
-    if (_exactMap.containsKey(q)) {
-      final exactWord = _keys[_exactMap[q] != null ? _keys.indexWhere((k) => k.toLowerCase() == q) : -1];
+    final exactIndex = _exactIndex[q];
+    if (exactIndex != null) {
+      final exactWord = _keys[exactIndex];
       if (exactWord.isNotEmpty) {
         results.add(exactWord);
         seen.add(exactWord.toLowerCase());
@@ -297,23 +298,50 @@ class MdxReader {
     return results;
   }
 
-  /// Get entry HTML for a given word, resolving @@@LINK redirects
-  String? getEntry(String word, {int depth = 0}) {
-    if (depth > 5) return null; // Avoid circular redirects
-    final target = word.trim().toLowerCase();
-    final offset = _exactMap[target];
-    if (offset == null) return null;
+  /// Get entry HTML for a given word, resolving @@@LINK redirects.
+  ///
+  /// A headword may own several records: the SIO series stores the Forvo audio
+  /// bar, the English section, the Chinese reverse lookup and the phrase
+  /// section as separate records under the same key, and reference clients
+  /// render them one after another. Every matching record is therefore joined
+  /// in archive order; single-record archives are unaffected.
+  String? getEntry(String word) {
+    final records = getEntries(word);
+    return records.isEmpty ? null : records.join('\n');
+  }
 
-    final raw = _readRawRecord(offset);
-    if (raw == null) return null;
+  /// Every record stored under [word] (case-insensitive), in archive order.
+  /// A record that redirects contributes its target's records instead.
+  List<String> getEntries(String word, {int depth = 0}) {
+    if (depth > 5) return const []; // Circular redirects end here.
+    final out = <String>[];
+    for (final index in _keyIndexesFor(word.trim().toLowerCase())) {
+      final raw = _readRawRecord(_offsets[index]);
+      if (raw == null) continue;
 
-    final trimmed = raw.trim();
-    if (trimmed.startsWith('@@@LINK=')) {
-      final linkTarget = trimmed.substring('@@@LINK='.length).trim();
-      return getEntry(linkTarget, depth: depth + 1);
+      final trimmed = raw.trim();
+      if (trimmed.startsWith('@@@LINK=')) {
+        out.addAll(getEntries(
+          trimmed.substring('@@@LINK='.length).trim(),
+          depth: depth + 1,
+        ));
+      } else {
+        out.add(raw);
+      }
     }
+    return out;
+  }
 
-    return raw;
+  /// Indices of every key equal to [lower], which are contiguous because the
+  /// key list is sorted case-insensitively by the archive writer.
+  List<int> _keyIndexesFor(String lower) {
+    final first = _exactIndex[lower];
+    if (first == null) return const [];
+    final out = <int>[first];
+    for (int i = first + 1; i < _keys.length && _keys[i].toLowerCase() == lower; i++) {
+      out.add(i);
+    }
+    return out;
   }
 
   Uint8List _getRecordBlock(int blockIndex) {

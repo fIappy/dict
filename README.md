@@ -7,6 +7,8 @@
 
 - **词典查询** — 直接解析 MDict `.mdx` / `.mdd` 归档，本机 434,589 词条索引
   加载约 66 ms，单词检索 1–2 ms。
+- **多记录词条** — 一个词头拆成多条记录的词典（如 SIO 双向双解：发音条、简明释义、
+  词语搭配、权威例句各一条记录）会按归档顺序合并成一条正文，`@@@LINK` 跳转也展开到目标词条的全部记录。
 - **部分匹配检索** — 精确 → 前缀 → 包含三级排序，输入即搜。
 - **多词典** — 同时加载多本词典联合查词，可逐本启用/停用。
 - **发音** — 优先播放 `.mdd` 内的高保真原声；缺失时回退系统语音/在线音源。
@@ -30,14 +32,16 @@
   每组数量滑杆到 100，更多可在「自定义」里直接输入（最多 1000，列表懒加载渲染）。
   训练类型共 13 种：整数 / 大数字 / 小数 / 年份 / 序数词 / 分数 / 百分数 / 温度 / 时刻 / 货币 /
   日期 / 电话号码 / 混合。整数模式另有**多组连读**：每组随机 3–7 个数字（区间可调 2–12）一次念完，
-  组内间隔可调到 0（连读），组与组之间用「组间」间隔隔开，适合听写练习；整句朗读时一组念成一句，
-  逐词拼读时按组内间隔逐个词播放。**同一组内尽量不重复**——先用该类型还没出现过的数字，可选值用尽后（例如一位整数只有 9 个）
+  组内间隔可调到 0（连读），组与组之间用「组间」间隔隔开，适合听写练习；**组内间隔 = 0 时整组交给引擎念成一句**（连读），
+  调大则逐个数字分开念、中间正好留出设定的秒数（逐词拼读模式同样按这个间隔逐词播放）。**同一组内尽量不重复**——先用该类型还没出现过的数字，可选值用尽后（例如一位整数只有 9 个）
   剩余名额按洗牌轮次补足，同一个数字不会紧挨着出现两次，界面会标注这组实际有几个不同值。
 - **词频** — Top 20,000 词频榜单，支持自定义区间（如 `5000-6000`）、分页与跳页；
   区间设置持久化，重启后自动恢复。
 - **生词本** — 分组收藏、助记笔记、分组颜色标签，本地持久化。
 - **词条正文** — 多标签页（American / Etymology / Explanation / Examples）、
-  全文可选可复制、正文与小喇叭链接联动发音。
+  全文可选可复制、正文与小喇叭链接联动发音。条目样式由渲染器的样式回调按标签/类名注入
+  （`HtmlWidget` 不解析 `<style>`），内置 Dictionary.com 与 SIO 两套标记的规则；
+  词典自带的 `.css` 不参与渲染——SIO 的 `zh_cn{display:none}` 需要它的 JS 才能切换，直接套用会把中文藏死。
 - **UI** — 桌面端三栏工作台（可拖拽分隔条），移动端底部导航，Material 3 明暗主题。
 
 ## 平台支持
@@ -91,7 +95,7 @@ dart run server/dict_server.dart --dir "/path/to/dicts" --port 8080
 
 ## 词典文件
 
-词典文件（约 1.7 GB）**不纳入版本控制**，需自行准备并放到仓库根目录：
+词典文件（约 1.7 GB）**不纳入版本控制**，需自行准备：
 
 ```
 Dictionary.com 20260913_hahaya/
@@ -100,8 +104,18 @@ Dictionary.com 20260913_hahaya/
 └── dcom-mdx-style.css               # 词条样式（可选）
 ```
 
-应用首次启动会自动探测该目录。也可在「词典」页手动导入任意 `.mdx`。
-命令行指定其它目录：`DICT_DIR=/path/to/dicts`（后端）或 `--dir` 参数。
+桌面端/Android 首次启动会**自动探测** `.mdx`，探测顺序为
+
+1. `DICT_DIR` 环境变量指向的目录（多个用 `;` 分隔，与后端同一变量名称）；
+2. 当前工作目录；
+3. 程序所在目录及其各级上级目录（因此 `build/windows/x64/runner/Release/` 也能找到仓库根目录下的词典）。
+
+每个目录还会再看**一层子目录**，所以「一本词典一个文件夹」的布局（如
+`SIO雙向雙解詞典 v3.3/`）和把 `.mdx` 平铺在一个目录里都能被发现；同名 `.mdd` / 目录内任意 `.css`
+一并登记。探测只在登记表为空时自动进行，之后可在「词典」页点「探测词典目录」重新扫描，
+或直接手动导入任意 `.mdx`。登记表存放在应用数据目录（Windows：`%APPDATA%\…\local_dict\dict_app.db`）。
+
+后端另有 `--dir` 参数（与 `DICT_DIR` 等价）。
 
 ### `.mdd` 与发音（重要）
 
@@ -178,9 +192,52 @@ export 'mdx_reader_web.dart' if (dart.library.io) 'mdx_reader_native.dart';
 
 ```bash
 flutter analyze          # 静态分析（0 issues）
-flutter test             # 单元与 Widget 测试（60 项）
+flutter test             # 单元与 Widget 测试（71 项）
 dart analyze server      # 后端静态分析
 ```
+
+### 真机自检（发音引擎）
+
+主机的 `flutter test` 覆盖不了「*这台设备*能不能把数字念出来」——那要真机。把它交给一个独立入口 + 一条命令：
+
+```bash
+tool/android_smoke.sh                  # 唯一连接中的设备
+tool/android_smoke.sh -s PLK110        # 多台设备时指定
+tool/android_smoke.sh -s emulator-5554 --uninstall
+```
+
+脚本用 `flutter run -t lib/smoke_main.dart` 编译、安装、启动，抓取 `SMOKE …` 行判定通过/失败，手机上同时显示同一份结果与顺手播出的声音：
+
+- **录音拼接**：只用包内资源，刚装好的应用就能测；
+- **Piper**：装了模型就测（`SMOKE ok piper-uk 23296 samples @ 22050 Hz`），没装报 `skip`——这是正常状态，不会误判失败；
+- **系统语音**：让平台语音念同一句话（没有英语语音的设备会如实报 `skip`）。
+
+Piper 的模型得进应用私有目录，两条路落点相同（`/data/user/0/<包名>/files/tts-models/piper/<us|uk>`）：
+
+- **没有 root**：在应用里「安装模型…」选 `piper.zip` 导入；
+- **已经 root**（`adb shell` 里 `su` 可用）：不必点手机上的文件选择器，直接推进去——
+
+```bash
+python tool/fetch_piper_models.py --zip-only          # 生成 tts-models/piper.zip
+python -c "import zipfile; zipfile.ZipFile('tts-models/piper.zip').extractall('build/piper_extract')"
+adb push build/piper_extract/. /sdcard/Download/piper_extract
+adb shell "su -c 'mkdir -p /data/user/0/com.example.local_dict/files/tts-models/piper'"
+adb shell "su -c 'cp -rf /sdcard/Download/piper_extract/. /data/user/0/com.example.local_dict/files/tts-models/piper/'"
+adb shell "su -c 'chown -R \$(stat -c %u /data/user/0/com.example.local_dict):\$(stat -c %u /data/user/0/com.example.local_dict) /data/user/0/com.example.local_dict/files/tts-models'"
+adb shell "su -c 'rm -rf /sdcard/Download/piper_extract'"
+```
+
+（`su -c` 那段务必保持 `adb shell "su -c '…'"` 这个引号形式：引号要是被本地 shell 吃掉，`su` 会停在等待输入上。）
+
+`lib/smoke_main.dart` 是**独立入口**（不是应用代码），所以应用里没有测试代码；`--uninstall` 会在结束后卸掉临时装的 APK。
+
+> 自检装的是 **smoke 入口**，而且 `flutter run -t` 会覆盖同一份 `build/app/outputs/flutter-apk/app-debug.apk`——所以跑完想用回真正的应用，重新出一份再装：
+> ```bash
+> flutter build apk --debug && adb install -r build/app/outputs/flutter-apk/app-debug.apk
+> ```
+> 数据不会丢（模型、生词本都在 `/data/user/0/<包名>/` 里，装同签名的包是覆盖升级）。
+
+Windows 上请在 Git Bash / MSYS2 / cmd 里运行，**不要在 WSL 里**：本机的工具链是 Windows 那一份（WSL 会报 `unable to extract Dart SDK`），脚本也会直接提示这一点。
 
 ### Windows 打包
 
@@ -261,25 +318,30 @@ python tool/generate_ipa_audio.py                        # 需要 espeak-ng + ff
 > 也别用按文件名从第三方仓库挑的录音：那类多是**基本元音（cardinal vowel）**，cardinal [ʌ]
 > 是后半开元音，英语 /ʌ/（cup）是央化的 [ɐ]；cardinal [e] 是次闭前元音，英语 /e/（bed）实际是 [ɛ]。
 
-### 数字怎么读：整句朗读 / 逐词拼读（都在本机，不联网）
+### 数字怎么读：整句朗读的三档引擎 + 逐词拼读
 
-| 方式 | 引擎 | 听感 | 口音 |
-|---|---|---|---|
-| **整句朗读**（默认） | 本机语音合成：优先 Windows **新一代 OneCore 自然语音**（Narrator 用的那批：Mark / Jenny / Aria / Hazel / George…），没有则用旧版 **SAPI 桌面语音**（Zira 等） | **一句话**：连读、弱读、语调一次成型 —— one thousand two hundred and thirty-four 跨 2.2 s、内部零停顿 | 有对应口音的语音就用它；只有 en-US 时英音**用词仍是英式**（`and` / `nought`），界面会注明「本机没有英音语音」 |
-| **逐词拼读** | 模块自带录音（`assets/audio/numbers/`，330 条） | 每个词单独发音，词间有接缝（同一句跨 4.9 s、6 处 ≥80 ms 断口） | 英美两条录音轨，完全离线 |
+训练区里「整句朗读」旁边有一个开关选**用哪个引擎念整句**，只有两档可选：**系统语音**（默认）与 **Piper 神经语音**（选择会持久化）。
+引擎说不出话时**不会**把数字拆成单词念：按 `选择 → Piper → 系统语音 → 自带录音拼接` 换引擎整句念完，
+其中**录音拼接**是内置兜底（永远可用、无接缝），不出现在开关里——它的音色和逐词模式用的是同一批录音，没人会主动选它；
+只有所有引擎都失败才退到逐词播放，而「逐词拼读」模式照旧逐词播放（它就是听写用的）。
 
-同一句话的客观对比（见 `tool/` 时代的测量记录）：整句 2.20 s / 0 处停顿，逐词 4.92 s / 6 处 ≥80 ms 断口。
+| 引擎 | 声音来自 | 连读/韵律 | 离线 | 三端一致性 |
+|---|---|---|---|---|
+| **系统语音**（默认） | 宿主的语音合成：Windows 用 **OneCore 自然语音**（Narrator 那批：Mark / Jenny / Aria / Hazel / George…）否则 **SAPI 桌面语音**（Zira 等）；Android 用 `TextToSpeech`；Web 用 `speechSynthesis` | 真·连读（整句一次合成） | Windows/Android 是；浏览器上 `Google US/UK English` 需要联网（界面会注明） | 音色随机器而异 |
+| **Piper 神经语音** | 随应用分发的 **Piper**（VITS）模型在本机推理 | 真·连读 | ✅ 完全离线 | ✅ **同一模型、同一音色**：Windows / Android / 浏览器（WebAssembly） |
+| **录音拼接**（内部兜底，不在开关里） | 模块自带的 330 条单词录音，在**内存里拼成一句**再交给播放器播一次 | 逐词读音，但**没有接缝** | ✅ | ✅ 三端逐字节相同（拼接是纯 Dart，有单测） |
+| 逐词拼读（听写模式） | 同上，但不拼接：一个词一个词播、词间留 200 ms 与设定间隔 | 逐词，有断口 | ✅ | ✅ |
 
-**全程不联网**：数字模块只用本机语音与本机录音；本机没有英语语音时自动改用录音，绝不会没声音。
-语速滑杆两种方式都生效：整句走 SSML `prosody rate`+`<break>`（OneCore）或 `SpVoice.Rate`（SAPI），
-逐词走播放器倍速。
+同一句话的客观对比（见 `tool/` 时代的测量记录）：系统语音整句 2.20 s / 0 处停顿，逐词 4.92 s / 6 处 ≥80 ms 断口。
+语速滑杆对所有引擎都生效（系统语音走 SSML `prosody rate` / SAPI Rate / `setSpeechRate` / 浏览器 `rate`，Piper 走模型自身的 `speed`，录音走播放器倍速）。
 
-### 语速：×1.0 是「教学语速」，不是母语语速
+### 语速：×1.0 是「教学语速」，不是母语语速（Windows 系统语音路径）
 
-全部逻辑在 `lib/core/audio/speech_rate.dart`（纯函数、有单测）。这里有个刻意的取舍：
-**母语者的自然语速不是这个用途的中性点**。母语者念 "one thousand two hundred and thirty-four"
-只要 1548 ms —— 你要一边听一边做心算，那个速度属于「快」的一端。
-所以滑杆的 ×1.0 被定义为**教学语速 = 自然语速的一半**，实测 3100 ms：
+Piper、Android TTS、浏览器语音的速率都是连续量，直接照滑杆值走。**Windows 系统语音不是**：
+`lib/core/audio/speech_rate.dart`（纯函数、有单测）专门处理这条路径 —— 它的速率控制是分级的，
+而且这里有个刻意的取舍：**母语者的自然语速不该是这个用途的中性点**。母语者念
+"one thousand two hundred and thirty-four" 只要 1548 ms，而你要一边听一边做心算，
+那个速度属于「快」的一端。所以滑杆的 ×1.0 定义为**教学语速 = 自然语速的一半**：
 
 | 滑杆 | ×0.50 | ×0.75 | **×1.00** | ×1.25 | ×1.50 |
 |---|---|---|---|---|---|
@@ -288,35 +350,71 @@ python tool/generate_ipa_audio.py                        # 需要 espeak-ng + ff
 
 （同一句话，OneCore「Microsoft David」；母语者基准 1.548 s。旧版本 ×1.0 就是 1.548 s。）
 
-**两个引擎的速率参数都是分级的，不是线性的**。实测 OneCore 的 prosody 只落在 **11 档**上：
+OneCore 的 prosody 是 **11 档分级**，不是线性的：
 
 | prosody | 1–5% | 8–15% | 18–30% | 35–45% | 50–60% | 70–80% | 90–100% | 110–120% | 130–150% | 175% | 200% |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 相对母语者 | 0.50× | 0.57× | 0.64× | 0.71× | 0.80× | 0.90× | 1.00× | 1.12× | 1.24× | 1.39× | 1.52× |
 
-所以代码是查表就近取值（对数距离，并列取更慢的一档），而不是把滑杆值当百分比直接传
-——后者（`percent = rate * 100`）只会落在最平的中间四档，滑杆几乎推不动。
+所以是查表就近取值（对数距离，并列取更慢的一档），而不是把滑杆值当百分比直接传 ——
+后者（`percent = rate * 100`）只会落在最平的中间四档，滑杆几乎推不动。
 
-**慢于 0.50× 的部分用词间停顿实现**：prosody 到 5% 就到底了，再慢要靠 SSML `<break>`
-在词间留白（实测有效：无停顿 1548 ms、150/300/500 ms 间隔分别 2279/2779/3380 ms）。
-这样做**不换声线、不降音调**，每个词仍是自然发音，只是词间留白 —— 比继续拉伸音频更好懂。
-SAPI 回退路径按另一张表映射（`SpVoice.Rate` -10…10 实测跨 3.0× 慢到 3.1× 快），
-但 SAPI 在这套桥接里没有停顿支持，所以它的下限是硬的。
+**慢于 0.50× 的部分用词间停顿实现**：prosody 到 5% 就到底了，再慢靠 SSML `<break>`
+在词间留白（实测：无停顿 1548 ms，150/300/500 ms 间隔分别 2279/2779/3380 ms）。
+**不换声线、不降音调**，每个词仍是自然发音，只是词间留白。SAPI 回退另有一张表
+（`SpVoice.Rate` -10…10 实测跨 3.0× 慢到 3.1× 快），但 SAPI 在这套桥接里没有停顿支持，
+下限是硬的。
 
-> 升级兼容：旧版本的 ×1.0 等于自然语速，语速值是持久化的，所以旧值会**乘 2** 迁移
-> （旧的 0.5 就是现在的 1.0，听感不变），并写下标记避免重复迁移。
+> 升级兼容：语速是持久化的，旧版本的 ×1.0 等于自然语速，所以旧值**乘 2** 迁移
+> （旧的 0.5 就是现在的 1.0，听感不变），并写标记避免重复迁移。
 
-**想换更好听的人声**（Windows 自带语音的音色取决于装了什么）：
+**想换更好听的人声**：
 
-1. 设置 → 时间和语言 → 语音 → 管理语音 → **添加语音** → English (United States) / (United Kingdom)：
+1. Windows：设置 → 时间和语言 → 语音 → 管理语音 → **添加语音** → English (United States) / (United Kingdom)：
    会装上新一代 OneCore 语音，模块按 LCID/tag 优先匹配，并**优先于旧版桌面语音**被选中；
-2. 或安装第三方 **SAPI5** 语音（CereProc、Ivona、RHVoice 等），它们同样出现在 SAPI 列表里，模块会自动使用；
-3. 模块的选择顺序（`lib/core/audio/voice_choice.dart`，纯函数、有单测）：
-   请求口音的现代语音 → 请求口音的桌面语音 → 任意英语现代语音 → 任意英语桌面语音 → 无（用录音）。
+   或安装第三方 **SAPI5** 语音（CereProc、Ivona、RHVoice 等），它们同样出现在 SAPI 列表里；
+2. Android：设置 → 系统 → 语言和输入 → 文字转语音输出，选引擎/语言，或另装一个 TTS 引擎；
+3. Web：音色由浏览器决定——Chrome 的 `Google US/UK English` 是**在线语音**，界面会注明「这条语音要联网」，
+   而系统的本地语音（如 Windows 上的 Microsoft David/Zira）离线可用，模块优先选后者。
 
-界面在训练区显示当前用的是哪条语音、哪一代引擎；若用的是旧版桌面语音，会附上「想更自然：设置 → …」的提示。
+模块的选择顺序（`lib/core/audio/voice_choice.dart`，纯函数、有单测）：
+**请求口音的离线语音 → 任意英语离线语音 → 请求口音的在线语音 → 任意英语在线语音 → 无（用录音）**。
+离线排在口音前面是刻意的：浏览器与部分 Android 引擎会给出云端语音，一旦断网就会在朗读中途哑掉，
+而音色不完全是小事。
 
-> Web 端目前仍走「逐词拼读」（浏览器 `speechSynthesis` 可以照 SAPI 的方式接上，接口已就位）。
+#### Piper 模型：一条命令装好，三端同一音色
+
+模型不进仓库（每档约 35 MB，含 espeak-ng 数据），用一个脚本准备好：
+
+```bash
+python tool/fetch_piper_models.py            # 美音 + 英音（默认 lessac / alan 的 int8 模型）
+python tool/fetch_piper_models.py --check    # 只看装了没有，并重建文件清单
+python tool/fetch_piper_models.py --voice us=en_US-amy-medium-int8   # 换音色
+```
+
+装好的目录（`files.txt` 是给浏览器用的文件清单，工具自动生成）：
+
+```
+tts-models/piper/
+├── us/{model.onnx, model.onnx.json, tokens.txt, espeak-ng-data/, files.txt}
+└── uk/{…}
+```
+
+各端去哪里找它——**与词典同一套规则**（`TTS_MODEL_DIR` 环境变量 → 当前目录 → 程序目录及其上级 → 应用数据目录）：
+
+| 端 | 放哪里 | 说明 |
+|---|---|---|
+| Windows | 程序目录或仓库根目录下的 `tts-models/`，也可用 `TTS_MODEL_DIR` | 从 `build/windows/x64/runner/Release/` 往上能找到仓库根目录的 `tts-models/` |
+| Android | 用训练区的「**安装模型…**」按钮选 `piper.zip` 导入 | **不能用 `adb push`/文件管理器放进 `Android/data/…/files`**：Android 11+ 的作用域存储让应用读不到别的工具写进去的文件。导入时应用自己把压缩包解到私有目录（`/data/user/0/<包名>/files/tts-models/`），与词典导入同一思路 |
+| Web | 站点根下的 `/tts-models/` | 浏览器不能列目录，按 `files.txt` 逐个取（约 35 MB/档，浏览器缓存后不再下载）；nginx 配置见部署指南 |
+
+`tts-models/piper.zip` 就是给 Android 导入用的那份压缩包（`--zip-only` 可单独重建，不必重新下载模型）。
+
+模型缺失时训练区会显示「未安装模型：…」并自动改用别的引擎，不会报错。
+
+> **WebAssembly 的特殊之处**：浏览器里跑的库读的是 Emscripten 自己的文件系统，HTTP 路径对它没有意义
+> （模型明明能 `fetch` 到，它仍然报 "does not exist"）。所以 Web 端会把清单里的文件全部取下来写进那个
+> 文件系统（`FS_createPath` / `FS_createDataFile`）再加载模型——这段是平台差异，藏在 `piper_model_store_web.dart` 里。
 
 ### 数字表达的覆盖范围
 
@@ -346,7 +444,7 @@ SAPI 回退路径按另一张表映射（`SpVoice.Rate` -10…10 实测跨 3.0×
 ### 数字音频的来源
 
 数字是**开放集合**（没有人能预录 `1,234,567`），但它的读法由**有限单词**拼出来：
-`assets/audio/numbers/<word>_uk.mp3` / `<word>_us.mp3` 就是那 165 个词（`zero`…`nine`、
+`assets/audio/numbers/<word>_uk.wav` / `<word>_us.wav` 就是那 165 个词（`zero`…`nine`、
 `twenty`…`ninety`、`hundred`…`trillion`、序数词、分数分母、`point` / `and` / `over` / `oh` /
 `nought` / `double`、货币与月份名）的单词语音，播放时**逐词拼接**，因此任意数字都能离线读出来，
 且英美两条轨各自独立——两者差别不只在口音，句子本身就不一样（英音 `one hundred and twenty-three`、
@@ -367,7 +465,8 @@ python tool/generate_number_audio.py --source edge         # 换用神经语音�
 很长的弱尾之后（`one` = /wʌn/ 尾巴拖 0.3 s），所以句子是**量出来**再切的——10 ms RMS 帧，
 以**第 95 百分位**（不是最大值）下 45 dB 为静音线，间隔 < 150 ms 属于同一个词，取**能量最大且不短于
 120 ms 的那一段**（不是第一段），两侧各留 40 ms，5 ms 淡入淡出，RMS 归一到 −20 dBFS、峰值上限 −1 dBFS、
-64 kbps 单声道。每条片段最后都跟源录音做**相关性校验**（在切片位置 Pearson ≥ 0.9），不合格就不写盘。
+24 kHz 16-bit 单声道 **WAV**（PCM：整句拼接就是把采样直接接起来，三端播的是同一批字节）。
+每条片段最后都跟源录音做**相关性校验**（在切片位置 Pearson ≥ 0.9），不合格就不写盘。
 
 两个曾经真的踩过的坑，别重犯：
 

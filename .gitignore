@@ -54,3 +54,7 @@ app.*.map.json
 *.mdd
 *.zip
 
+# Piper voice models for the number module: ~40 MB per accent, fetched with
+# `python tool/fetch_piper_models.py`, never committed.
+/tts-models/
+

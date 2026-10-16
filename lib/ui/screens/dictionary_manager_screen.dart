@@ -112,32 +112,31 @@ class _DictionaryManagerScreenState extends State<DictionaryManagerScreen> {
     }
   }
 
-  Future<void> _autoDetectWorkspace(BuildContext context) async {
+  /// Registers every `.mdx` the probe folders hold — `DICT_DIR`, the working
+  /// directory, and the program's folder with its ancestors.
+  Future<void> _autoImportDetected(BuildContext context) async {
     final dictProvider = context.read<DictionaryProvider>();
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _isImporting = true);
+    List<DictionaryInfo> registered;
     try {
-      final foundPath = await DictionaryService().autoDetectWorkspaceMdx();
-
-      if (foundPath != null) {
-        await dictProvider.importDictionary(
-          mdxPath: foundPath,
-          customName: 'Dictionary.com 20260913_hahaya',
-        );
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('成功加载工作区 Dictionary.com 20260913 词典!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('未在当前目录探测到 Dictionary.com 20260913.mdx')),
-        );
-      }
+      registered = await dictProvider.autoImportDetected();
     } finally {
       if (mounted) setState(() => _isImporting = false);
     }
+
+    messenger.showSnackBar(
+      registered.isEmpty
+          ? const SnackBar(
+              content: Text('未探测到新的 .mdx 词典；'
+                  '可设置 DICT_DIR、把词典放进当前目录或程序目录'),
+            )
+          : SnackBar(
+              content: Text('已加载 ${registered.length} 本词典：'
+                  '${registered.map((d) => d.name).join("、")}'),
+              backgroundColor: Colors.green[700],
+            ),
+    );
   }
 
   @override
@@ -265,8 +264,8 @@ class _DictionaryManagerScreenState extends State<DictionaryManagerScreen> {
                               ),
                               OutlinedButton.icon(
                                 icon: const Icon(Icons.auto_awesome_rounded),
-                                label: const Text('探测工作区 Dictionary.com'),
-                                onPressed: () => _autoDetectWorkspace(context),
+                                label: const Text('探测词典目录'),
+                                onPressed: () => _autoImportDetected(context),
                               ),
                             ],
                           )
@@ -301,8 +300,8 @@ class _DictionaryManagerScreenState extends State<DictionaryManagerScreen> {
                           if (_supportsLocalDictionaries) ...[
                             const SizedBox(height: 8),
                             FilledButton.tonal(
-                              onPressed: () => _autoDetectWorkspace(context),
-                              child: const Text('加载项目内 Dictionary.com 20260913_hahaya'),
+                              onPressed: () => _autoImportDetected(context),
+                              child: const Text('探测词典目录（DICT_DIR / 当前目录 / 程序目录）'),
                             ),
                           ],
                         ],

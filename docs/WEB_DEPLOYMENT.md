@@ -318,6 +318,36 @@ http://your-frontend:8088/?api=http://192.168.1.10:8080
 因此：**跨源部署**（前端与后端不同端口）用第 3 步写死地址；
 **同源部署**（nginx 反向代理 `/api/`）把 `DICT_API_BASE` 置空即可零配置运行。
 
+### 5.3 Piper 模型（数字训练的「Piper 神经语音」引擎）
+
+数字训练的整句朗读可以交给随应用分发的 **Piper** 模型（三端同一音色、离线）。Web 端需要把模型和静态站点放在**同一来源**下：
+
+```
+站点根/
+├── index.html …            # flutter build web 的产物
+└── tts-models/             # 与后端无关，由静态层直接提供
+    └── piper/{us,uk}/{model.onnx, tokens.txt, espeak-ng-data/, files.txt}
+```
+
+准备模型（本地执行，约 70 MB，已 gitignore）：
+
+```bash
+python tool/fetch_piper_models.py            # 下载美音 + 英音，并生成各档的 files.txt
+```
+
+部署到 nginx（Docker 里把 `tts-models/` 拷进 web 镜像，或挂载只读卷）：
+
+```nginx
+# 与静态资源同一 server 块即可；模型较大，建议开缓存
+location /tts-models/ {
+    root /usr/share/nginx/html;
+    add_header Cache-Control "public, max-age=86400";
+}
+```
+
+页面加载后，应用会**按 `files.txt` 逐个取**这些文件（浏览器不能列目录），一次约 35 MB/档、之后走浏览器缓存。
+缺失时「整句朗读」自动退回录音拼接或系统语音，不会报错——引擎开关就在训练区。
+
 ---
 
 ## 6. API 契约

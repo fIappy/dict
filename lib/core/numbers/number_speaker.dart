@@ -1,17 +1,21 @@
 import '../audio/audio_manager.dart';
+import '../audio/pcm_audio.dart';
+import '../audio/piper_voice.dart';
 import '../audio/speech_clip_player.dart';
+import '../audio/voice_choice.dart';
 import 'number_audio.dart';
+import 'sentence_engine.dart';
 
 /// How the module speaks a number.
 ///
-/// [sentence] hands the whole sentence to the system voice, which is what makes
-/// "one thousand two hundred and thirty-four" sound like one utterance: recorded
-/// words played back to back keep each word's citation form, so they sound like a
-/// list of words. [clips] is the fully offline path with the module's own
-/// recordings in both accents, and it is also what [sentence] falls back to when
-/// the platform has no usable voice.
+/// [sentence] reads the whole number in one go — with the host's voice, with the
+/// bundled Piper voice, or by splicing the module's own recordings — which is what
+/// makes "one thousand two hundred and thirty-four" sound like one utterance
+/// instead of a list of words. [clips] plays the recordings one word at a time
+/// with an audible gap, which is what dictation practice wants; it is also what
+/// [sentence] falls back to when the selected engine cannot speak.
 enum SpeechMode {
-  sentence('整句朗读', '整句交给本机语音合成，连读与语调自然（不联网）'),
+  sentence('整句朗读', '整句交给所选引擎一次念完（连读自然；引擎不可用时自动改用录音）'),
   clips('逐词拼读', '只播单词录音：完全离线，英美两种口音都来自录音');
 
   final String labelZh;
@@ -22,28 +26,46 @@ enum SpeechMode {
 /// Plays a number sentence.
 ///
 /// A number sentence is generated rather than recorded ("one thousand and
-/// twenty-three"), so it is assembled from the single-word clips in
-/// `assets/audio/numbers/`: one clip per word, played back to back. A comma in
-/// the sentence — which [NumberSpeller] writes at every phone-number group
-/// boundary — becomes a short pause, and the training module adds the interval
-/// between whole items on top of that.
+/// twenty-three"), so every engine builds it from the single-word clips in
+/// `assets/audio/numbers/` or from a voice model. A comma in the sentence — which
+/// [NumberSpeller] writes at every phone-number group boundary — becomes a short
+/// pause, and the training module adds the interval between whole items on top of
+/// that.
 ///
 /// The class owns no state that survives a call except [isCancelled], so the UI
 /// can stop a run instantly: every word checks the flag before it plays, and
 /// [cancel] also stops the clip that is already sounding.
-/// Resolves the clips that exist for one word in one accent.
-///
-/// Defaults to the bundled asset manifest; injectable so the sequencing logic
-/// can be tested without the asset bundle.
-typedef ClipResolver = Future<String?> Function(String word, String accent);
-
 class NumberSpeaker {
-  NumberSpeaker({SpeechClipPlayer? player, ClipResolver? resolver})
-      : _player = player ?? AudioManager(),
-        _resolve = resolver ?? NumberAudio.resolve;
+  NumberSpeaker({
+    SpeechClipPlayer? player,
+    ClipResolver? resolver,
+    this.engine = SentenceEngine.system,
+    SplicedSentence? splicer,
+    PiperVoice? piper,
+  })  : _player = player ?? AudioManager(),
+        _resolve = resolver ?? NumberAudio.resolve,
+        _piper = piper,
+        _splicer = splicer ??
+            SplicedSentence(
+              player: player ?? AudioManager(),
+              resolver: resolver ?? NumberAudio.resolve,
+            );
 
   final SpeechClipPlayer _player;
   final ClipResolver _resolve;
+
+  /// How a whole sentence is spoken in [SpeechMode.sentence]; the UI's engine
+  /// switch writes it, and a sentence the engine cannot say falls back to the
+  /// recorded words either way.
+  SentenceEngine engine;
+
+  /// The engine that splices the recorded words; owns no state between calls.
+  final SplicedSentence _splicer;
+
+  /// The Piper model, when the app owns one. Null means the engine reports
+  /// itself unavailable and the module falls back — a build without a model is a
+  /// normal state, not a failure.
+  final PiperVoice? _piper;
 
   /// Pause inserted where the sentence has a comma (phone-number groups).
   static const Duration groupPause = Duration(milliseconds: 200);
@@ -87,10 +109,13 @@ class NumberSpeaker {
   /// read back to back (整数 mode's 多组 option).
   ///
   /// Inside a row the sentences follow [innerGap] apart; rows are [gap] apart,
-  /// which is the pause a learner writes a group down in. The machine voice reads
-  /// a whole row as **one** sentence — its commas carry the rhythm — because
-  /// starting it once per number would pay the engine's start-up cost every time
-  /// and would not be 连读 at all.
+  /// which is the pause a learner writes a group down in.
+  ///
+  /// At `innerGap == 0` a whole row goes to the engine as **one** sentence — its
+  /// commas carry the rhythm, which is what 连读 means and what "组内间隔 0 = 连读"
+  /// promises. With a gap set, the row is spoken number by number with exactly
+  /// that pause between them; joining the row and hoping the engine's own comma
+  /// pause matches the slider is what made the slider look dead.
   Future<void> speakRuns(
     List<List<String>> rows, {
     String accent = 'uk',
@@ -101,12 +126,33 @@ class NumberSpeaker {
     SpeechMode mode = SpeechMode.sentence,
   }) async {
     _cancelled = false;
+    final joinRow = mode == SpeechMode.sentence && innerGap == Duration.zero;
+    // Piper synthesizes on the device's CPU — about a second per number on a
+    // phone — and that cost would land *between* two numbers, so the pause the
+    // slider asks for would grow by it (0.2 s became ~1.4 s). The row is therefore
+    // rendered first and played as one clip whose internal pauses are exactly the
+    // ones asked for. Only worth it for a gap; at 连读 the row is a single
+    // sentence anyway.
+    final renderRowFirst = mode == SpeechMode.sentence &&
+        !joinRow &&
+        innerGap > Duration.zero &&
+        _piper != null &&
+        (engine == SentenceEngine.piper || _spokenBy == SentenceEngine.piper);
+
     for (var i = 0; i < rows.length; i++) {
       if (_cancelled) return;
       onIndex?.call(i);
-      final parts = mode == SpeechMode.sentence && rows[i].length > 1
-          ? <String>[rows[i].join(', ')]
-          : rows[i];
+      final parts = joinRow && rows[i].length > 1 ? <String>[rows[i].join(', ')] : rows[i];
+
+      if (renderRowFirst && parts.length > 1) {
+        if (await _playRenderedRow(parts, accent: accent, rate: rate, innerGap: innerGap)) {
+          if (_cancelled || i == rows.length - 1) return;
+          await Future.delayed(gap);
+          continue;
+        }
+        // Rendering failed: fall through and speak them one by one.
+      }
+
       for (var j = 0; j < parts.length; j++) {
         if (_cancelled) return;
         await _speak(parts[j], accent: accent, rate: rate, mode: mode);
@@ -116,6 +162,104 @@ class NumberSpeaker {
       if (_cancelled || i == rows.length - 1) return;
       await Future.delayed(gap);
     }
+  }
+
+  /// Reads [sentence] with the Piper model and plays the samples once.
+  /// False when there is no model (or it failed): the caller falls back.
+  Future<bool> _speakWithPiper(
+    String sentence, {
+    required String accent,
+    required double rate,
+  }) async {
+    final piper = _piper;
+    if (piper == null) return false;
+    // The model paces itself (`speed`), so the player must not scale the audio a
+    // second time.
+    final clip = await piper.synthesize(
+      sentenceForSpeech(sentence),
+      accent: accent,
+      rate: rate,
+    );
+    if (clip == null || clip.isEmpty) return false;
+    await _player.playAudioBytes(
+      encodeWav(clip.samples, sampleRate: clip.sampleRate),
+    );
+    return true;
+  }
+
+  /// Renders every part of a row with the model and plays the row as one clip,
+  /// with [innerGap] of real silence between the numbers. False when the model
+  /// could not render one of them, so the caller can speak them one by one.
+  Future<bool> _playRenderedRow(
+    List<String> parts, {
+    required String accent,
+    required double rate,
+    required Duration innerGap,
+  }) async {
+    final piper = _piper;
+    if (piper == null) return false;
+
+    final clips = <PcmClip>[];
+    for (final part in parts) {
+      final clip = await piper.synthesize(sentenceForSpeech(part), accent: accent, rate: rate);
+      if (clip == null || clip.isEmpty) return false;
+      clips.add(clip);
+    }
+
+    final joined = joinClips(clips, gaps: [for (var i = 0; i < clips.length - 1; i++) innerGap]);
+    await _player.playAudioBytes(
+      encodeWav(joined.samples, sampleRate: joined.sampleRate),
+    );
+    _spokenBy = SentenceEngine.piper;
+    return true;
+  }
+
+  /// The order a sentence is read with when the chosen engine cannot read it:
+  /// the neural voice, then the host's voice, then the module's own recordings
+  /// spliced into one clip. Splicing is always available (the clips ship with the
+  /// app), so a two-digit number is never read as two separate words just because
+  /// the device has no English voice — that is what used to happen on Android
+  /// phones whose TTS engine has no English installed.
+  static const List<SentenceEngine> sentenceFallback = [
+    SentenceEngine.piper,
+    SentenceEngine.system,
+    SentenceEngine.spliced,
+  ];
+
+  /// Which engine read the last sentence, for the UI and for the on-device
+  /// self-test; null when no engine managed it and the words were played singly.
+  SentenceEngine? get spokenBy => _spokenBy;
+  SentenceEngine? _spokenBy;
+
+  /// Reads one sentence by the first engine that can: the selected one, then
+  /// [sentenceFallback]. Returns false when none of them could.
+  Future<bool> _speakSentence(
+    String sentence, {
+    required String accent,
+    required double rate,
+  }) async {
+    final order = <SentenceEngine>[
+      engine,
+      ...sentenceFallback.where((candidate) => candidate != engine),
+    ];
+
+    for (final candidate in order) {
+      if (_cancelled) return false;
+      final spoken = switch (candidate) {
+        SentenceEngine.system =>
+          await _player.speakSentence(sentence, accent: accent, rate: rate),
+        SentenceEngine.piper =>
+          await _speakWithPiper(sentence, accent: accent, rate: rate),
+        SentenceEngine.spliced =>
+          await _splicer.speak(sentence, accent: accent, rate: rate),
+      };
+      if (spoken) {
+        _spokenBy = candidate;
+        return true;
+      }
+    }
+    _spokenBy = null;
+    return false;
   }
 
   /// Stops the current run: the remaining words are dropped and the clip that is
@@ -132,10 +276,11 @@ class NumberSpeaker {
     required SpeechMode mode,
   }) async {
     if (mode == SpeechMode.sentence) {
-      // A whole sentence in one utterance by this machine's voice. The platform
-      // answers false when it has no English voice at all, and then the recorded
-      // words take over — so the module always says something, offline either way.
-      final spoken = await _player.speakSentence(sentence, accent: accent, rate: rate);
+      // One sentence in one go. The engine the user picked goes first; if it
+      // cannot read this sentence (no English voice on the device, no model
+      // installed), another engine takes over rather than splitting the number
+      // into single words — that is what `_speakSentence` walks.
+      final spoken = await _speakSentence(sentence, accent: accent, rate: rate);
       if (spoken || _cancelled) return;
     }
     for (final group in NumberAudio.pauseGroups(sentence)) {
