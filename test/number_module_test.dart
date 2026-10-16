@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -52,6 +53,44 @@ class _StubPiper extends PiperVoice {
     rendered.add(text);
     return PcmClip(Int16List.fromList(List.filled(22050, 3)), 22050);
   }
+}
+
+/// A player whose clip playback can be parked, so a run can be stopped while it
+/// sits mid-await — the window in which a shared "cancelled" flag let an
+/// abandoned run resume and talk over the run that replaced it.
+class _GatedPlayer implements SpeechClipPlayer {
+  final List<String> played = [];
+  Completer<void>? _gate;
+
+  /// Park every following [playSpeechClip] until [release].
+  void hold() => _gate = Completer<void>();
+
+  void release() {
+    final gate = _gate;
+    _gate = null;
+    if (gate != null && !gate.isCompleted) gate.complete();
+  }
+
+  @override
+  Future<void> playSpeechClip(String assetPath, {double rate = 1.0}) async {
+    played.add(assetPath);
+    final gate = _gate;
+    if (gate != null) await gate.future;
+  }
+
+  @override
+  Future<void> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {}
+
+  @override
+  Future<bool> speakSentence(String sentence,
+          {String accent = 'us', double rate = 1.0}) async =>
+      false;
+
+  @override
+  Future<String?> sentenceVoiceLabel(String accent) async => null;
+
+  @override
+  Future<void> stop() async {}
 }
 
 class _RecordingPlayer implements SpeechClipPlayer {
@@ -1705,6 +1744,52 @@ void main() {
       final provider = NumbersProvider();
       await provider.initialize();
       expect(provider.rate, NumbersLimits.maxRate);
+    });
+  });
+
+  group('Playback cancellation', () {
+    test('a stopped run does not resume once the next one starts', () async {
+      // The bug: `cancel()` set a shared bool, the next run cleared it, and the
+      // abandoned run — parked inside `playSpeechClip` — woke up, read "not
+      // cancelled" and read its remaining words over the top of the new run.
+      final player = _GatedPlayer();
+      final speaker = NumberSpeaker(
+        player: player,
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
+      );
+
+      player.hold();
+      final first = speaker.speak('one thousand', accent: 'us', mode: SpeechMode.clips);
+      await pumpEventQueue();
+      expect(player.played, ['audio/numbers/one_us.wav'],
+          reason: 'the first run should be parked on its first word');
+
+      speaker.cancel();
+      final second = speaker.speak('two', accent: 'us', mode: SpeechMode.clips);
+      await pumpEventQueue();
+      expect(player.played, contains('audio/numbers/two_us.wav'));
+
+      player.release();
+      await Future.wait([first, second]);
+
+      expect(player.played, isNot(contains('audio/numbers/thousand_us.wav')),
+          reason: 'the cancelled run carried on instead of dropping out');
+    });
+
+    test('words still play in order when nothing is cancelled', () async {
+      // Guards the fix itself: staleness must not be confused with "a later word".
+      final player = _GatedPlayer();
+      final speaker = NumberSpeaker(
+        player: player,
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
+      );
+
+      await speaker.speak('one thousand', accent: 'us', mode: SpeechMode.clips);
+
+      expect(player.played, [
+        'audio/numbers/one_us.wav',
+        'audio/numbers/thousand_us.wav',
+      ]);
     });
   });
 }

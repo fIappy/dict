@@ -79,17 +79,26 @@ class SplicedSentence {
   ///
   /// Returns false when not a single word of it had a recording: the caller then
   /// speaks the number word by word, which is the module's standing fallback.
+  ///
+  /// [isCancelled] is polled while decoding and once more before the audio
+  /// starts. Splicing decodes every clip of the sentence first — the longest
+  /// wait in the module after a Piper render — and without this the result would
+  /// be played even though the run that asked for it had already been stopped,
+  /// talking over the run that replaced it.
   Future<bool> speak(
     String sentence, {
     required String accent,
     required double rate,
+    bool Function()? isCancelled,
   }) async {
+    final cancelled = isCancelled ?? () => false;
     final parts = <PcmClip>[];
     final groups = NumberAudio.pauseGroups(sentence);
 
     for (var group = 0; group < groups.length; group++) {
       final groupClips = <PcmClip>[];
       for (final word in NumberAudio.words(groups[group])) {
+        if (cancelled()) return false;
         final clip = await _clipFor(word, accent);
         if (clip != null) groupClips.add(clip);
       }
@@ -103,6 +112,7 @@ class SplicedSentence {
     }
 
     if (parts.isEmpty) return false;
+    if (cancelled()) return false;
 
     final joined = joinClips(parts);
     await _player.playAudioBytes(

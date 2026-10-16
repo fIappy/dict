@@ -33,9 +33,9 @@ enum SpeechMode {
 /// pause, and the training module adds the interval between whole items on top of
 /// that.
 ///
-/// The class owns no state that survives a call except [isCancelled], so the UI
-/// can stop a run instantly: every word checks the flag before it plays, and
-/// [cancel] also stops the clip that is already sounding.
+/// The UI can stop a run instantly: every async step carries the id of the run
+/// it belongs to and drops out once that id is superseded, and [cancel] also
+/// silences whatever is sounding.
 class NumberSpeaker {
   NumberSpeaker({
     SpeechClipPlayer? player,
@@ -71,8 +71,18 @@ class NumberSpeaker {
   /// Pause inserted where the sentence has a comma (phone-number groups).
   static const Duration groupPause = Duration(milliseconds: 200);
 
-  bool _cancelled = false;
-  bool get isCancelled => _cancelled;
+  /// Monotonic run id, bumped by every start and every stop.
+  ///
+  /// An async step captures the id it began under and drops out as soon as the
+  /// id changes. A plain boolean cannot express that: `cancel()` sets it, but
+  /// the *next* run clears it again, so a run abandoned mid-`await` would wake
+  /// up, read "not cancelled", and carry on talking over the run that replaced
+  /// it — the overlapping speech (串音) this replaced. The window is wide here
+  /// because a Piper render takes about a second per number and a spliced
+  /// sentence decodes every clip before it plays anything.
+  int _runId = 0;
+
+  bool _stale(int runId) => runId != _runId;
 
   /// Speaks one sentence, e.g. `NumberSpeller.read('1234')!.ukText`.
   Future<void> speak(
@@ -81,10 +91,10 @@ class NumberSpeaker {
     double rate = 1.0,
     SpeechMode mode = SpeechMode.sentence,
   }) async {
-    _cancelled = false;
+    final run = ++_runId;
     // One conversion, at the component that talks to the engines: everything
     // below (system voice, Piper, recorded clips) is handed an engine rate.
-    await _speak(sentence, accent: accent, rate: engineRateFor(rate), mode: mode);
+    await _speak(sentence, accent: accent, rate: engineRateFor(rate), mode: mode, run: run);
   }
 
   /// Speaks [sentences] one after another, waiting [gap] between them.
@@ -128,7 +138,7 @@ class NumberSpeaker {
     void Function(int index)? onIndex,
     SpeechMode mode = SpeechMode.sentence,
   }) async {
-    _cancelled = false;
+    final run = ++_runId;
     final engineRate = engineRateFor(rate);
     final joinRow = mode == SpeechMode.sentence && innerGap == Duration.zero;
     // Piper synthesizes on the device's CPU — about a second per number on a
@@ -144,13 +154,22 @@ class NumberSpeaker {
         (engine == SentenceEngine.piper || _spokenBy == SentenceEngine.piper);
 
     for (var i = 0; i < rows.length; i++) {
-      if (_cancelled) return;
+      if (_stale(run)) return;
       onIndex?.call(i);
       final parts = joinRow && rows[i].length > 1 ? <String>[rows[i].join(', ')] : rows[i];
 
       if (renderRowFirst && parts.length > 1) {
-        if (await _playRenderedRow(parts, accent: accent, rate: engineRate, innerGap: innerGap)) {
-          if (_cancelled || i == rows.length - 1) return;
+        final rendered = await _playRenderedRow(
+          parts,
+          accent: accent,
+          rate: engineRate,
+          innerGap: innerGap,
+          run: run,
+        );
+        // A render is the longest wait in this loop; check before acting on it.
+        if (_stale(run)) return;
+        if (rendered) {
+          if (i == rows.length - 1) return;
           await Future.delayed(gap);
           continue;
         }
@@ -158,12 +177,12 @@ class NumberSpeaker {
       }
 
       for (var j = 0; j < parts.length; j++) {
-        if (_cancelled) return;
-        await _speak(parts[j], accent: accent, rate: engineRate, mode: mode);
-        if (_cancelled || j == parts.length - 1) break;
+        if (_stale(run)) return;
+        await _speak(parts[j], accent: accent, rate: engineRate, mode: mode, run: run);
+        if (_stale(run) || j == parts.length - 1) break;
         await Future.delayed(innerGap);
       }
-      if (_cancelled || i == rows.length - 1) return;
+      if (_stale(run) || i == rows.length - 1) return;
       await Future.delayed(gap);
     }
   }
@@ -174,6 +193,7 @@ class NumberSpeaker {
     String sentence, {
     required String accent,
     required double rate,
+    required int run,
   }) async {
     final piper = _piper;
     if (piper == null) return false;
@@ -184,6 +204,7 @@ class NumberSpeaker {
       accent: accent,
       rate: rate,
     );
+    if (_stale(run)) return false;
     if (clip == null || clip.isEmpty) return false;
     await _player.playAudioBytes(
       encodeWav(clip.samples, sampleRate: clip.sampleRate),
@@ -199,13 +220,16 @@ class NumberSpeaker {
     required String accent,
     required double rate,
     required Duration innerGap,
+    required int run,
   }) async {
     final piper = _piper;
     if (piper == null) return false;
 
     final clips = <PcmClip>[];
     for (final part in parts) {
+      if (_stale(run)) return false;
       final clip = await piper.synthesize(sentenceForSpeech(part), accent: accent, rate: rate);
+      if (_stale(run)) return false;
       if (clip == null || clip.isEmpty) return false;
       clips.add(clip);
     }
@@ -241,6 +265,7 @@ class NumberSpeaker {
     String sentence, {
     required String accent,
     required double rate,
+    required int run,
   }) async {
     final order = <SentenceEngine>[
       engine,
@@ -248,15 +273,20 @@ class NumberSpeaker {
     ];
 
     for (final candidate in order) {
-      if (_cancelled) return false;
+      if (_stale(run)) return false;
       final spoken = switch (candidate) {
         SentenceEngine.system =>
           await _player.speakSentence(sentence, accent: accent, rate: rate),
         SentenceEngine.piper =>
-          await _speakWithPiper(sentence, accent: accent, rate: rate),
-        SentenceEngine.spliced =>
-          await _splicer.speak(sentence, accent: accent, rate: rate),
+          await _speakWithPiper(sentence, accent: accent, rate: rate, run: run),
+        SentenceEngine.spliced => await _splicer.speak(
+            sentence,
+            accent: accent,
+            rate: rate,
+            isCancelled: () => _stale(run),
+          ),
       };
+      if (_stale(run)) return false;
       if (spoken) {
         _spokenBy = candidate;
         return true;
@@ -266,10 +296,11 @@ class NumberSpeaker {
     return false;
   }
 
-  /// Stops the current run: the remaining words are dropped and the clip that is
-  /// playing right now is silenced.
+  /// Stops the current run: the run id moves on, so every step still in flight —
+  /// a Piper render, a splice decode, a pending pause — drops out instead of
+  /// resuming, and whatever is sounding right now is silenced.
   void cancel() {
-    _cancelled = true;
+    _runId++;
     _player.stop();
   }
 
@@ -278,19 +309,23 @@ class NumberSpeaker {
     required String accent,
     required double rate,
     required SpeechMode mode,
+    required int run,
   }) async {
     if (mode == SpeechMode.sentence) {
       // One sentence in one go. The engine the user picked goes first; if it
       // cannot read this sentence (no English voice on the device, no model
       // installed), another engine takes over rather than splitting the number
       // into single words — that is what `_speakSentence` walks.
-      final spoken = await _speakSentence(sentence, accent: accent, rate: rate);
-      if (spoken || _cancelled) return;
+      final spoken = await _speakSentence(sentence, accent: accent, rate: rate, run: run);
+      if (spoken || _stale(run)) return;
     }
     for (final group in NumberAudio.pauseGroups(sentence)) {
       for (final word in NumberAudio.words(group)) {
-        if (_cancelled) return;
+        if (_stale(run)) return;
         final clip = await _resolve(word, accent);
+        // Resolving hits the asset bundle; the run may have been replaced while
+        // it was in flight.
+        if (_stale(run)) return;
         if (clip == null) {
           // A word without a clip is skipped: staying on the previous clip, or
           // borrowing an unrelated one, would be worse than a small gap.
@@ -298,7 +333,7 @@ class NumberSpeaker {
         }
         await _player.playSpeechClip(clip, rate: rate);
       }
-      if (_cancelled) return;
+      if (_stale(run)) return;
       await Future.delayed(groupPause);
     }
   }
