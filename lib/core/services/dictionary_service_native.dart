@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -69,8 +70,8 @@ class DictionaryService {
     final registered = await _dao.getEnabled();
 
     if (registered.isEmpty) {
-      // Auto-detect local Dictionary.com 20260913_hahaya in project workspace if present
-      await _autoDetectDefaultDictionary();
+      // Nothing registered yet: adopt every archive the probe folders hold.
+      await autoImportDetectedDictionaries();
     } else {
       for (final info in registered) {
         await _loadDictionaryHandle(info);
@@ -93,46 +94,128 @@ class DictionaryService {
   /// Native builds have no remote backend address.
   String? get backendBaseUrl => null;
 
-  /// Probes well-known locations for the bundled Dictionary.com sample archive.
-  Future<String?> autoDetectWorkspaceMdx() async {
-    final exeDir = p.dirname(Platform.resolvedExecutable);
-    final candidates = [
-      p.join(Directory.current.path, 'Dictionary.com 20260913_hahaya', 'Dictionary.com 20260913.mdx'),
-      p.join(exeDir, 'Dictionary.com 20260913_hahaya', 'Dictionary.com 20260913.mdx'),
-      p.join(exeDir, '..', '..', '..', '..', '..', 'Dictionary.com 20260913_hahaya', 'Dictionary.com 20260913.mdx'),
-      'D:/proj/flutter/dict/Dictionary.com 20260913_hahaya/Dictionary.com 20260913.mdx',
-      'Dictionary.com 20260913_hahaya/Dictionary.com 20260913.mdx',
-      'Dictionary.com 20260913.mdx',
-    ];
-    for (final c in candidates) {
-      if (File(c).existsSync()) {
-        return File(c).absolute.path;
-      }
+  /// Folders probed for archives: `DICT_DIR` (one or more folders separated by
+  /// `;`, the same variable the backend reads), the working directory, and the
+  /// executable's folder with its ancestors — so a portable build finds
+  /// archives dropped next to it and a `flutter run` build finds the project's.
+  @visibleForTesting
+  static List<String> probeDirectories({
+    required String cwd,
+    required String exeDir,
+    String? dictDirEnv,
+    int ancestorLevels = 6,
+  }) {
+    final dirs = <String>[];
+    void add(String candidate) {
+      final trimmed = candidate.trim();
+      if (trimmed.isEmpty) return;
+      final absolute = p.normalize(p.absolute(trimmed));
+      if (!dirs.contains(absolute)) dirs.add(absolute);
     }
-    return null;
+
+    for (final dir in (dictDirEnv ?? '').split(';')) {
+      add(dir);
+    }
+    add(cwd);
+    var dir = p.normalize(p.absolute(exeDir));
+    add(dir);
+    for (var level = 0; level < ancestorLevels; level++) {
+      final parent = p.dirname(dir);
+      if (parent == dir) break; // Filesystem root holds no dictionaries to scan.
+      add(parent);
+      dir = parent;
+    }
+    return dirs;
   }
 
-  Future<void> _autoDetectDefaultDictionary() async {
-    final foundMdx = await autoDetectWorkspaceMdx();
-    if (foundMdx == null) return;
+  /// Every `.mdx` archive the probe folders hold. Each folder is scanned one
+  /// level deep, which covers both a flat archive folder and the usual
+  /// folder-per-dictionary layout.
+  Future<List<String>> autoDetectMdxFiles() async {
+    final found = <String>[];
+    for (final dirPath in probeDirectories(
+      cwd: Directory.current.path,
+      exeDir: p.dirname(Platform.resolvedExecutable),
+      dictDirEnv: Platform.environment['DICT_DIR'],
+    )) {
+      final root = Directory(dirPath);
+      if (!root.existsSync()) continue;
+      for (final folder in <Directory>[
+        root,
+        ..._listSafely(root).whereType<Directory>(),
+      ]) {
+        for (final entity in _listSafely(folder)) {
+          if (entity is! File) continue;
+          if (!entity.path.toLowerCase().endsWith('.mdx')) continue;
+          final absolute = p.normalize(entity.absolute.path);
+          if (!found.contains(absolute)) found.add(absolute);
+        }
+      }
+    }
+    found.sort();
+    return found;
+  }
 
-    final dir = p.dirname(foundMdx);
-    final mddCandidate = p.join(dir, 'Dictionary.com 20260913.mdd');
-    final cssCandidate = p.join(dir, 'dcom-mdx-style.css');
+  static List<FileSystemEntity> _listSafely(Directory dir) {
+    try {
+      return dir.listSync();
+    } on FileSystemException {
+      return const []; // Unreadable folder (permissions, removed drive).
+    }
+  }
 
-    final info = DictionaryInfo(
-      id: 'dict_com_20260913',
-      name: 'Dictionary.com (20260913)',
-      mdxPath: foundMdx,
-      mddPath: File(mddCandidate).existsSync() ? mddCandidate : null,
-      cssPath: File(cssCandidate).existsSync() ? cssCandidate : null,
-      isEnabled: true,
-      priority: 0,
-      createdAt: DateTime.now(),
-    );
+  /// Stable id for a detected archive, so re-scanning never registers the same
+  /// dictionary twice — its path is its identity.
+  @visibleForTesting
+  static String autoDictionaryId(String mdxPath) {
+    var hash = 0x811c9dc5; // FNV-1a, 32 bit: small, deterministic, dependency-free.
+    for (final byte in utf8.encode(p.normalize(p.absolute(mdxPath)).toLowerCase())) {
+      hash = ((hash ^ byte) * 0x01000193) & 0xFFFFFFFF;
+    }
+    return 'dict_auto_${hash.toRadixString(16).padLeft(8, '0')}';
+  }
 
-    await _dao.insert(info);
-    await _loadDictionaryHandle(info);
+  /// Registers and loads every detected archive that is not registered yet.
+  Future<List<DictionaryInfo>> autoImportDetectedDictionaries() async {
+    final known = {for (final info in await _dao.getAll()) info.mdxPath};
+    final registered = <DictionaryInfo>[];
+
+    for (final mdxPath in await autoDetectMdxFiles()) {
+      if (known.contains(mdxPath)) continue;
+      final info = DictionaryInfo(
+        id: autoDictionaryId(mdxPath),
+        name: p.basenameWithoutExtension(mdxPath),
+        mdxPath: mdxPath,
+        mddPath: _sidecar(mdxPath, '.mdd'),
+        cssPath: _sidecar(mdxPath, '.css') ?? _firstCssIn(p.dirname(mdxPath)),
+        isEnabled: true,
+        priority: _loadedDicts.length + registered.length,
+        createdAt: DateTime.now(),
+      );
+      await _dao.insert(info);
+      await _loadDictionaryHandle(info);
+      registered.add(info);
+    }
+
+    return registered;
+  }
+
+  /// `<name>.mdd` sitting next to `<name>.mdx` — how MDict pairs the archives.
+  static String? _sidecar(String mdxPath, String extension) {
+    final candidate = '${p.withoutExtension(mdxPath)}$extension';
+    return File(candidate).existsSync() ? candidate : null;
+  }
+
+  /// Fallback for archives whose stylesheet is not named after them (SIO ships
+  /// `siov32.css` beside `SIO双向双解词典v3.3.mdx`): the folder's first `.css`,
+  /// which is what the backend registers too.
+  static String? _firstCssIn(String dir) {
+    final candidates = _listSafely(Directory(dir))
+        .whereType<File>()
+        .where((f) => f.path.toLowerCase().endsWith('.css'))
+        .toList()
+      ..sort((a, b) => a.path.compareTo(b.path));
+    return candidates.isEmpty ? null : candidates.first.absolute.path;
   }
 
   Future<LoadedDictionary?> _loadDictionaryHandle(DictionaryInfo info) async {

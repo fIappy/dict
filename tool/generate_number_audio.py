@@ -9,7 +9,7 @@ the vocabulary the spoken form is built from — the words in `NUMBER_WORDS` bel
 percent, the month names, …). Each clip holds exactly one word and the app plays
 them back to back, so any number speaks offline, with no TTS engine at runtime.
 
-Both accents are recorded (`<word>_uk.mp3` / `<word>_us.mp3`) because the
+Both accents are recorded (`<word>_uk.wav` / `<word>_us.wav`) because the
 *sentence* differs, not just the voice: British keeps the "and" of "one hundred
 and twenty-three" and calls a decimal 0 "nought", American drops the "and" and
 says "zero".
@@ -30,7 +30,8 @@ So the span is measured here, in numpy: 10 ms RMS frames, silence = more than
 45 dB below the clip's own peak (floor -60 dB), gaps shorter than 150 ms belong
 to the same word, 40 ms of padding on both sides. The samples are then cut,
 faded 5 ms at each end, RMS-normalised to -20 dBFS with a -1 dBFS peak ceiling
-and encoded at 64 kbps mono — the same recipe as the IPA clips. Every clip is
+and encoded as 24 kHz 16-bit mono WAV (PCM, so a sentence can be spliced out of
+the clips by joining samples). Every clip is
 finally cross-checked against the source recording it came from (Pearson >= 0.95
 at the expected offset), so "the wrong span" cannot ship silently.
 
@@ -263,7 +264,13 @@ def utterance_span(x) -> tuple[int, int]:
 
 
 def render(x, span: tuple[int, int]) -> bytes:
-    """Cut [span], fade, normalise and encode to mp3."""
+    """Cut [span], fade, normalise and encode to 16-bit WAV.
+
+    WAV rather than MP3 because a sentence is *spliced* out of these clips: the
+    decoder and the app both join them as PCM, and every platform then plays
+    exactly the same bytes. MP3 would need a decoder per platform and its frames
+    would leave a seam at every join.
+    """
     start, end = span
     segment = x[start:end].astype(np.float64).copy()
     if segment.size == 0:
@@ -284,17 +291,13 @@ def render(x, span: tuple[int, int]) -> bytes:
         segment *= ceiling / peak
 
     pcm = (segment * 32767.0).astype('<i2').tobytes()
-    # Encode through a real file, not a pipe: the mp3 muxer can only write the
-    # Xing/LAME header (encoder delay + padding, i.e. gapless playback) when the
-    # output is seekable. Without it every clip gains ~60 ms of silence — audible
-    # as a stutter once the words are played back to back.
-    with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as handle:
+    # Through a real file, so the WAV header carries the exact length.
+    with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as handle:
         path = handle.name
     try:
         subprocess.run(
             ['ffmpeg', '-y', '-v', 'error', '-f', 's16le', '-ar', str(SR), '-ac', '1', '-i', 'pipe:0',
-             '-c:a', 'libmp3lame', '-b:a', '64k', '-ac', '1', '-ar', str(SR), '-f', 'mp3',
-             '-write_xing', '1', path],
+             '-c:a', 'pcm_s16le', '-ac', '1', '-ar', str(SR), '-f', 'wav', path],
             input=pcm, capture_output=True, check=True,
         )
         with open(path, 'rb') as handle:
@@ -311,9 +314,8 @@ def verify(source, clip: bytes, span: tuple[int, int]) -> tuple[bool, str]:
         return False, 'empty clip'
 
     span_length = span[1] - span[0]
-    # A word that fills its whole recording decodes a few samples longer than the
-    # span (mp3 encoder delay), so allow up to 80 ms of slack and correlate the
-    # overlapping part.
+    # A word that fills its whole recording can decode a few samples longer than
+    # the span, so allow up to 80 ms of slack and correlate the overlapping part.
     if not (0.9 * span_length <= b.size <= span_length + int(0.08 * SR)):
         return False, f'length {b.size / SR:.2f}s vs span {span_length / SR:.2f}s'
 
@@ -378,7 +380,7 @@ def main() -> int:
     copied: list[str] = []
 
     for key, text in wanted.items():
-        targets = {accent: os.path.join(OUT_DIR, f'{key}_{accent}.mp3') for accent in ('uk', 'us')}
+        targets = {accent: os.path.join(OUT_DIR, f'{key}_{accent}.wav') for accent in ('uk', 'us')}
         if not args.force and all(os.path.exists(path) for path in targets.values()):
             continue
 
@@ -428,7 +430,7 @@ def main() -> int:
         f'{key}_{accent}'
         for key in NUMBER_WORDS
         for accent in ('uk', 'us')
-        if not os.path.exists(os.path.join(OUT_DIR, f'{key}_{accent}.mp3'))
+        if not os.path.exists(os.path.join(OUT_DIR, f'{key}_{accent}.wav'))
     ]
     if missing:
         print(f'Missing clips ({len(missing)}): {", ".join(missing)}', file=sys.stderr)

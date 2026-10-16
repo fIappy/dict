@@ -63,7 +63,9 @@ class MdxReader {
     return const [];
   }
 
-  String? getEntry(String word, {int depth = 0}) => null;
+  String? getEntry(String word) => null;
+
+  List<String> getEntries(String word, {int depth = 0}) => const [];
 
   void close() {}
 }

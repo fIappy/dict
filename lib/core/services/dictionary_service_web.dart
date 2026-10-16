@@ -40,7 +40,10 @@ class DictionaryService {
   /// is authoritative — the browser cannot stat files itself.
   bool resourceAvailable(String? path) => path != null && path.isNotEmpty;
 
-  Future<String?> autoDetectWorkspaceMdx() async => null;
+  /// The browser cannot scan folders; the backend owns the archive set.
+  Future<List<String>> autoDetectMdxFiles() async => const [];
+
+  Future<List<DictionaryInfo>> autoImportDetectedDictionaries() async => const [];
 
   Future<void> initialize() async {
     if (_isInitialized) return;

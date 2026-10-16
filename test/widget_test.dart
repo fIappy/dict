@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:local_dict/core/audio/ipa_asset.dart';
@@ -212,6 +215,40 @@ void main() {
       expect(subMatches.any((m) => m.toLowerCase().contains('graph')), isTrue);
 
       reader.close();
+    });
+
+    test('MdxReader merges every record stored under one headword', () async {
+      final dir = Directory.systemTemp.createTempSync('mdx_merge');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final archive = File(p.join(dir.path, 'merged.mdx'))
+        ..writeAsBytesSync(_buildMdx(<String, List<String>>{
+          // SIO-style: one headword, several records (audio bar, entry,
+          // phrases, examples). A reader that keeps only the first record shows
+          // nothing but the audio bar.
+          'alpha': ['first record of alpha', 'second record of alpha'],
+          'beta': ['@@@LINK=alpha'],
+          'gamma': ['@@@LINK=nowhere'],
+          'delta': ['@@@LINK=epsilon'],
+          'epsilon': ['@@@LINK=delta'],
+        }));
+
+      final reader = await MdxReader.open(archive.path);
+      addTearDown(reader.close);
+
+      expect(reader.numEntries, 6);
+      expect(
+        reader.getEntries('alpha'),
+        ['first record of alpha', 'second record of alpha'],
+      );
+      expect(reader.getEntry('ALPHA'), 'first record of alpha\nsecond record of alpha');
+      // A redirect pulls in every record of its target, not just the first.
+      expect(reader.getEntry('beta'), 'first record of alpha\nsecond record of alpha');
+      // Dangling and circular redirects resolve to nothing instead of hanging.
+      expect(reader.getEntry('gamma'), isNull);
+      expect(reader.getEntry('delta'), isNull);
+      expect(reader.getEntry('missing'), isNull);
+      // Duplicate records are one search hit, not two.
+      expect(reader.search('alpha'), ['alpha']);
     });
 
     test('MddReader retrieves pronunciation audio bytes from Dictionary.com 20260913.mdd', () async {
@@ -490,6 +527,49 @@ void main() {
       );
     });
 
+    test('dictionary probing covers DICT_DIR, the working and the program folder', () {
+      final cwd = p.join('a', 'work');
+      final exeDir = p.join('a', 'work', 'build', 'Release');
+      final dictDir = p.join('d', 'dicts');
+
+      final dirs = DictionaryService.probeDirectories(
+        cwd: cwd,
+        exeDir: exeDir,
+        dictDirEnv: ' $dictDir ; ; ',
+      );
+
+      // DICT_DIR wins, so the folder the user points at is scanned first.
+      expect(dirs.first, endsWith(dictDir));
+      // …then the working directory, the executable's folder and its parents,
+      // which is how a portable build finds archives dropped next to it.
+      expect(dirs.any((d) => d.endsWith(cwd)), isTrue);
+      expect(dirs.any((d) => d.endsWith(exeDir)), isTrue);
+      expect(dirs.any((d) => d.endsWith(p.join('a', 'work', 'build'))), isTrue);
+
+      // The same folder given twice is scanned once, and ancestors of the
+      // program folder never repeat a folder already added.
+      final deduped = DictionaryService.probeDirectories(
+        cwd: cwd,
+        exeDir: cwd,
+        dictDirEnv: cwd,
+      );
+      expect(deduped.where((d) => d.endsWith(cwd)), hasLength(1));
+      expect(deduped.toSet(), hasLength(deduped.length));
+    });
+
+    test('a detected archive keeps its identity across scans', () {
+      // Case-only differences are the same file on Windows…
+      expect(
+        DictionaryService.autoDictionaryId(r'C:\dicts\SIO v3.3.mdx'),
+        DictionaryService.autoDictionaryId(r'c:\DICTS\SIO v3.3.MDX'),
+      );
+      // …and different archives stay different, so neither replaces the other.
+      expect(
+        DictionaryService.autoDictionaryId(r'C:\dicts\A.mdx'),
+        isNot(DictionaryService.autoDictionaryId(r'C:\dicts\B.mdx')),
+      );
+    });
+
     test('AlphabetData covers all 26 letters A-Z with phonics and audio keys', () {
       expect(AlphabetData.allLetters.length, equals(26));
 
@@ -520,4 +600,100 @@ void main() {
       expect(provider.selectedChar, equals('B'));
     });
   });
+}
+
+/// Writes a minimal MDict v2 archive: UTF-8 keys and records, one key block and
+/// one record block. Checksums stay zero because the reader never verifies them.
+///
+/// Layout, in file order: header length, header, key-block info, compressed
+/// key-block info, key blocks, record-block info, record blocks. Every
+/// compressed block on disk is 8 bytes of bookkeeping plus a zlib stream.
+Uint8List _buildMdx(Map<String, List<String>> entries) {
+  final keyNames = <String>[];
+  final recordOffsets = <int>[];
+  final records = BytesBuilder();
+
+  for (final name in entries.keys.toList()..sort()) {
+    for (final record in entries[name]!) {
+      keyNames.add(name);
+      recordOffsets.add(records.length);
+      records.add(utf8.encode(record));
+      records.addByte(0); // Records are null terminated.
+    }
+  }
+  final recordBytes = records.toBytes();
+
+  final keyBlock = BytesBuilder();
+  for (var i = 0; i < keyNames.length; i++) {
+    keyBlock
+      ..add(_beUint64(recordOffsets[i]))
+      ..add(utf8.encode(keyNames[i]))
+      ..addByte(0);
+  }
+  final keyBytes = keyBlock.toBytes();
+  final keyBlockOnDisk = _block(keyBytes);
+  final recordBlock = _block(recordBytes);
+
+  final keyInfo = BytesBuilder()
+    ..add(_beUint64(keyNames.length)) // Keys in this block.
+    ..add(_beUint16(utf8.encode(keyNames.first).length))
+    ..add(utf8.encode(keyNames.first))
+    ..addByte(0)
+    ..add(_beUint16(utf8.encode(keyNames.last).length))
+    ..add(utf8.encode(keyNames.last))
+    ..addByte(0)
+    ..add(_beUint64(keyBlockOnDisk.length)) // Compressed size on disk.
+    ..add(_beUint64(keyBytes.length));
+  final keyInfoBlock = _block(keyInfo.toBytes());
+
+  final header = utf8.encode('<Dictionary Encoding="UTF-8" />');
+  final headerInfo = ByteData(40)
+    ..setUint64(0, 1, Endian.big) // Key blocks.
+    ..setUint64(8, keyNames.length, Endian.big) // Entries.
+    ..setUint64(16, keyBytes.length, Endian.big)
+    ..setUint64(24, keyInfoBlock.length, Endian.big) // Compressed key-block info.
+    ..setUint64(32, keyBytes.length, Endian.big);
+  final recordInfo = ByteData(32)
+    ..setUint64(0, 1, Endian.big) // Record blocks.
+    ..setUint64(8, keyNames.length, Endian.big)
+    ..setUint64(16, 16, Endian.big) // Bytes of the per-block table below.
+    ..setUint64(24, recordBytes.length, Endian.big);
+
+  return (BytesBuilder()
+        ..add(_beUint32(header.length))
+        ..add(header)
+        ..add(_beUint32(0))
+        ..add(headerInfo.buffer.asUint8List())
+        ..add(_beUint32(0))
+        ..add(keyInfoBlock)
+        ..add(keyBlockOnDisk)
+        ..add(recordInfo.buffer.asUint8List())
+        ..add(_beUint64(recordBlock.length))
+        ..add(_beUint64(recordBytes.length))
+        ..add(recordBlock))
+      .toBytes();
+}
+
+/// On disk, each compressed block is 8 bytes of bookkeeping followed by the
+/// zlib stream the reader decodes.
+Uint8List _block(List<int> decompressed) {
+  final builder = BytesBuilder()
+    ..add(List<int>.filled(8, 0))
+    ..add(zlib.encode(decompressed));
+  return builder.toBytes();
+}
+
+Uint8List _beUint16(int value) {
+  final data = ByteData(2)..setUint16(0, value, Endian.big);
+  return data.buffer.asUint8List();
+}
+
+Uint8List _beUint32(int value) {
+  final data = ByteData(4)..setUint32(0, value, Endian.big);
+  return data.buffer.asUint8List();
+}
+
+Uint8List _beUint64(int value) {
+  final data = ByteData(8)..setUint64(0, value, Endian.big);
+  return data.buffer.asUint8List();
 }

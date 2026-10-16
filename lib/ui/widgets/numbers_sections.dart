@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/numbers/number_data.dart';
 import '../../core/numbers/number_model.dart';
 import '../../core/numbers/number_speaker.dart';
+import '../../core/numbers/sentence_engine.dart';
 import '../../core/numbers/number_training.dart';
 import '../../providers/numbers_provider.dart';
 
@@ -711,9 +712,9 @@ class _NumbersTrainingSectionState extends State<NumbersTrainingSection> {
       _countController.text = '${provider.count}';
     }
 
-    // Which voice exists is asked once, on first paint of this section.
-    if (!provider.sentenceVoiceChecked) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => provider.refreshSentenceVoice());
+    // Which engine is available is asked once, on first paint of this section.
+    if (!provider.sentenceEngineChecked) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => provider.refreshSentenceEngineStatus());
     }
 
     return Column(
@@ -950,6 +951,26 @@ class _NumbersTrainingSectionState extends State<NumbersTrainingSection> {
               ),
               onSelectionChanged: (selection) => provider.setSpeechMode(selection.first),
             ),
+            // Which engine reads the whole sentence. 逐词拼读 plays the recordings
+            // itself, so the switch only appears in 整句朗读.
+            if (provider.speechMode == SpeechMode.sentence)
+              SegmentedButton<SentenceEngine>(
+                segments: [
+                  for (final engine in SentenceEngine.values.where((e) => e.selectable))
+                    ButtonSegment(
+                      value: engine,
+                      label: Text(engine.labelZh, style: const TextStyle(fontSize: 11.5)),
+                    ),
+                ],
+                selected: {provider.sentenceEngine},
+                showSelectedIcon: false,
+                style: const ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onSelectionChanged: (selection) =>
+                    provider.setSentenceEngine(selection.first),
+              ),
           ],
         ),
         const SizedBox(height: 6),
@@ -967,12 +988,26 @@ class _NumbersTrainingSectionState extends State<NumbersTrainingSection> {
               child: Text(
                 provider.speechMode == SpeechMode.clips
                     ? '逐词拼读：${SpeechMode.clips.hint}'
-                    : provider.hasSentenceVoice
-                        ? '整句朗读（本机语音，离线）：${provider.sentenceVoice}'
-                        : '本机没有英语语音，已自动改用录音逐词朗读',
+                    : '整句朗读 · ${provider.sentenceEngine.labelZh}：'
+                        '${provider.sentenceEngineStatus}',
                 style: TextStyle(fontSize: 11.5, color: theme.hintColor, height: 1.4),
               ),
             ),
+            // Android (and any platform where the files cannot simply be dropped
+            // next to the app) copies the voice in from a folder the user picks.
+            if (provider.speechMode == SpeechMode.sentence &&
+                provider.sentenceEngine == SentenceEngine.piper &&
+                !provider.piperModelReady &&
+                provider.canImportPiperModels)
+              TextButton.icon(
+                icon: const Icon(Icons.folder_open_rounded, size: 16),
+                label: const Text('安装模型…', style: TextStyle(fontSize: 12)),
+                onPressed: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  final message = await provider.importPiperModels();
+                  messenger.showSnackBar(SnackBar(content: Text(message)));
+                },
+              ),
           ],
         ),
         const SizedBox(height: 12),
@@ -996,6 +1031,9 @@ class _NumbersTrainingSectionState extends State<NumbersTrainingSection> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Two lines that each wrap: the hint and the batch summary used to
+                // share one row with a Spacer between them, which overflowed on a
+                // phone (RIGHT OVERFLOWED BY 18.1 PIXELS).
                 Row(
                   children: [
                     Icon(
@@ -1004,28 +1042,30 @@ class _NumbersTrainingSectionState extends State<NumbersTrainingSection> {
                       color: theme.hintColor,
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      provider.revealed
-                          ? (provider.runBatch ? '数字已显示（点击任意一组可单独试听）' : '数字已显示（点击单个数字可单独试听）')
-                          : '数字已隐藏，点击「显示数字」查看',
-                      style: TextStyle(fontSize: 11.5, color: theme.hintColor),
-                    ),
-                    const Spacer(),
-                    Text(
-                      [
-                        if (provider.runBatch)
-                          '共 ${provider.training.length} 组 · 每组 '
-                              '${provider.runMin}–${provider.runMax} 个数字连读'
-                        else
-                          '共 ${provider.training.length} 个 · ${provider.kind.labelZh}',
-                        if (provider.trainingDistinctCount < provider.training.length)
-                          '（可选值只有 ${provider.trainingDistinctCount} 个，其余循环重复）'
-                        else
-                          '（不重复）',
-                      ].join(),
-                      style: TextStyle(fontSize: 11.5, color: theme.hintColor),
+                    Expanded(
+                      child: Text(
+                        provider.revealed
+                            ? (provider.runBatch ? '数字已显示（点击任意一组可单独试听）' : '数字已显示（点击单个数字可单独试听）')
+                            : '数字已隐藏，点击「显示数字」查看',
+                        style: TextStyle(fontSize: 11.5, color: theme.hintColor),
+                      ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    if (provider.runBatch)
+                      '共 ${provider.training.length} 组 · 每组 '
+                          '${provider.runMin}–${provider.runMax} 个数字'
+                    else
+                      '共 ${provider.training.length} 个 · ${provider.kind.labelZh}',
+                    if (provider.trainingDistinctCount < provider.training.length)
+                      '（可选值只有 ${provider.trainingDistinctCount} 个，其余循环重复）'
+                    else
+                      '（不重复）',
+                  ].join(),
+                  style: TextStyle(fontSize: 11.5, color: theme.hintColor),
                 ),
                 const SizedBox(height: 10),
                 _TrainingNumberList(

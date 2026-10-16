@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../api/api_config.dart';
 import '../services/dictionary_service.dart';
 import 'ipa_asset.dart';
+import 'sentence_voice.dart';
 import 'speech_clip_player.dart';
 
 /// Web implementation of the audio manager.
@@ -126,9 +127,33 @@ class AudioManager implements SpeechClipPlayer {
   /// otherwise the words overlap. [rate] is applied by the player rather than
   /// baked into the clip, so one recording serves every speed.
   @override
-  Future<void> playSpeechClip(String assetPath, {double rate = 1.0}) async {
-    final playTag = 'clip_$assetPath';
-    _currentlyPlayingTag = playTag;
+  Future<void> playSpeechClip(String assetPath, {double rate = 1.0}) =>
+      _playToCompletion(
+        AssetSource(assetPath),
+        tag: 'clip_$assetPath',
+        label: assetPath,
+        rate: rate,
+      );
+
+  /// Plays audio the module built itself (a spliced sentence, or Piper's
+  /// samples). On web `BytesSource` becomes a blob URL, so nothing is written to
+  /// disk.
+  @override
+  Future<void> playAudioBytes(Uint8List bytes, {double rate = 1.0}) =>
+      _playToCompletion(
+        BytesSource(bytes, mimeType: 'audio/wav'),
+        tag: 'bytes_${bytes.length}',
+        label: '${bytes.length} bytes of WAV',
+        rate: rate,
+      );
+
+  Future<void> _playToCompletion(
+    Source source, {
+    required String tag,
+    required String label,
+    required double rate,
+  }) async {
+    _currentlyPlayingTag = tag;
     _isPlaying = true;
     try {
       if (rate != 1.0) {
@@ -156,7 +181,7 @@ class AudioManager implements SpeechClipPlayer {
       final finished = _player.onPlayerComplete.first.then<void>((_) {});
       // No stop() before play(): replacing the source already ends whatever is
       // sounding, and stopping first is how a word gets chopped in half.
-      await _player.play(AssetSource(assetPath));
+      await _player.play(source);
       final reported = await length;
       const floor = Duration(milliseconds: 1500);
       final cap = (reported ?? floor) * 1.4 + const Duration(milliseconds: 300);
@@ -166,14 +191,14 @@ class AudioManager implements SpeechClipPlayer {
         Future<void>.delayed(cap > floor ? cap : floor).then((_) {
           // The loser of the race still runs, so only a real stall is reported.
           if (!completed) {
-            debugPrint('Speech clip $assetPath did not report completion');
+            debugPrint('Speech clip $label did not report completion');
           }
         }),
       ]);
     } catch (e) {
-      debugPrint('Speech clip $assetPath failed: $e');
+      debugPrint('Speech clip $label failed: $e');
     } finally {
-      if (_currentlyPlayingTag == playTag) {
+      if (_currentlyPlayingTag == tag) {
         _isPlaying = false;
         _currentlyPlayingTag = null;
       }
@@ -183,26 +208,43 @@ class AudioManager implements SpeechClipPlayer {
     }
   }
 
-  /// The browser build keeps the recorded-word path: the number module speaks
-  /// its sentences word by word. Browser `speechSynthesis` could take over here
-  /// the way SAPI does on Windows — returning false is what makes the caller fall
-  /// back, so nothing breaks until then.
-  /// The browser build keeps the recorded-word path: the number module speaks
-  /// its sentences word by word, with the module's own recordings — no network,
-  /// which is the whole point of this app being usable offline.
+  /// Speaks the whole sentence with the browser's own voice, so "twenty-four" is
+  /// read as one number instead of the module playing the `twenty` and `four`
+  /// recordings back to back. Returns false when the browser has no voice (or
+  /// refuses to speak), and the caller then uses the recordings, which stay the
+  /// offline-safe path.
   @override
   Future<bool> speakSentence(
     String sentence, {
     String accent = 'us',
     double rate = 1.0,
-  }) async =>
-      false;
+  }) async {
+    final voice = await chosenSentenceVoice(accent);
+    if (voice == null) return false;
+
+    _currentlyPlayingTag = 'sentence_$accent';
+    _isPlaying = true;
+    try {
+      return await speakWithSystemVoice(
+        sentenceForSpeech(sentence),
+        voice,
+        rate: rate,
+      );
+    } finally {
+      _isPlaying = false;
+      _currentlyPlayingTag = null;
+    }
+  }
 
   @override
-  Future<String?> sentenceVoiceLabel(String accent) async => null;
+  Future<String?> sentenceVoiceLabel(String accent) async {
+    final voice = await chosenSentenceVoice(accent);
+    return voice == null ? null : sentenceVoiceDescription(voice, accent);
+  }
 
   @override
   Future<void> stop() async {
+    cancelSystemVoice();
     try {
       await _player.stop();
     } catch (_) {}

@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,10 +10,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:local_dict/core/audio/speech_clip_player.dart';
 import 'package:local_dict/core/audio/voice_choice.dart';
+import 'package:local_dict/core/audio/pcm_audio.dart';
+import 'package:archive/archive.dart';
+import 'package:local_dict/core/audio/piper_model_store_native.dart';
+import 'package:local_dict/core/audio/piper_voice.dart';
+import 'package:path/path.dart' as p;
 import 'package:local_dict/core/numbers/number_audio.dart';
 import 'package:local_dict/core/numbers/number_data.dart';
 import 'package:local_dict/core/numbers/number_model.dart';
 import 'package:local_dict/core/numbers/number_speaker.dart';
+import 'package:local_dict/core/numbers/sentence_engine.dart';
 import 'package:local_dict/core/numbers/number_speller.dart';
 import 'package:local_dict/core/numbers/number_training.dart';
 import 'package:local_dict/providers/numbers_provider.dart';
@@ -27,6 +35,24 @@ String us(String input) => NumberSpeller.read(input)!.usText;
 Future<String?> _noClips(String word, String accent) async => null;
 
 /// Records what the speaker asked for, so the sequencing can be asserted.
+/// A Piper voice that always has a model: the engine's own loading is not what
+/// these tests are about, its place in the fallback order is.
+class _StubPiper extends PiperVoice {
+  _StubPiper() : super(finder: (accent) async => null);
+
+  /// Every sentence the stub was asked to render, in order.
+  final List<String> rendered = [];
+
+  @override
+  Future<bool> isReady(String accent) async => true;
+
+  @override
+  Future<PcmClip?> synthesize(String text, {required String accent, required double rate}) async {
+    rendered.add(text);
+    return PcmClip(Int16List.fromList(List.filled(22050, 3)), 22050);
+  }
+}
+
 class _RecordingPlayer implements SpeechClipPlayer {
   _RecordingPlayer({this.supportsSentences = false});
 
@@ -39,6 +65,8 @@ class _RecordingPlayer implements SpeechClipPlayer {
   final List<double> rates = [];
   final List<String> sentences = [];
   final List<String> sentenceAccents = [];
+  /// WAV buffers handed over by the engines that build their audio themselves.
+  final List<Uint8List> buffers = [];
   int stops = 0;
 
   /// Called with the index of the clip about to play (used to cancel mid-run).
@@ -50,6 +78,15 @@ class _RecordingPlayer implements SpeechClipPlayer {
     played.add(assetPath);
     rates.add(rate);
   }
+
+  @override
+  Future<void> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
+    onPlay?.call(played.length);
+    buffers.add(bytes);
+    played.add('bytes:${bytes.length}');
+    rates.add(rate);
+  }
+
 
   @override
   Future<bool> speakSentence(
@@ -444,8 +481,8 @@ void main() {
     test('the running bundle resolves the clips the speaker asks for', () async {
       // The file check above proves the clips exist on disk; this proves the
       // player can find them in the *bundle*, which is what playback uses.
-      expect(await NumberAudio.resolve('one', 'uk'), 'audio/numbers/one_uk.mp3');
-      expect(await NumberAudio.resolve('one', 'us'), 'audio/numbers/one_us.mp3');
+      expect(await NumberAudio.resolve('one', 'uk'), 'audio/numbers/one_uk.wav');
+      expect(await NumberAudio.resolve('one', 'us'), 'audio/numbers/one_us.wav');
       // A word with no clip resolves to nothing rather than to the wrong accent.
       expect(await NumberAudio.resolve('xyzzy', 'uk'), isNull);
       for (final word in NumberAudio.vocabulary) {
@@ -739,15 +776,14 @@ void main() {
       final rows = NumberTraining.generateRuns(
         digits: 2, count: 3, minLength: 3, maxLength: 3, random: Random(33));
 
-      // A machine voice reads the whole run in one utterance — starting it per
-      // number would pay the engine's start-up cost every time and stop being 连读.
+      // 组内间隔 = 0 is 连读: one utterance per row, the commas carrying the rhythm.
       final voiced = _RecordingPlayer(supportsSentences: true);
       final voice = NumberSpeaker(player: voiced, resolver: _noClips);
       final seen = <int>[];
       await voice.speakRuns(
         [for (final row in rows) row.textsFor('us')],
         accent: 'us',
-        innerGap: const Duration(milliseconds: 5),
+        innerGap: Duration.zero,
         gap: const Duration(milliseconds: 5),
         onIndex: seen.add,
       );
@@ -759,7 +795,7 @@ void main() {
       final clips = _RecordingPlayer();
       final recorded = NumberSpeaker(
         player: clips,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.mp3',
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
       );
       final only = rows.first;
       await recorded.speakRuns(
@@ -773,7 +809,7 @@ void main() {
       final expected = <String>[
         for (final number in only.numbers)
           for (final group in NumberAudio.pauseGroups(number.ukText))
-            for (final word in NumberAudio.words(group)) 'audio/numbers/${word}_uk.mp3',
+            for (final word in NumberAudio.words(group)) 'audio/numbers/${word}_uk.wav',
       ];
       expect(clips.played, expected,
           reason: 'the run is played word by word, its numbers in order');
@@ -885,50 +921,55 @@ void main() {
       final player = _RecordingPlayer();
       final speaker = NumberSpeaker(
         player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.mp3',
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
       );
 
-      await speaker.speak("one thousand two hundred and thirty-four", accent: 'uk', rate: 0.75);
+      await speaker.speak(
+        "one thousand two hundred and thirty-four",
+        accent: 'uk',
+        rate: 0.75,
+        mode: SpeechMode.clips,
+      );
 
       expect(player.played, [
-        'audio/numbers/one_uk.mp3',
-        'audio/numbers/thousand_uk.mp3',
-        'audio/numbers/two_uk.mp3',
-        'audio/numbers/hundred_uk.mp3',
-        'audio/numbers/and_uk.mp3',
-        'audio/numbers/thirty_uk.mp3',
-        'audio/numbers/four_uk.mp3',
+        'audio/numbers/one_uk.wav',
+        'audio/numbers/thousand_uk.wav',
+        'audio/numbers/two_uk.wav',
+        'audio/numbers/hundred_uk.wav',
+        'audio/numbers/and_uk.wav',
+        'audio/numbers/thirty_uk.wav',
+        'audio/numbers/four_uk.wav',
       ]);
       expect(player.rates, everyElement(0.75), reason: 'the speed knob reaches the player');
 
       // The other accent is a different set of recordings, not a different word.
-      await speaker.speak('one', accent: 'us');
-      expect(player.played.last, 'audio/numbers/one_us.mp3');
+      await speaker.speak('one', accent: 'us', mode: SpeechMode.clips);
+      expect(player.played.last, 'audio/numbers/one_us.wav');
     });
 
     test('phone groups are spoken as separate chunks', () async {
       final player = _RecordingPlayer();
       final speaker = NumberSpeaker(
         player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.mp3',
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
       );
       final reading = NumberSpeller.read('+44 20 7946 0958', as: NumberCategory.phone)!;
-      await speaker.speak(reading.ukText, accent: 'uk');
+      await speaker.speak(reading.ukText, accent: 'uk', mode: SpeechMode.clips);
 
       expect(player.played, [
-        'audio/numbers/plus_uk.mp3',
-        'audio/numbers/four_uk.mp3',
-        'audio/numbers/four_uk.mp3',
-        'audio/numbers/two_uk.mp3',
-        'audio/numbers/oh_uk.mp3',
-        'audio/numbers/seven_uk.mp3',
-        'audio/numbers/nine_uk.mp3',
-        'audio/numbers/four_uk.mp3',
-        'audio/numbers/six_uk.mp3',
-        'audio/numbers/oh_uk.mp3',
-        'audio/numbers/nine_uk.mp3',
-        'audio/numbers/five_uk.mp3',
-        'audio/numbers/eight_uk.mp3',
+        'audio/numbers/plus_uk.wav',
+        'audio/numbers/four_uk.wav',
+        'audio/numbers/four_uk.wav',
+        'audio/numbers/two_uk.wav',
+        'audio/numbers/oh_uk.wav',
+        'audio/numbers/seven_uk.wav',
+        'audio/numbers/nine_uk.wav',
+        'audio/numbers/four_uk.wav',
+        'audio/numbers/six_uk.wav',
+        'audio/numbers/oh_uk.wav',
+        'audio/numbers/nine_uk.wav',
+        'audio/numbers/five_uk.wav',
+        'audio/numbers/eight_uk.wav',
       ]);
     });
 
@@ -936,7 +977,7 @@ void main() {
       final player = _RecordingPlayer();
       final speaker = NumberSpeaker(
         player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.mp3',
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
       );
 
       final seen = <int>[];
@@ -946,19 +987,20 @@ void main() {
         rate: 1.0,
         gap: const Duration(milliseconds: 10),
         onIndex: seen.add,
+        mode: SpeechMode.clips,
       );
       expect(seen, [0, 1, 2]);
       expect(player.played, [
-        'audio/numbers/one_us.mp3',
-        'audio/numbers/two_us.mp3',
-        'audio/numbers/three_us.mp3',
+        'audio/numbers/one_us.wav',
+        'audio/numbers/two_us.wav',
+        'audio/numbers/three_us.wav',
       ]);
 
       // 停止 must silence the current clip and drop the rest of the run.
       player.played.clear();
       final stopping = NumberSpeaker(
         player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.mp3',
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
       );
       player.onPlay = (index) {
         if (index == 1) stopping.cancel();
@@ -972,10 +1014,10 @@ void main() {
       final player = _RecordingPlayer();
       final speaker = NumberSpeaker(
         player: player,
-        resolver: (word, accent) async => word == 'one' ? 'audio/numbers/one_$accent.mp3' : null,
+        resolver: (word, accent) async => word == 'one' ? 'audio/numbers/one_$accent.wav' : null,
       );
-      await speaker.speak('one xyzzy two', accent: 'uk');
-      expect(player.played, ['audio/numbers/one_uk.mp3']);
+      await speaker.speak('one xyzzy two', accent: 'uk', mode: SpeechMode.clips);
+      expect(player.played, ['audio/numbers/one_uk.wav']);
     });
 
     test('the machine voice is chosen off the best engine that fits the accent', () {
@@ -1005,6 +1047,363 @@ void main() {
       expect(chooseSentenceVoice(const [], 'us'), isNull);
     });
 
+    test('browser and Android voices follow the same accent rules, offline first', () {
+      const cloudUs = SentenceVoice(
+        name: 'Google US English',
+        language: 'en-US',
+        engine: VoiceEngine.browser,
+        offline: false,
+      );
+      const localGb = SentenceVoice(
+        name: 'Daniel',
+        language: 'en-GB',
+        engine: VoiceEngine.browser,
+      );
+      const localUs = SentenceVoice(
+        name: 'en-us-x-sfg#female_1-local',
+        language: 'en-US',
+        engine: VoiceEngine.androidTts,
+      );
+
+      expect(chooseSentenceVoice([cloudUs, localGb, localUs], 'us')?.name,
+          'en-us-x-sfg#female_1-local');
+      expect(chooseSentenceVoice([cloudUs, localGb, localUs], 'uk')?.name, 'Daniel');
+
+      // A cloud voice would go silent with the network unplugged, so the local
+      // voice wins even when it is not the accent the card asked for…
+      expect(chooseSentenceVoice([cloudUs, localGb], 'us')?.name, 'Daniel');
+      // …and it is only used when nothing local can speak English at all.
+      expect(chooseSentenceVoice([cloudUs], 'us')?.name, 'Google US English');
+      expect(sentenceVoiceDescription(cloudUs, 'uk'), contains('这条语音要联网'));
+    });
+
+    test('a sentence handed to an engine reads as one sentence', () {
+      // Engines take their prosody from punctuation, so a bare card value would
+      // be read flat.
+      expect(sentenceForSpeech('twenty-four'), 'Twenty-four.');
+      expect(sentenceForSpeech('  24  '), '24.');
+      expect(sentenceForSpeech('one hundred and five.'), 'One hundred and five.');
+      expect(sentenceForSpeech(''), '');
+    });
+
+    test('a spliced sentence is one clip, with the pauses inside it', () async {
+      final player = _RecordingPlayer(supportsSentences: true);
+      // Two words per group, 10 ms each, so the buffer alone proves the order,
+      // the pause a comma stands for, and that it is all one playback.
+      Uint8List clip(int marker) =>
+          encodeWav(Int16List.fromList(List.filled(240, marker)), sampleRate: 24000);
+      final splicer = SplicedSentence(
+        player: player,
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
+        loader: (path) async => clip(path.contains('twenty') ? 100 : 200),
+      );
+
+      expect(await splicer.speak('twenty-four', accent: 'uk', rate: 1.0), isTrue);
+      expect(player.played, hasLength(1), reason: 'one clip, not one per word');
+      expect(player.buffers, hasLength(1));
+
+      final joined = decodeWav(player.buffers.single);
+      expect(joined.sampleRate, 24000);
+      // 240 + 240 samples, no pause: no comma in this sentence.
+      expect(joined.samples.length, 480);
+      expect(joined.samples.first, 100);
+      expect(joined.samples.last, 200);
+
+      // A comma becomes 200 ms of real silence *inside* the same clip.
+      expect(await splicer.speak('twenty, four', accent: 'uk', rate: 1.0), isTrue);
+      final withPause = decodeWav(player.buffers.last);
+      expect(withPause.samples.length, 480 + 4800);
+      expect(withPause.samples[240], 0, reason: 'silence where the comma was');
+      expect(withPause.samples[480 + 4799], 200);
+    });
+
+    test('a sentence without any clip is handed back to the recorded words', () async {
+      // No engine can read it — the player has no voice, there is no model, and
+      // this splicer has nothing to splice — so the words are played singly.
+      final player = _RecordingPlayer();
+      final splicer = SplicedSentence(
+        player: player,
+        resolver: (word, accent) async => null,
+        loader: (path) async => null,
+      );
+
+      expect(await splicer.speak('twenty-four', accent: 'uk', rate: 1.0), isFalse);
+      expect(player.played, isEmpty, reason: 'nothing to splice, nothing played');
+
+      // The speaker then says it word by word, which is the standing fallback.
+      final speaker = NumberSpeaker(
+        player: player,
+        engine: SentenceEngine.spliced,
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
+        splicer: splicer,
+      );
+      await speaker.speak('twenty-four', accent: 'uk');
+      expect(player.played, [
+        'audio/numbers/twenty_uk.wav',
+        'audio/numbers/four_uk.wav',
+      ]);
+    });
+
+    test('the selected engine is the one that speaks', () async {
+      final player = _RecordingPlayer(supportsSentences: true);
+      final splicer = SplicedSentence(
+        player: player,
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
+        loader: (path) async =>
+            encodeWav(Int16List.fromList([7, 7, 7]), sampleRate: 24000),
+      );
+      final speaker = NumberSpeaker(
+        player: player,
+        engine: SentenceEngine.spliced,
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
+        splicer: splicer,
+      );
+
+      await speaker.speak('twenty-four', accent: 'uk');
+      expect(player.buffers, hasLength(1));
+      expect(player.sentences, isEmpty, reason: 'the system voice is not asked');
+
+      // Switching the engine at runtime switches the path.
+      speaker.engine = SentenceEngine.system;
+      await speaker.speak('twenty-four', accent: 'uk');
+      expect(player.sentences, ['twenty-four']);
+    });
+
+    test('the PCM helpers keep 16-bit mono audio intact', () {
+      final samples = Int16List.fromList([-32768, -1, 0, 1, 32767]);
+      final decoded = decodeWav(encodeWav(samples, sampleRate: 24000));
+      expect(decoded.sampleRate, 24000);
+      expect(decoded.samples, samples);
+      expect(decoded.duration, const Duration(microseconds: 208));
+
+      // A model's float output clamps instead of wrapping around.
+      final clamped = fromFloat32([-2.0, -1.0, 0.0, 0.5, 1.0, 2.0], 22050);
+      expect(clamped.samples.first, -32768);
+      expect(clamped.samples.last, 32767);
+      expect(clamped.samples[3], 16384);
+
+      // Joining inserts exactly the silence asked for.
+      final joined = joinClips(
+        [decoded, decoded],
+        gaps: const [Duration(milliseconds: 100)],
+      );
+      expect(joined.samples.length, 5 + 2400 + 5);
+      expect(joined.samples[5], 0);
+
+      expect(PcmClip.silence(const Duration(milliseconds: 200), 24000).sampleCount, 4800);
+    });
+
+    test('importing a Piper voice copies it in, whatever layout it arrives in', () async {
+      final root = Directory.systemTemp.createTempSync('piper_import');
+      addTearDown(() => root.deleteSync(recursive: true));
+
+      /// One voice, as the fetch tool writes it (plus a second accent's folder
+      /// which must be ignored when only one is asked for).
+      void voice(String accent, String modelName) {
+        final folder = Directory(p.join(root.path, 'source', 'piper', accent))
+          ..createSync(recursive: true);
+        File(p.join(folder.path, modelName)).writeAsBytesSync([1, 2, 3]);
+        File(p.join(folder.path, 'tokens.txt')).writeAsStringSync('a 1\n');
+        Directory(p.join(folder.path, 'espeak-ng-data')).createSync();
+        File(p.join(folder.path, 'espeak-ng-data', 'en_dict')).writeAsBytesSync([9]);
+      }
+
+      voice('uk', 'en_GB-alan-medium.onnx');
+      voice('us', 'en_US-lessac-medium.onnx');
+
+      final destination = Directory(p.join(root.path, 'store'));
+      final installed = await copyPiperModels(
+        source: p.join(root.path, 'source'),
+        destination: destination.path,
+      );
+
+      expect(installed, ['uk', 'us']);
+      for (final accent in ['uk', 'us']) {
+        final folder = Directory(p.join(destination.path, 'piper', accent));
+        // The canonical names, so every platform addresses the same paths.
+        expect(File(p.join(folder.path, 'model.onnx')).existsSync(), isTrue);
+        expect(File(p.join(folder.path, 'tokens.txt')).existsSync(), isTrue);
+        expect(Directory(p.join(folder.path, 'espeak-ng-data')).existsSync(), isTrue);
+        // …and the manifest the browser fetches.
+        expect(File(p.join(folder.path, 'files.txt')).readAsStringSync(),
+            contains('model.onnx'));
+      }
+
+      // A folder holding one voice directly: the accent comes from the file name.
+      final single = Directory(p.join(root.path, 'single'))..createSync();
+      File(p.join(single.path, 'en_GB-alan-medium.onnx')).writeAsBytesSync([1]);
+      File(p.join(single.path, 'tokens.txt')).writeAsStringSync('a 1\n');
+      Directory(p.join(single.path, 'espeak-ng-data')).createSync();
+      expect(
+        await copyPiperModels(source: single.path, destination: destination.path),
+        ['uk'],
+      );
+
+      // Nothing usable: no voice, no import.
+      final empty = Directory(p.join(root.path, 'empty'))..createSync();
+      expect(
+        await copyPiperModels(source: empty.path, destination: destination.path),
+        isEmpty,
+      );
+    });
+
+    test('a picked archive installs the voices it holds', () async {
+      final root = Directory.systemTemp.createTempSync('piper_zip_test');
+      addTearDown(() => root.deleteSync(recursive: true));
+
+      // Built the way tool/fetch_piper_models.py packs it: one folder per accent.
+      List<int> zipOf(List<String> entries) {
+        final archive = Archive();
+        for (final path in entries) {
+          archive.addFile(ArchiveFile(path, 4, utf8.encode('data')));
+        }
+        return ZipEncoder().encode(archive);
+      }
+
+      final installed = await installPiperArchiveIn(
+        zipOf([
+          'uk/en_GB-alan-medium.onnx',
+          'uk/tokens.txt',
+          'uk/espeak-ng-data/en_dict',
+          'us/en_US-lessac-medium.onnx',
+          'us/tokens.txt',
+          'us/espeak-ng-data/en_dict',
+          'readme.txt',
+        ]),
+        root.path,
+      );
+
+      expect(installed, ['uk', 'us']);
+      for (final accent in ['uk', 'us']) {
+        final folder = Directory(p.join(root.path, 'piper', accent));
+        expect(File(p.join(folder.path, 'model.onnx')).existsSync(), isTrue,
+            reason: 'the model keeps its canonical name');
+        expect(File(p.join(folder.path, 'tokens.txt')).existsSync(), isTrue);
+        expect(File(p.join(folder.path, 'espeak-ng-data', 'en_dict')).existsSync(), isTrue);
+      }
+
+      // An archive with no voice in it installs nothing.
+      expect(
+        await installPiperArchiveIn(zipOf(['readme.txt']), root.path),
+        isEmpty,
+      );
+    });
+
+    test('a number is not split into words when the chosen engine cannot read it', () async {
+      // The Android case: the phone's TTS has no English voice, so the engine the
+      // user picked answers false. Two-digit numbers must still come out as one
+      // clip — that is what regression-testing this is for.
+      final player = _RecordingPlayer(); // supportsSentences: false
+      final speaker = NumberSpeaker(
+        player: player,
+        engine: SentenceEngine.system,
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
+        splicer: SplicedSentence(
+          player: player,
+          resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
+          loader: (path) async =>
+              encodeWav(Int16List.fromList(List.filled(240, 7)), sampleRate: 24000),
+        ),
+      );
+
+      await speaker.speak('twenty-four', accent: 'uk');
+
+      expect(speaker.spokenBy, SentenceEngine.spliced);
+      expect(player.buffers, hasLength(1), reason: 'one clip for the whole number');
+      expect(
+        player.played.where((entry) => entry.endsWith('.wav')),
+        isEmpty,
+        reason: 'no single-word playback: that is the bug this guards',
+      );
+    });
+
+    test('the chosen engine speaks first, the fallbacks only when it cannot', () async {
+      final player = _RecordingPlayer(supportsSentences: true);
+      final splicer = SplicedSentence(
+        player: player,
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
+        loader: (path) async =>
+            encodeWav(Int16List.fromList(List.filled(240, 7)), sampleRate: 24000),
+      );
+      final speaker = NumberSpeaker(
+        player: player,
+        engine: SentenceEngine.system,
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
+        splicer: splicer,
+      );
+
+      await speaker.speak('twenty-four', accent: 'uk');
+      expect(speaker.spokenBy, SentenceEngine.system);
+      expect(player.sentences, hasLength(1));
+      expect(player.buffers, isEmpty, reason: 'nothing else was tried');
+
+      // The neural engine sits between the host voice and the recordings.
+      final mute = _RecordingPlayer();
+      final neutered = NumberSpeaker(
+        player: mute,
+        engine: SentenceEngine.system,
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
+        splicer: splicer,
+        piper: _StubPiper(),
+      );
+      await neutered.speak('twenty-four', accent: 'uk');
+      expect(neutered.spokenBy, SentenceEngine.piper);
+      expect(mute.buffers, hasLength(1), reason: 'the model spoke, not the clips');
+      expect(mute.played.where((entry) => entry.endsWith('.wav')), isEmpty);
+    });
+
+    test('组内间隔 paces the numbers inside a row, and 0 keeps the row joined', () async {
+      final rows = NumberTraining.generateRuns(
+        digits: 2, count: 1, minLength: 3, maxLength: 3, random: Random(7));
+      final row = rows.first.textsFor('us');
+      final player = _RecordingPlayer(supportsSentences: true);
+      final voice = NumberSpeaker(player: player, resolver: _noClips);
+
+      await voice.speakRuns([row], accent: 'us', innerGap: Duration.zero);
+      expect(player.sentences, [row.join(', ')],
+          reason: '0 = 连读: the engine reads the whole row as one sentence');
+
+      player.sentences.clear();
+      final watch = Stopwatch()..start();
+      await voice.speakRuns(
+        [row],
+        accent: 'us',
+        innerGap: const Duration(milliseconds: 200),
+      );
+      final elapsed = watch.elapsed;
+      expect(player.sentences, row, reason: 'a gap means one utterance per number');
+      expect(elapsed.inMilliseconds, greaterThanOrEqualTo(200 * (row.length - 1)),
+          reason: 'the slider has to be audible — this is the bug it had');
+    });
+
+    test('a Piper row is rendered up front so the 组内 gap is the gap', () async {
+      // The model is slow (about a second per number on a phone) and synthesizing
+      // between two numbers would stretch every pause by that cost. The row is
+      // therefore one clip whose silence is exactly the setting.
+      final player = _RecordingPlayer();
+      final piper = _StubPiper();
+      final speaker = NumberSpeaker(
+        player: player,
+        engine: SentenceEngine.piper,
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
+        piper: piper,
+      );
+
+      await speaker.speakRuns(
+        [
+          ['twenty-four', 'thirty-one'],
+        ],
+        accent: 'uk',
+        innerGap: const Duration(milliseconds: 200),
+      );
+
+      expect(player.buffers, hasLength(1), reason: 'the whole row is one clip');
+      expect(piper.rendered, ['Twenty-four.', 'Thirty-one.']);
+      // 22050 samples per part (the stub) + 200 ms of silence between them.
+      final clip = decodeWav(player.buffers.single);
+      expect(clip.sampleCount, 22050 * 2 + (22050 * 0.2).round());
+    });
+
     test('a sentence goes to the system voice as one utterance', () async {
       final player = _RecordingPlayer(supportsSentences: true);
       final speaker = NumberSpeaker(player: player, resolver: _noClips);
@@ -1018,22 +1417,22 @@ void main() {
       expect(player.played, isEmpty, reason: 'no clip playback when a voice exists');
     });
 
-    test('the recorded words take over when the platform has no voice', () async {
-      // The web build and machines without an English voice answer false, and the
-      // module must still say the number — word by word.
+    test('a device without a voice reads the number continuously, not word by word', () async {
+      // The web build and phones whose TTS has no English answer false. The
+      // number must still come out as one clip — reading "twenty … one" instead
+      // is the bug this guards.
       final player = _RecordingPlayer();
       final speaker = NumberSpeaker(
         player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.mp3',
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
       );
 
       await speaker.speak('twenty-one', accent: 'uk');
 
       expect(player.sentences, ['twenty-one'], reason: 'the voice was tried first');
-      expect(player.played, [
-        'audio/numbers/twenty_uk.mp3',
-        'audio/numbers/one_uk.mp3',
-      ]);
+      expect(speaker.spokenBy, SentenceEngine.spliced);
+      expect(player.buffers, isNotEmpty);
+      expect(player.played.where((entry) => entry.endsWith('.wav')), isEmpty);
     });
 
     test('日期 teaches every month and weekday as its own word', () {
@@ -1110,13 +1509,13 @@ void main() {
       final player = _RecordingPlayer(supportsSentences: true);
       final speaker = NumberSpeaker(
         player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.mp3',
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
       );
 
       await speaker.speak('two', accent: 'us', mode: SpeechMode.clips);
 
       expect(player.sentences, isEmpty);
-      expect(player.played, ['audio/numbers/two_us.mp3']);
+      expect(player.played, ['audio/numbers/two_us.wav']);
     });
 
     testWidgets('the numbers screen teaches, listens and drills', (tester) async {

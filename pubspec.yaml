@@ -43,12 +43,18 @@ dependencies:
   sqflite_common_ffi: ^2.4.3
   file_picker: ^13.1.0
   flutter_widget_from_html_core: ^0.17.4
+  # HtmlWidget exposes entry markup as a `dom.Element`; the same version the
+  # renderer itself uses, so the two cannot drift apart.
+  html: ^0.15.7
   provider: ^6.1.5+1
   shared_preferences: ^2.5.5
   intl: ^0.20.3
   http: ^1.2.0
   shelf: ^1.4.2
   shelf_router: ^1.1.4
+  web: ^1.1.1
+  sherpa_onnx: ^1.13.8
+  archive: ^4.5.2
 
 dev_dependencies:
   flutter_test:

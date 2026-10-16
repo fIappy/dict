@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
+import 'package:html/dom.dart' as dom;
 import '../../core/audio/audio_manager.dart';
 import '../../core/mdx/mdx_entry.dart';
 
@@ -182,94 +183,24 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
   Widget _buildHtmlContent(String html, bool isDark) {
     final primaryColor = Theme.of(context).colorScheme.primary;
     final primaryHex = '#${primaryColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
-    final textColor = isDark ? '#E2E8F0' : '#1E293B';
     final secondaryTextColor = isDark ? '#94A3B8' : '#64748B';
     final exBgColor = isDark ? 'rgba(59, 130, 246, 0.10)' : 'rgba(59, 130, 246, 0.06)';
     final borderColor = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)';
 
-    final styledHtml = '''
-      <style>
-        body {
-          color: $textColor;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-          line-height: 1.65;
-          margin: 0;
-          padding: 0;
-        }
-        .hw { display: none; }
-        .pron {
-          color: $primaryHex;
-          font-weight: 500;
-          margin-bottom: 8px;
-        }
-        .pos {
-          color: $primaryHex;
-          font-weight: 700;
-          font-size: 1.05em;
-          margin-top: 14px;
-          margin-bottom: 6px;
-        }
-        .section-title h3 {
-          margin-top: 20px;
-          margin-bottom: 10px;
-          color: $primaryHex;
-          font-size: 1.1em;
-          border-bottom: 2px solid $primaryHex;
-          padding-bottom: 4px;
-          display: inline-block;
-        }
-        .section-divider {
-          border: none;
-          border-top: 1px dashed $borderColor;
-          margin: 24px 0;
-        }
-        .defs {
-          padding-left: 20px;
-          margin-top: 8px;
-          margin-bottom: 16px;
-        }
-        li {
-          margin-bottom: 12px;
-          line-height: 1.6;
-        }
-        .ex, blockquote.exq {
-          display: block;
-          margin-top: 8px;
-          margin-bottom: 8px;
-          padding: 8px 12px;
-          background-color: $exBgColor;
-          border-left: 3px solid $primaryHex;
-          border-radius: 4px;
-          font-style: italic;
-          color: $secondaryTextColor;
-        }
-        .sec, .csec {
-          margin-bottom: 20px;
-        }
-        a {
-          color: $primaryHex;
-          text-decoration: none;
-          font-weight: 500;
-        }
-        .syn, .ant {
-          color: $secondaryTextColor;
-          margin-top: 4px;
-        }
-        hr {
-          border: none;
-          border-top: 1px solid $borderColor;
-          margin: 16px 0;
-        }
-      </style>
-      <div>$html</div>
-    ''';
+    final entryStyles = _entryStyles(
+      primary: primaryHex,
+      secondary: secondaryTextColor,
+      exampleBackground: exBgColor,
+      border: borderColor,
+    );
 
     return HtmlWidget(
-      styledHtml,
+      html,
       textStyle: TextStyle(
         fontSize: 15.0 * widget.fontSizeScale,
         height: 1.6,
       ),
+      customStylesBuilder: entryStyles,
       onTapUrl: (url) {
         if (url.startsWith('sound://')) {
           final soundKey = url.substring('sound://'.length);
@@ -289,5 +220,160 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
         return false;
       },
     );
+  }
+
+  /// Styles for the markup this reader renders.
+  ///
+  /// `HtmlWidget` never interprets `<style>` blocks — it builds them as
+  /// `display: none` — so the only way CSS reaches it is this callback, which
+  /// is why every rule lives here instead of in a stylesheet string. Rules are
+  /// keyed by tag name and CSS class, the way the archives write them.
+  ///
+  /// Covered: Dictionary.com (`hw` / `pron` / `pos` / `defs` / `ex` / `sec`)
+  /// and SIO 双向双解词典, whose records split a headword into an audio bar, a
+  /// concise entry, 词语搭配 and 权威例句 sections that would otherwise run
+  /// together into a single paragraph.
+  StylesMap? Function(dom.Element) _entryStyles({
+    required String primary,
+    required String secondary,
+    required String exampleBackground,
+    required String border,
+  }) {
+    return (element) {
+      final styles = <String, String>{};
+      final classes = element.classes;
+
+      switch (element.localName) {
+        case 'li':
+          styles['margin-bottom'] = '12px';
+          styles['line-height'] = '1.6';
+        case 'hr':
+          styles['border'] = 'none';
+          styles['border-top'] = '1px solid $border';
+          styles['margin'] = '16px 0';
+        case 'a':
+          styles['color'] = primary;
+          styles['text-decoration'] = 'none';
+          styles['font-weight'] = '500';
+        case 'h3' when _hasAncestorClass(element, 'section-title'):
+          styles['margin-top'] = '20px';
+          styles['margin-bottom'] = '10px';
+          styles['color'] = primary;
+          styles['font-size'] = '1.1em';
+          styles['border-bottom'] = '2px solid $primary';
+          styles['padding-bottom'] = '4px';
+          styles['display'] = 'inline-block';
+        // Chinese side of a bilingual example: rendered as plain text, since
+        // the 中文显隐 toggle needs the archive's JavaScript.
+        case 'zh_cn':
+          styles['display'] = 'block';
+          styles['margin-top'] = '2px';
+          styles['color'] = secondary;
+          styles['font-size'] = '0.94em';
+      }
+
+      if (classes.contains('hw')) {
+        styles['display'] = 'none';
+      }
+      if (classes.contains('pron')) {
+        styles['color'] = primary;
+        styles['font-weight'] = '500';
+        styles['margin-bottom'] = '8px';
+      }
+      if (classes.contains('pos')) {
+        styles['color'] = primary;
+        styles['font-weight'] = '700';
+        styles['font-size'] = '1.05em';
+        styles['margin-top'] = '14px';
+        styles['margin-bottom'] = '6px';
+      }
+      if (classes.contains('section-divider')) {
+        styles['border'] = 'none';
+        styles['border-top'] = '1px dashed $border';
+        styles['margin'] = '24px 0';
+      }
+      if (classes.contains('defs')) {
+        styles['padding-left'] = '20px';
+        styles['margin-top'] = '8px';
+        styles['margin-bottom'] = '16px';
+      }
+      if (classes.contains('ex') ||
+          (element.localName == 'blockquote' && classes.contains('exq'))) {
+        styles['display'] = 'block';
+        styles['margin'] = '8px 0';
+        styles['padding'] = '8px 12px';
+        styles['background-color'] = exampleBackground;
+        styles['border-left'] = '3px solid $primary';
+        styles['border-radius'] = '4px';
+        styles['font-style'] = 'italic';
+        styles['color'] = secondary;
+      }
+      if (classes.contains('sec') || classes.contains('csec')) {
+        styles['margin-bottom'] = '20px';
+      }
+      if (classes.contains('syn') || classes.contains('ant')) {
+        styles['color'] = secondary;
+        styles['margin-top'] = '4px';
+      }
+      if (classes.contains('tio_forvo')) {
+        styles['display'] = 'block';
+        styles['margin-bottom'] = '12px';
+      }
+      if (element.localName == 'a' && _hasAncestorClass(element, 'tio_forvo')) {
+        styles['display'] = 'inline-block';
+        styles['margin'] = '0 6px 4px 0';
+        styles['padding'] = '1px 8px';
+        styles['border'] = '1px solid $border';
+        styles['border-radius'] = '10px';
+        styles['font-size'] = '11.5px';
+        styles['font-weight'] = '500';
+        styles['text-decoration'] = 'none';
+      }
+      if (classes.contains('pg_simple')) {
+        styles['display'] = 'block';
+        styles['margin-bottom'] = '6px';
+      }
+      if (classes.contains('pg_hw')) {
+        styles['font-weight'] = '700';
+        styles['font-size'] = '1.1em';
+      }
+      if (classes.contains('pg_phrase') || classes.contains('pg_sentence')) {
+        styles['display'] = 'block';
+        styles['margin'] = '18px 0 8px';
+        styles['padding-bottom'] = '4px';
+        styles['border-bottom'] = '2px solid $primary';
+        styles['color'] = primary;
+        styles['font-size'] = '1.05em';
+        styles['font-weight'] = '700';
+      }
+      if (classes.contains('pg_exam')) {
+        styles['display'] = 'block';
+        styles['margin'] = '6px 0 6px 10px';
+      }
+      if (classes.contains('pg_key')) {
+        styles['color'] = primary;
+        styles['font-weight'] = '700';
+      }
+      if (classes.contains('pg_ht')) {
+        styles['text-decoration'] = 'underline';
+      }
+      if (classes.contains('pg_book')) {
+        styles['margin-left'] = '6px';
+        styles['font-size'] = '0.82em';
+        styles['color'] = secondary;
+      }
+      if (classes.contains('comment')) {
+        styles['display'] = 'none';
+      }
+
+      return styles.isEmpty ? null : styles;
+    };
+  }
+
+  static bool _hasAncestorClass(dom.Element element, String name) {
+    for (var node = element.parent; node is dom.Element; node = node.parent) {
+      if (node.classes.contains(name)) return true;
+    }
+    return false;
   }
 }

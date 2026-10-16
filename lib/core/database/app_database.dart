@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -22,12 +23,17 @@ class AppDatabase {
       databaseFactory = databaseFactoryFfi;
     }
 
-    final docsDir = await getApplicationDocumentsDirectory();
-    final dbDir = Directory(p.join(docsDir.path, 'local_dict'));
+    // App data lives in the app support folder. Documents is not guaranteed to
+    // exist or be writable — on Windows it can be redirected to OneDrive or
+    // locked down by policy, where `createSync` fails with "path not found"
+    // and every provider that touches the registry dies on startup.
+    final supportDir = await getApplicationSupportDirectory();
+    final dbDir = Directory(p.join(supportDir.path, 'local_dict'));
     if (!dbDir.existsSync()) {
       dbDir.createSync(recursive: true);
     }
     final dbPath = p.join(dbDir.path, 'dict_app.db');
+    await _adoptLegacyDatabase(dbPath);
 
     return await openDatabase(
       dbPath,
@@ -126,6 +132,34 @@ class AppDatabase {
         });
       },
     );
+  }
+
+  /// Earlier versions kept the database under Documents; bring that file along
+  /// once so favorites, history and the dictionary registry are not lost.
+  static Future<void> _adoptLegacyDatabase(String dbPath) async {
+    if (File(dbPath).existsSync()) return;
+
+    final File legacy;
+    try {
+      legacy = File(p.join(
+        (await getApplicationDocumentsDirectory()).path,
+        'local_dict',
+        'dict_app.db',
+      ));
+    } on Exception {
+      return; // No readable Documents folder: nothing to adopt.
+    }
+    if (!legacy.existsSync()) return;
+
+    try {
+      legacy.renameSync(dbPath);
+    } on FileSystemException {
+      try {
+        legacy.copySync(dbPath);
+      } on FileSystemException catch (e) {
+        debugPrint('Could not bring the previous database to $dbPath: $e');
+      }
+    }
   }
 
   Future<void> close() async {
