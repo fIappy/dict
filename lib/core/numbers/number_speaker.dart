@@ -1,6 +1,7 @@
 import '../audio/audio_manager.dart';
 import '../audio/pcm_audio.dart';
 import '../audio/piper_voice.dart';
+import '../audio/speech_rate.dart';
 import '../audio/speech_clip_player.dart';
 import '../audio/voice_choice.dart';
 import 'number_audio.dart';
@@ -81,7 +82,9 @@ class NumberSpeaker {
     SpeechMode mode = SpeechMode.sentence,
   }) async {
     _cancelled = false;
-    await _speak(sentence, accent: accent, rate: rate, mode: mode);
+    // One conversion, at the component that talks to the engines: everything
+    // below (system voice, Piper, recorded clips) is handed an engine rate.
+    await _speak(sentence, accent: accent, rate: engineRateFor(rate), mode: mode);
   }
 
   /// Speaks [sentences] one after another, waiting [gap] between them.
@@ -126,6 +129,7 @@ class NumberSpeaker {
     SpeechMode mode = SpeechMode.sentence,
   }) async {
     _cancelled = false;
+    final engineRate = engineRateFor(rate);
     final joinRow = mode == SpeechMode.sentence && innerGap == Duration.zero;
     // Piper synthesizes on the device's CPU — about a second per number on a
     // phone — and that cost would land *between* two numbers, so the pause the
@@ -145,7 +149,7 @@ class NumberSpeaker {
       final parts = joinRow && rows[i].length > 1 ? <String>[rows[i].join(', ')] : rows[i];
 
       if (renderRowFirst && parts.length > 1) {
-        if (await _playRenderedRow(parts, accent: accent, rate: rate, innerGap: innerGap)) {
+        if (await _playRenderedRow(parts, accent: accent, rate: engineRate, innerGap: innerGap)) {
           if (_cancelled || i == rows.length - 1) return;
           await Future.delayed(gap);
           continue;
@@ -155,7 +159,7 @@ class NumberSpeaker {
 
       for (var j = 0; j < parts.length; j++) {
         if (_cancelled) return;
-        await _speak(parts[j], accent: accent, rate: rate, mode: mode);
+        await _speak(parts[j], accent: accent, rate: engineRate, mode: mode);
         if (_cancelled || j == parts.length - 1) break;
         await Future.delayed(innerGap);
       }

@@ -65,7 +65,13 @@ const double teachingAnchor = 0.5;
 /// Below this engine rate the prosody control stops responding.
 double get minimalEngineRate => oneCoreSteps.first.speed;
 
-/// Natural-rate multiplier the engine should be asked for.
+/// The one conversion from a slider value to the rate an engine is asked for.
+///
+/// Every rate consumer — the Windows and Android system voices, the browser's
+/// speechSynthesis, Piper and the recorded-clip player — must be handed the
+/// result of this, and only this. Applying it inside one engine instead (as the
+/// Windows path used to) leaves the others playing at native speed for the same
+/// slider position.
 double engineRateFor(double uiRate) => uiRate * teachingAnchor;
 
 /// One achievable speed and the engine setting that produces it.
@@ -157,14 +163,17 @@ class SpeechPlan {
   String toString() => 'SpeechPlan(prosody: $prosodyPercent%, gap: ${wordGapMs}ms)';
 }
 
-/// The plan for [uiRate] (a slider value) over an utterance of [wordCount] words.
-SpeechPlan speechPlanFor(double uiRate, {required int wordCount}) {
-  final engineRate = engineRateFor(uiRate).clamp(_slowestEngineRate, _fastestEngineRate);
-  if (engineRate >= minimalEngineRate || wordCount < 2) {
+/// The plan for an utterance of [wordCount] words at [engineRate].
+///
+/// Takes the output of [engineRateFor], not a slider value: the conversion
+/// happens once, at the module that owns the slider.
+SpeechPlan speechPlanFor(double engineRate, {required int wordCount}) {
+  final clamped = engineRate.clamp(_slowestEngineRate, _fastestEngineRate);
+  if (clamped >= minimalEngineRate || wordCount < 2) {
     // A single word has no gap to put a pause in; it keeps the floor and stops
     // there rather than inventing trailing silence.
     return SpeechPlan(
-      prosodyPercent: nearestSpeechRate(oneCoreSteps, math.max(engineRate, minimalEngineRate)),
+      prosodyPercent: nearestSpeechRate(oneCoreSteps, clamped),
       wordGapMs: 0,
     );
   }
@@ -172,7 +181,7 @@ SpeechPlan speechPlanFor(double uiRate, {required int wordCount}) {
   // time has to come from silence: the shortfall in duration ratio, spread over
   // the gaps and converted with the per-word speaking time.
   final floorRatio = 1 / minimalEngineRate;
-  final shortfall = 1 / engineRate - floorRatio;
+  final shortfall = 1 / clamped - floorRatio;
   final gaps = wordCount - 1;
   final gapMs = (shortfall * _msPerSpokenWord * wordCount / gaps).round();
   return SpeechPlan(
@@ -181,9 +190,9 @@ SpeechPlan speechPlanFor(double uiRate, {required int wordCount}) {
   );
 }
 
-/// `SpVoice.Rate` for [uiRate] (SAPI 5 desktop voices, the fallback engine).
+/// `SpVoice.Rate` for [engineRate] (SAPI 5 desktop voices, the fallback engine).
 ///
 /// SAPI has no pause support here, so its floor is hard: below it the slider
 /// keeps going but the speech does not. Its scale is wider than OneCore's,
 /// reaching 0.33x natural, which covers all but the last fifth of the slider.
-int sapiRate(double uiRate) => nearestSpeechRate(sapiSteps, engineRateFor(uiRate));
+int sapiRate(double engineRate) => nearestSpeechRate(sapiSteps, engineRate);

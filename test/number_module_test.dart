@@ -941,7 +941,9 @@ void main() {
         'audio/numbers/thirty_uk.wav',
         'audio/numbers/four_uk.wav',
       ]);
-      expect(player.rates, everyElement(0.75), reason: 'the speed knob reaches the player');
+      expect(player.rates, everyElement(0.375),
+          reason: 'the speed knob reaches the player, converted once: 0.75 on the '
+              'slider is 0.375 of the voice\'s natural rate');
 
       // The other accent is a different set of recordings, not a different word.
       await speaker.speak('one', accent: 'us', mode: SpeechMode.clips);
@@ -1414,7 +1416,8 @@ void main() {
       // One call, the whole sentence — not seven recorded words.
       expect(player.sentences, ['one thousand two hundred and thirty-four']);
       expect(player.sentenceAccents, ['us']);
-      expect(player.rates, [0.8]);
+      expect(player.rates, [0.4],
+          reason: 'the engine is handed the anchored rate, not the slider value');
       expect(player.played, isEmpty, reason: 'no clip playback when a voice exists');
     });
 
@@ -1592,26 +1595,25 @@ void main() {
   });
 
   group('Speech rate', () {
-    test('x1.0 is the teaching pace, not the voice native rate', () {
-      // Anchoring regression. Under the old meaning x1.0 asked the engine for
-      // prosody 95-100%, i.e. the voice's native speed — the fast end of what a
-      // listening drill can use, which left the whole useful band crammed at the
-      // bottom of the slider. x1.0 now sits on the prosody floor.
+    test('x1.0 on the slider is the teaching pace, not the voice native rate', () {
+      // A native speaker says the calibration phrase in 1548 ms; the drill runs
+      // it at 3100 ms because you are doing arithmetic in a second language.
       expect(engineRateFor(1.0), 0.5);
-      final plan = speechPlanFor(1.0, wordCount: 7);
+      expect(engineRateFor(NumbersLimits.minRate), closeTo(0.25, 1e-9));
+      expect(engineRateFor(NumbersLimits.maxRate), closeTo(0.75, 1e-9));
+      expect(engineRateFor(NumbersLimits.maxRate), lessThan(1.0),
+          reason: 'native speed must stay out of the drill range');
+    });
+
+    test('the teaching pace is the prosody floor, with no pauses needed', () {
+      // Anchoring regression: the old mapping asked for prosody 95-100% here.
+      final plan = speechPlanFor(engineRateFor(1.0), wordCount: 7);
       expect(plan.prosodyPercent, oneCoreSteps.first.setting);
       expect(plan.wordGapMs, 0);
     });
 
-    test('the slider spans 0.25x to 0.75x of natural', () {
-      expect(engineRateFor(NumbersLimits.minRate), closeTo(0.25, 1e-9));
-      expect(engineRateFor(NumbersLimits.maxRate), closeTo(0.75, 1e-9));
-      // native speed is deliberately no longer reachable from the drill
-      expect(engineRateFor(NumbersLimits.maxRate), lessThan(1.0));
-    });
-
-    test('below the anchor the shortfall is carried by pauses', () {
-      final slow = speechPlanFor(NumbersLimits.minRate, wordCount: 7);
+    test('below the prosody floor the shortfall is carried by pauses', () {
+      final slow = speechPlanFor(engineRateFor(NumbersLimits.minRate), wordCount: 7);
       expect(slow.prosodyPercent, oneCoreSteps.first.setting,
           reason: 'articulation is already at the floor');
       expect(slow.wordGapMs, greaterThan(0));
@@ -1619,42 +1621,70 @@ void main() {
     });
 
     test('the pause makes up the missing time', () {
-      // floor = 2.0x the 1548 ms calibration phrase = 3096 ms; x0.5 asks for
-      // 0.25x natural = 6192 ms, so 3096 ms across 6 gaps = ~516 ms each.
-      final plan = speechPlanFor(NumbersLimits.minRate, wordCount: 7);
-      expect(plan.wordGapMs, inInclusiveRange(450, 580));
+      // floor = 2.0x the 1548 ms calibration phrase = 3096 ms; 0.25x asks for
+      // 6192 ms, so 3096 ms across 6 gaps = ~516 ms each.
+      expect(speechPlanFor(0.25, wordCount: 7).wordGapMs, inInclusiveRange(450, 580));
     });
 
-    test('nothing gets faster as the rate rises', () {
+    test('nothing gets faster as the slider rises', () {
       var lastProsody = -1;
       var lastGap = 1 << 30;
-      for (var rate = NumbersLimits.minRate;
-          rate <= NumbersLimits.maxRate + 1e-9;
-          rate += 0.05) {
-        final plan = speechPlanFor(rate, wordCount: 7);
+      for (var ui = NumbersLimits.minRate;
+          ui <= NumbersLimits.maxRate + 1e-9;
+          ui += 0.05) {
+        final plan = speechPlanFor(engineRateFor(ui), wordCount: 7);
         expect(plan.prosodyPercent, greaterThanOrEqualTo(lastProsody),
-            reason: 'rate $rate');
-        expect(plan.wordGapMs, lessThanOrEqualTo(lastGap), reason: 'rate $rate');
+            reason: 'rate $ui');
+        expect(plan.wordGapMs, lessThanOrEqualTo(lastGap), reason: 'rate $ui');
         lastProsody = plan.prosodyPercent;
         lastGap = plan.wordGapMs;
       }
     });
 
     test('a one-word utterance has no gap to slow down with', () {
-      final plan = speechPlanFor(NumbersLimits.minRate, wordCount: 1);
+      final plan = speechPlanFor(0.25, wordCount: 1);
       expect(plan.wordGapMs, 0);
       expect(plan.prosodyPercent, oneCoreSteps.first.setting);
     });
 
-    test('SAPI runs off the same anchored scale', () {
-      expect(sapiRate(1.0), -6); // 0.50x natural
-      expect(sapiRate(NumbersLimits.maxRate), -2); // 0.75x natural
-      expect(sapiRate(NumbersLimits.minRate), sapiSteps.first.setting); // clamped
+    test('SAPI runs off the same engine rate', () {
+      expect(sapiRate(0.5), -6);
+      expect(sapiRate(0.75), -2);
+      expect(sapiRate(0.25), sapiSteps.first.setting); // clamped at its floor
     });
 
     test('a stored zero rate cannot break the mapping', () {
       expect(speechPlanFor(0, wordCount: 7).prosodyPercent, oneCoreSteps.first.setting);
       expect(sapiRate(-2), sapiSteps.first.setting);
+    });
+
+    test('the speaker converts the slider value exactly once', () async {
+      // Every engine must receive the engine rate. Converting inside one engine
+      // instead leaves the others playing at native speed for the same slider
+      // position, which is what the Windows-only fix originally did.
+      final player = _RecordingPlayer(supportsSentences: true);
+      final speaker = NumberSpeaker(player: player, resolver: _noClips);
+
+      await speaker.speak('two', accent: 'us', rate: 1.0);
+      expect(player.rates.single, 0.5, reason: 'x1.0 is half the natural rate');
+
+      player.rates.clear();
+      await speaker.speak('two', accent: 'us', rate: NumbersLimits.minRate);
+      expect(player.rates.single, closeTo(0.25, 1e-9));
+    });
+
+    test('clips mode receives the engine rate too', () async {
+      final player = _RecordingPlayer(supportsSentences: true);
+      final speaker = NumberSpeaker(
+        player: player,
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
+      );
+
+      await speaker.speak('two', accent: 'us',
+          rate: NumbersLimits.maxRate, mode: SpeechMode.clips);
+
+      expect(player.played, ['audio/numbers/two_us.wav']);
+      expect(player.rates.single, closeTo(0.75, 1e-9));
     });
 
     test('a rate stored before the re-anchoring keeps its pace', () async {
