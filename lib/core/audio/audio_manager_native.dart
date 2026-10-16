@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../services/dictionary_service.dart';
 import 'ipa_asset.dart';
+import 'playback_wait.dart';
 import 'sentence_voice.dart';
 import 'speech_clip_player.dart';
 
@@ -246,35 +247,24 @@ class AudioManager implements SpeechClipPlayer {
           debugPrint('Playback rate $rate unsupported: $e');
         }
       }
-      // The wait is raced against a delay with Future.any, NOT with
-      // `timeout(onTimeout:)`: that callback has to return the stream's own
-      // element type, so a `() { … }` closure compiles but fails at runtime
-      // ("type '() => Null' is not a subtype of '(() => FutureOr<AudioEvent>)?'")
-      // — which returned immediately and cut every word short.
-      //
       // Completion is what advances the queue: the clip must finish sounding
-      // before the next word starts. The stall guard can never cut a word short
-      // (its floor is longer than the longest clip, 1.0 s). No stop() before
-      // play() either: replacing the source already ends whatever is sounding.
-      final length = Future.any<Duration?>([
-        _player.onDurationChanged.first,
-        Future<Duration?>.delayed(const Duration(milliseconds: 600)),
-      ]);
-      final finished = _player.onPlayerComplete.first.then<void>((_) {});
-      await _player.play(source);
-      final reported = await length;
-      const floor = Duration(milliseconds: 1500);
-      final cap = (reported ?? floor) * 1.4 + const Duration(milliseconds: 300);
-      var completed = false;
-      await Future.any<void>([
-        finished.then((_) => completed = true),
-        Future<void>.delayed(cap > floor ? cap : floor).then((_) {
-          // The loser of the race still runs, so only a real stall is reported.
-          if (!completed) {
-            debugPrint('Speech clip $label did not report completion');
-          }
-        }),
-      ]);
+      // before the next word starts. No stop() before play() either: replacing
+      // the source already ends whatever is sounding.
+      //
+      // The wait itself is in `awaitPlayback`, which explains why the obvious
+      // `stream.first` — and the `timeout(onTimeout:)` variant before it — both
+      // cut clips short.
+      final completed = await awaitPlayback(
+        completions: _player.onPlayerComplete,
+        durations: _player.onDurationChanged,
+        start: () => _player.play(source),
+        minPlausible: _minPlausiblePlayback,
+        durationWait: const Duration(milliseconds: 600),
+        stallGuard: _clipStallGuard,
+      );
+      if (!completed) {
+        debugPrint('Speech clip $label did not report completion');
+      }
     } catch (e) {
       debugPrint('Speech clip $label failed: $e');
     } finally {
@@ -345,18 +335,43 @@ class AudioManager implements SpeechClipPlayer {
   /// Plays a rendered wav and completes when it has finished sounding.
   Future<bool> _playFileToCompletion(String path) async {
     try {
-      final finished = _player.onPlayerComplete.first.then<void>((_) {});
-      await _player.play(DeviceFileSource(path));
-      await Future.any<void>([
-        finished,
-        Future<void>.delayed(const Duration(seconds: 30)),
-      ]);
+      final completed = await awaitPlayback(
+        completions: _player.onPlayerComplete,
+        durations: _player.onDurationChanged,
+        start: () => _player.play(DeviceFileSource(path)),
+        minPlausible: _minPlausiblePlayback,
+        durationWait: const Duration(milliseconds: 600),
+        stallGuard: _utteranceStallGuard,
+      );
+      if (!completed) {
+        debugPrint('The rendered sentence did not report completion');
+      }
       return true;
     } catch (e) {
       debugPrint('Playing the rendered sentence failed: $e');
       return false;
     }
   }
+
+  /// A completion arriving sooner than this after a playback starts cannot be
+  /// that playback finishing — it is the previous source being torn down.
+  /// Kept below the shortest clip the module plays (about 300 ms).
+  static const Duration _minPlausiblePlayback = Duration(milliseconds: 120);
+
+  /// Longest a recorded clip may take. The floor is longer than the longest clip
+  /// (1.0 s), so the guard can never cut one short.
+  static Duration _clipStallGuard(Duration? reported) {
+    const floor = Duration(milliseconds: 1500);
+    final cap = (reported ?? floor) * 1.4 + const Duration(milliseconds: 300);
+    return cap > floor ? cap : floor;
+  }
+
+  /// Longest a rendered sentence may take. A rendered wav reports its duration,
+  /// so the guard scales with it; without one, keep the generous cap the
+  /// sentence path always had rather than clipping a long number.
+  static Duration _utteranceStallGuard(Duration? reported) => reported == null
+      ? const Duration(seconds: 30)
+      : reported * 1.2 + const Duration(milliseconds: 500);
 
   @override
   Future<void> stop() async {

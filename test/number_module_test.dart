@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:local_dict/core/audio/playback_wait.dart';
 import 'package:local_dict/core/audio/speech_clip_player.dart';
 import 'package:local_dict/core/audio/speech_rate.dart';
 import 'package:local_dict/core/audio/voice_choice.dart';
@@ -57,29 +58,51 @@ class _StubPiper extends PiperVoice {
 
 /// A player whose clip playback can be parked, so a run can be stopped while it
 /// sits mid-await — the window in which a shared "cancelled" flag let an
-/// abandoned run resume and talk over the run that replaced it.
+/// abandoned run resume and talk over the run that replaced it. Gates are
+/// released individually, so one run can be resumed while another stays parked.
 class _GatedPlayer implements SpeechClipPlayer {
   final List<String> played = [];
-  Completer<void>? _gate;
+  final List<Completer<void>> _gates = [];
+  bool _hold = false;
 
-  /// Park every following [playSpeechClip] until [release].
-  void hold() => _gate = Completer<void>();
+  /// Park every following [playSpeechClip] until its gate is released.
+  void hold() => _hold = true;
 
+  /// Let the parked playback that has been waiting longest continue.
+  void releaseFirst() {
+    if (_gates.isEmpty) return;
+    final gate = _gates.removeAt(0);
+    if (!gate.isCompleted) gate.complete();
+  }
+
+  /// Let every parked playback continue, and stop parking new ones.
   void release() {
-    final gate = _gate;
-    _gate = null;
-    if (gate != null && !gate.isCompleted) gate.complete();
+    _hold = false;
+    final gates = List<Completer<void>>.of(_gates);
+    _gates.clear();
+    for (final gate in gates) {
+      if (!gate.isCompleted) gate.complete();
+    }
   }
 
   @override
   Future<void> playSpeechClip(String assetPath, {double rate = 1.0}) async {
     played.add(assetPath);
-    final gate = _gate;
-    if (gate != null) await gate.future;
+    if (!_hold) return;
+    final gate = Completer<void>();
+    _gates.add(gate);
+    await gate.future;
   }
 
   @override
-  Future<void> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {}
+  Future<void> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
+    // The spliced and Piper engines play through here, so it parks too —
+    // otherwise a run that goes down that path would never be caught mid-await.
+    if (!_hold) return;
+    final gate = Completer<void>();
+    _gates.add(gate);
+    await gate.future;
+  }
 
   @override
   Future<bool> speakSentence(String sentence,
@@ -1790,6 +1813,128 @@ void main() {
         'audio/numbers/one_us.wav',
         'audio/numbers/thousand_us.wav',
       ]);
+    });
+  });
+
+  group('Playback completion', () {
+    // The audio manager's wait, with the player replaced by two streams. The
+    // bug it guards: a completion for a source the player is *tearing down*
+    // arrives a few milliseconds after the next playback starts, and a wait that
+    // cannot tell it apart ends that playback almost immediately — heard as the
+    // opening of an utterance being clipped.
+    late StreamController<void> completions;
+    late StreamController<Duration> durations;
+
+    setUp(() {
+      completions = StreamController<void>.broadcast();
+      durations = StreamController<Duration>.broadcast();
+    });
+
+    tearDown(() async {
+      await completions.close();
+      await durations.close();
+    });
+
+    Future<bool> waitFor({
+      Duration minPlausible = const Duration(milliseconds: 60),
+      Duration durationWait = const Duration(milliseconds: 20),
+      Duration guard = const Duration(milliseconds: 120),
+      Duration Function(Duration?)? stallGuard,
+    }) =>
+        awaitPlayback(
+          completions: completions.stream,
+          durations: durations.stream,
+          start: () async {},
+          minPlausible: minPlausible,
+          durationWait: durationWait,
+          stallGuard: stallGuard ?? (_) => guard,
+        );
+
+    test('a completion that arrives too soon is not this playback finishing',
+        () async {
+      var done = false;
+      final wait = waitFor().then((value) => done = value);
+
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      completions.add(null); // the previous source being torn down
+      await Future<void>.delayed(const Duration(milliseconds: 25));
+      expect(done, isFalse,
+          reason: 'a 10 ms "completion" cannot be this playback finishing');
+
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      completions.add(null); // its own, plausible completion
+      expect(await wait, isTrue);
+    });
+
+    test('a plausible completion ends the wait', () async {
+      final wait = waitFor();
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      completions.add(null);
+      expect(await wait, isTrue);
+    });
+
+    test('the stall guard reports that nothing finished', () async {
+      expect(await waitFor(), isFalse);
+    });
+
+    test('a stalled wait stops listening, so it cannot steal the next one',
+        () async {
+      expect(await waitFor(), isFalse);
+      expect(completions.hasListener, isFalse,
+          reason: 'the abandoned wait leaked a subscription');
+      expect(durations.hasListener, isFalse);
+    });
+
+    test('the reported duration sizes the stall guard', () async {
+      Duration? seen;
+      final wait = waitFor(stallGuard: (reported) {
+        seen = reported;
+        return const Duration(milliseconds: 30);
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      durations.add(const Duration(seconds: 2));
+      expect(await wait, isFalse);
+      expect(seen, const Duration(seconds: 2));
+    });
+  });
+
+  group('Playback state', () {
+    test('the stop button stays live while a restarted run speaks', () async {
+      // The bug: an abandoned run un-parks once a newer one starts, then clears
+      // the shared "playing" flag — so the stop button greys out while the new
+      // run is still speaking, i.e. exactly when you need to press it.
+      final player = _GatedPlayer();
+      final speaker = NumberSpeaker(
+        player: player,
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
+      );
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final provider = NumbersProvider(speaker: speaker);
+      await provider.initialize();
+
+      final reading = NumberSpeller.read('1234')!;
+
+      player.hold();
+      final first = provider.playReading(reading);
+      await pumpEventQueue();
+      expect(provider.isPlaying, isTrue);
+
+      provider.stopPlayback();
+      expect(provider.isPlaying, isFalse);
+
+      final second = provider.playReading(reading);
+      await pumpEventQueue();
+      expect(provider.isPlaying, isTrue, reason: 'the new run is speaking');
+
+      // Resume the abandoned run while the new one is still parked.
+      player.releaseFirst();
+      await pumpEventQueue();
+      expect(provider.isPlaying, isTrue,
+          reason: 'the abandoned run cleared the flag the stop button reads');
+
+      player.release();
+      await Future.wait([first, second]);
+      expect(provider.isPlaying, isFalse);
     });
   });
 }

@@ -19,6 +19,12 @@ import '../core/numbers/number_speller.dart';
 /// the settings that outlive a session — 语速, 间隔, 训练类型, 位数, 数量 — are
 /// persisted, so the drill comes back exactly as it was left.
 class NumbersProvider extends ChangeNotifier {
+  /// [speaker] is a test seam: it lets the start/stop bookkeeping be exercised
+  /// without an audio device. Production code leaves it null — the speaker is
+  /// then built on first playback, so a screen that only reads numbers never
+  /// touches the audio plugin.
+  NumbersProvider({NumberSpeaker? speaker}) : _speaker = speaker;
+
   static const String _kRate = 'numbers_rate';
   static const String _kRateAnchored = 'numbers_rate_anchored';
   static const String _kGap = 'numbers_gap_ms';
@@ -38,6 +44,14 @@ class NumbersProvider extends ChangeNotifier {
   NumberSpeaker? _speaker;
   NumberSpeaker get _player =>
       _speaker ??= NumberSpeaker(engine: _sentenceEngine, piper: _piper);
+
+  /// Bumped by every start and every stop. Only the run that owns the current
+  /// value may clear [isPlaying].
+  ///
+  /// Without it an abandoned run hurts: it un-parks as soon as a newer run
+  /// starts, and then clears `_playing` — which greys the stop button out *while
+  /// the new run is still speaking*, i.e. exactly when you need to press it.
+  int _playRun = 0;
 
   NumberCategory? _category;
   NumberExample? _selected;
@@ -250,6 +264,7 @@ class NumbersProvider extends ChangeNotifier {
 
   Future<void> playReading(NumberReading reading, {String? accent}) async {
     final chosen = accent ?? _accent;
+    final run = ++_playRun;
     _playing = true;
     _playingIndex = -1;
     notifyListeners();
@@ -259,6 +274,7 @@ class NumbersProvider extends ChangeNotifier {
       rate: _rate,
       mode: _speechMode,
     );
+    if (run != _playRun) return;
     _playing = false;
     _playingIndex = -1;
     notifyListeners();
@@ -267,6 +283,7 @@ class NumbersProvider extends ChangeNotifier {
   /// Speaks one row of the batch: a run is read in full, its numbers [runGapMs]
   /// apart.
   Future<void> playTrainingItem(NumberTrainingItem item) async {
+    final run = ++_playRun;
     _playing = true;
     _playingIndex = -1;
     notifyListeners();
@@ -277,6 +294,7 @@ class NumbersProvider extends ChangeNotifier {
       innerGap: Duration(milliseconds: _runGapMs),
       mode: _speechMode,
     );
+    if (run != _playRun) return;
     _playing = false;
     notifyListeners();
   }
@@ -285,6 +303,7 @@ class NumbersProvider extends ChangeNotifier {
   /// [runGapMs] between the numbers inside a run).
   Future<void> playTraining() async {
     if (_training.isEmpty) return;
+    final run = ++_playRun;
     _playing = true;
     notifyListeners();
     await _player.speakRuns(
@@ -299,12 +318,14 @@ class NumbersProvider extends ChangeNotifier {
         notifyListeners();
       },
     );
+    if (run != _playRun) return;
     _playing = false;
     _playingIndex = -1;
     notifyListeners();
   }
 
   void stopPlayback() {
+    _playRun++; // invalidate whatever is still in flight, so it cannot re-arm
     _speaker?.cancel();
     _playing = false;
     _playingIndex = -1;
