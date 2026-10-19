@@ -240,6 +240,32 @@ adb shell "su -c 'rm -rf /sdcard/Download/piper_extract'"
 
 Windows 上请在 Git Bash / MSYS2 / cmd 里运行，**不要在 WSL 里**：本机的工具链是 Windows 那一份（WSL 会报 `unable to extract Dart SDK`），脚本也会直接提示这一点。
 
+### 发布打包（含 Piper 模型）
+
+词典文件与 Piper 模型都**不进版本库**（体积与授权），它们是**运行时资源**：应用在各平台约定的位置读取。
+所以"发布版" = 构建产物 + 放在正确位置的模型。一条命令把两件事一起做：
+
+```bash
+python tool/fetch_piper_models.py      # 首次准备：约 70 MB，落在 tts-models/（已 gitignore）
+tool/package_release.sh windows        # 或 web / apk / all；加 --no-build 只重新摆放模型
+```
+
+| 目标 | 产物 | 模型放哪 | 怎么发布 |
+|---|---|---|---|
+| windows | `build/windows/x64/runner/Release/` | **同目录**下的 `tts-models/`（脚本自动拷入） | 整个 Release 文件夹打包分发 |
+| web | `build/web/` | `build/web/tts-models/`（脚本自动拷入） | 连同静态站点部署，nginx 片段见[部署指南 §5.3](docs/WEB_DEPLOYMENT.md#53-piper-模型数字训练的piper-神经语音引擎) |
+| apk | `build/release/app-<abi>-release.apk`（按 ABI 拆分，每个约 40–60 MB） | **不在 APK 里**：`build/release/piper.zip` 由用户导入 | 分发 APK + `piper.zip`；装好后「数字训练 → Piper 神经语音 → 安装模型…」选一次 |
+
+**Android 为什么不把模型打进 APK**：通用包要塞 4 套 sherpa-onnx（约 280 MB），所以 release 用 `--split-per-abi`；另外作用域存储下应用读不到"别的工具写进自己数据目录"的文件
+（`adb push` 到 `Android/data/…` 实测 `Permission denied`），所以只能由应用自己从 `piper.zip` 解到私有目录
+（与词典导入同一思路）；打进 assets 又会让每个安装包多 ~70 MB。现在 APK 保持约 60 MB，模型只在需要 Piper 的设备上导入一次。
+
+**没有模型也能发**：整句朗读会自动换引擎（Piper 缺失 → 系统语音 → 自带录音拼接），训练区写明当前用的是谁；
+所以只想验证功能的构建不必先准备模型。
+
+> `android/app/build.gradle.kts` 里 release 目前仍用 **debug 签名**（Flutter 模板默认，带 TODO）。
+> 正式分发前换成自己的 keystore——换签名后已装应用的数据会被清空，模型要重新导入一次。
+
 ### Windows 打包
 
 `flutter build windows --release` 要求两样本机可能没有的东西，缺一个就直接退出（与代码无关）：
