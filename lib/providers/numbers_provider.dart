@@ -35,6 +35,7 @@ class NumbersProvider extends ChangeNotifier {
   static const String _kSpeechMode = 'numbers_speech_mode';
   static const String _kSentenceEngine = 'numbers_sentence_engine';
   static const String _kRunMode = 'numbers_run_mode';
+  static const String _kLoop = 'numbers_loop';
   static const String _kRunMin = 'numbers_run_min';
   static const String _kRunMax = 'numbers_run_max';
   static const String _kRunGap = 'numbers_run_gap_ms';
@@ -65,6 +66,8 @@ class NumbersProvider extends ChangeNotifier {
   int _gapMs = 1000;
   // 整数 mode's 多组连读: each row is a run of numbers read back to back.
   bool _runMode = false;
+  /// 循环播放: when on, 开始朗读 repeats the whole list until stopped.
+  bool _loop = false;
   int _runMin = 3;
   int _runMax = 7;
   int _runGapMs = 80;
@@ -162,6 +165,8 @@ class NumbersProvider extends ChangeNotifier {
 
   /// 多组连读 as configured — integer mode's run batches.
   bool get runMode => _runMode;
+
+  bool get loop => _loop;
   int get runMin => _runMin;
   int get runMax => _runMax;
 
@@ -195,6 +200,7 @@ class NumbersProvider extends ChangeNotifier {
     _digits = prefs.getInt(_kDigits) ?? 4;
     _count = (prefs.getInt(_kCount) ?? 5).clamp(1, NumbersLimits.maxTrainingCount);
     _runMode = prefs.getBool(_kRunMode) ?? false;
+    _loop = prefs.getBool(_kLoop) ?? false;
     _runMin = (prefs.getInt(_kRunMin) ?? 3)
         .clamp(NumbersLimits.minRunLength, NumbersLimits.maxRunLength);
     _runMax = (prefs.getInt(_kRunMax) ?? 7)
@@ -306,18 +312,31 @@ class NumbersProvider extends ChangeNotifier {
     final run = ++_playRun;
     _playing = true;
     notifyListeners();
-    await _player.speakRuns(
-      _training.map((item) => item.textsFor(_accent)).toList(),
-      accent: _accent,
-      rate: _rate,
-      innerGap: Duration(milliseconds: _runGapMs),
-      gap: Duration(milliseconds: _gapMs),
-      mode: _speechMode,
-      onIndex: (index) {
-        _playingIndex = index;
-        notifyListeners();
-      },
-    );
+    final rows = _training.map((item) => item.textsFor(_accent)).toList();
+    final gap = Duration(milliseconds: _gapMs);
+    do {
+      await _player.speakRuns(
+        rows,
+        accent: _accent,
+        rate: _rate,
+        innerGap: Duration(milliseconds: _runGapMs),
+        gap: gap,
+        mode: _speechMode,
+        onIndex: (index) {
+          _playingIndex = index;
+          notifyListeners();
+        },
+      );
+      // A stop (or a newer run) wins over the loop; the speaker has already
+      // dropped its rows, so there is nothing left to wait for.
+      if (run != _playRun) return;
+      // `_loop` is read per pass, so flipping the switch takes effect as soon as
+      // the pass in flight ends rather than at the next start.
+      if (!_loop) break;
+      // Same spacing as between the items, so the last number does not run into
+      // the first of the next pass.
+      await Future.delayed(gap);
+    } while (run == _playRun);
     if (run != _playRun) return;
     _playing = false;
     _playingIndex = -1;
@@ -343,6 +362,15 @@ class NumbersProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kRunMode, value);
+  }
+
+  /// Turning the loop on mid-pass takes effect at the end of that pass; turning
+  /// it off stops the drill after the pass that is running now.
+  Future<void> setLoop(bool value) async {
+    _loop = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kLoop, value);
   }
 
   /// The length range a run of numbers is drawn from; [max] never drops below

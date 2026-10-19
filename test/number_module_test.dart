@@ -1614,6 +1614,9 @@ void main() {
       for (final label in ['整数', '小数', '年份', '序数词', '分数', '百分数', '温度', '时刻', '货币', '日期', '电话号码', '混合']) {
         expect(find.text(label), findsWidgets, reason: 'missing drill kind chip: $label');
       }
+      // The loop switch sits with the playback buttons.
+      expect(find.text('循环'), findsOneWidget);
+
       await tester.tap(find.text('生成一组'));
       await tester.pumpAndSettle();
       expect(provider.training, isNotEmpty);
@@ -1899,6 +1902,66 @@ void main() {
   });
 
   group('Playback state', () {
+    test('the loop repeats the list until stopped', () async {
+      final player = _RecordingPlayer(supportsSentences: false);
+      final speaker = NumberSpeaker(
+        player: player,
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
+      );
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final provider = NumbersProvider(speaker: speaker);
+      await provider.initialize();
+      await provider.setSpeechMode(SpeechMode.clips);
+      await provider.setDigits(1);
+      await provider.setCount(1);
+      await provider.setLoop(true);
+      provider.generateTraining();
+
+      // One pass is one clip here, so a third clip can only come from a repeat.
+      // Stopping from inside the playback is the same path the button takes.
+      player.onPlay = (_) {
+        if (player.played.length >= 3) provider.stopPlayback();
+      };
+
+      await provider.playTraining();
+
+      expect(player.played.length, greaterThanOrEqualTo(3),
+          reason: 'the drill must go round again');
+      expect(provider.isPlaying, isFalse, reason: 'stop must win over the loop');
+    });
+
+    test('without the loop the drill plays one pass and ends', () async {
+      final player = _RecordingPlayer(supportsSentences: false);
+      final speaker = NumberSpeaker(
+        player: player,
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
+      );
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final provider = NumbersProvider(speaker: speaker);
+      await provider.initialize();
+      await provider.setSpeechMode(SpeechMode.clips);
+      await provider.setDigits(1);
+      await provider.setCount(1);
+      provider.generateTraining();
+
+      await provider.playTraining();
+
+      expect(player.played, hasLength(1), reason: 'one number, one pass');
+      expect(provider.isPlaying, isFalse);
+    });
+
+    test('the loop switch is remembered', () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final first = NumbersProvider();
+      await first.initialize();
+      expect(first.loop, isFalse);
+      await first.setLoop(true);
+
+      final second = NumbersProvider();
+      await second.initialize();
+      expect(second.loop, isTrue);
+    });
+
     test('the stop button stays live while a restarted run speaks', () async {
       // The bug: an abandoned run un-parks once a newer one starts, then clears
       // the shared "playing" flag — so the stop button greys out while the new

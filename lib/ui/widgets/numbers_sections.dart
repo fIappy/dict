@@ -925,6 +925,22 @@ class _NumbersTrainingSectionState extends State<NumbersTrainingSection> {
               label: const Text('停止'),
               onPressed: provider.isPlaying ? provider.stopPlayback : null,
             ),
+            // 循环播放: the same list again and again until 停止. The hint rides on
+            // a tooltip so the chip costs no vertical space — the row above it
+            // already sits at the bottom of a small window.
+            Tooltip(
+              message: '循环播放：整组朗读完自动从头再来，直到按「停止」'
+                  '（播放中改这个开关，本轮结束后生效）',
+              child: FilterChip(
+                avatar: const Icon(Icons.repeat_rounded, size: 16),
+                label: const Text('循环', style: TextStyle(fontSize: 11.5)),
+                selected: provider.loop,
+                showCheckmark: false,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onSelected: provider.setLoop,
+              ),
+            ),
             // Which accent the drill speaks in.
             SegmentedButton<String>(
               segments: const [
