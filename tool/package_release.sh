@@ -10,8 +10,12 @@
 #   web      build/web/tts-models/                            (served with the site)
 #   apk      build/release/app-release.apk + piper.zip         (imported in-app)
 #
-#   tool/package_release.sh windows        # or web / apk / all
+#   tool/package_release.sh windows        # or web / apk / all / install
 #   tool/package_release.sh all --no-build # only re-stage the models
+#   tool/package_release.sh install        # adb-install the APK for this device
+#
+# `all` builds the three targets at the same time: they write to different trees,
+# and on a many-core machine the sequential time was mostly waiting.
 #
 # Without a model the app still runs: 整句朗读 falls back to the next engine and
 # the training UI says which one is in use. This script just makes the shipped
@@ -25,7 +29,7 @@ usage() { sed -n '2,18p' "$0"; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    windows|web|apk|all) TARGETS+=("$1"); shift ;;
+    windows|web|apk|all|install) TARGETS+=("$1"); shift ;;
     --no-build) BUILD=0; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -50,6 +54,7 @@ esac
 
 MODELS=tts-models
 ZIP=$MODELS/piper.zip
+ADB_BIN=${ADB:-adb}
 
 # 1. The models have to be on this machine before anything is packaged.
 if ! python tool/fetch_piper_models.py --check >/dev/null 2>&1; then
@@ -85,7 +90,8 @@ build() {
 RELEASE=build/release
 mkdir -p "$RELEASE"
 
-for target in "${TARGETS[@]}"; do
+build_target() {
+  local target="$1"
   case "$target" in
     windows)
       build "Windows (release)" build windows --release
@@ -103,15 +109,65 @@ for target in "${TARGETS[@]}"; do
       # Per ABI: a universal release APK has to carry sherpa-onnx for four
       # architectures (~280 MB); each phone only needs one of them.
       build "Android APK (release, per ABI)" build apk --release --split-per-abi
+      # A universal `app-release.apk` left over from an older build has
+      # versionCode 1, while the split ones are 1000/2000/3000 + the same code —
+      # installing the leftover over a split build fails as a downgrade. Delete
+      # it so the only APKs in sight are the ones meant to ship.
+      rm -f build/app/outputs/flutter-apk/app-release.apk \
+            build/app/outputs/flutter-apk/app-release.apk.sha1
       rm -f "$RELEASE"/*.apk
       cp build/app/outputs/flutter-apk/app-*-release.apk "$RELEASE/"
       cp "$ZIP" "$RELEASE/"
       echo "android: $RELEASE/app-<abi>-release.apk + $RELEASE/piper.zip"
-      echo "  install the APK, then 数字训练 → Piper 神经语音 → 安装模型… → pick piper.zip"
+      echo "  install with: tool/package_release.sh install   (picks the phone's ABI)"
       du -sh "$RELEASE" 2>/dev/null | sed 's/^/  /'
       ;;
+    install)
+      # The per-ABI APKs carry different version codes, and installing the wrong
+      # one fails as a downgrade (or silently targets the wrong CPU): ask the
+      # device which ABI it is.
+      if ! command -v "$ADB_BIN" >/dev/null 2>&1; then
+        echo "adb not found; set ADB=/path/to/adb" >&2
+        return 1
+      fi
+      local abi apk
+      abi=$("$ADB_BIN" shell getprop ro.product.cpu.abi 2>/dev/null | tr -d '\r')
+      case "$abi" in
+        arm64*) apk=app-arm64-v8a-release.apk ;;
+        armeabi*) apk=app-armeabi-v7a-release.apk ;;
+        x86_64*|x86*) apk=app-x86_64-release.apk ;;
+        *) echo "unknown device ABI: '${abi}'" >&2; return 1 ;;
+      esac
+      echo "installing $apk on ${abi:-the device}…"
+      "$ADB_BIN" install -r "$RELEASE/$apk"
+      ;;
   esac
-done
+}
+
+# `all` runs the targets concurrently: each writes its own tree
+# (`build/windows`, `build/web`, `build/app`), so nothing races.
+run_targets() {
+  local targets=("$@")
+  if [ "${#targets[@]}" -eq 1 ]; then
+    build_target "${targets[0]}"
+    return
+  fi
+  local pids=() names=() failed=0
+  for target in "${targets[@]}"; do
+    build_target "$target" &
+    pids+=($!)
+    names+=("$target")
+  done
+  for i in "${!pids[@]}"; do
+    if ! wait "${pids[$i]}"; then
+      echo "build failed: ${names[$i]}" >&2
+      failed=1
+    fi
+  done
+  return "$failed"
+}
+
+run_targets "${TARGETS[@]}"
 
 echo
 echo "done. what each artefact needs to be shippable:"

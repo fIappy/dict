@@ -254,7 +254,7 @@ tool/package_release.sh windows        # 或 web / apk / all；加 --no-build �
 |---|---|---|---|
 | windows | `build/windows/x64/runner/Release/` | **同目录**下的 `tts-models/`（脚本自动拷入） | 整个 Release 文件夹打包分发 |
 | web | `build/web/` | `build/web/tts-models/`（脚本自动拷入） | 连同静态站点部署，nginx 片段见[部署指南 §5.3](docs/WEB_DEPLOYMENT.md#53-piper-模型数字训练的piper-神经语音引擎) |
-| apk | `build/release/app-<abi>-release.apk`（按 ABI 拆分，每个约 40–60 MB） | **不在 APK 里**：`build/release/piper.zip` 由用户导入 | 分发 APK + `piper.zip`；装好后「数字训练 → Piper 神经语音 → 安装模型…」选一次 |
+| apk | `build/release/app-<abi>-release.apk`（按 ABI 拆分，每个约 40–60 MB） | **不在 APK 里**：`build/release/piper.zip` 由用户导入 | 分发 APK + `piper.zip`；装好后「数字训练 → Piper 神经语音 → 安装模型…」选一次。**安装用 `tool/package_release.sh install`**：它按设备的 ABI 选包，避免拿通用包（versionCode 1）覆盖拆分包（2000+）报 downgrade |
 
 **Android 为什么不把模型打进 APK**：通用包要塞 4 套 sherpa-onnx（约 280 MB），所以 release 用 `--split-per-abi`；另外作用域存储下应用读不到"别的工具写进自己数据目录"的文件
 （`adb push` 到 `Android/data/…` 实测 `Permission denied`），所以只能由应用自己从 `piper.zip` 解到私有目录
