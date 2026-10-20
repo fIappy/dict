@@ -1,10 +1,15 @@
 import 'dart:io';
 
 import 'package:archive/archive.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'piper_model.dart';
+
+/// `MainActivity`'s channel for the voices that ship inside the APK.
+const MethodChannel _modelsChannel = MethodChannel('local_dict/bundled_models');
 
 /// Finds the Piper models on this machine.
 ///
@@ -14,12 +19,43 @@ import 'piper_model.dart';
 /// ancestors, then the app's own storage. The Android build reads them from its
 /// external files directory, which is what `adb push` and any file manager can
 /// reach without special permissions.
+///
+/// Android also carries the voices inside the APK: nothing found means they
+/// have not been unpacked yet, so they are unpacked once and the search repeats.
 Future<PiperModelFiles?> findPiperModel(String accent) async {
+  var files = await _searchPiperModel(accent);
+  if (files != null) return files;
+  if (Platform.isAndroid && await installBundledPiperModels()) {
+    files = await _searchPiperModel(accent);
+  }
+  return files;
+}
+
+Future<PiperModelFiles?> _searchPiperModel(String accent) async {
   for (final root in await _candidateRoots()) {
     final files = _modelIn(root, accent);
     if (files != null) return files;
   }
   return null;
+}
+
+/// Unpacks the voices bundled in the APK into app storage.
+///
+/// The APK carries `assets/piper.zip` (staged from `tts-models/piper.zip` at
+/// build time), so a phone gets the neural voice from a plain install — no
+/// computer, no download, no import step. The native side does the unpacking on
+/// a background thread and answers true once the files are where it put them;
+/// platforms without the bundle answer false and keep the old import route.
+Future<bool> installBundledPiperModels() async {
+  if (!Platform.isAndroid) return false;
+  try {
+    return await _modelsChannel.invokeMethod<bool>('install') ?? false;
+  } on PlatformException catch (e) {
+    debugPrint('Unpacking the bundled Piper models failed: $e');
+    return false;
+  } on MissingPluginException {
+    return false;
+  }
 }
 
 /// This platform can copy models in from a folder the user picks — and on
@@ -90,10 +126,11 @@ Future<void> preparePiperModel(PiperModelFiles files) async {}
 /// A sentence the UI shows when nothing is installed.
 Future<String> piperModelHint() async {
   if (Platform.isAndroid) {
-    // Android cannot read a folder the file picker returns (scoped storage), so
-    // this platform is served by the in-app archive import.
-    return '未安装模型：点「安装模型…」选 piper.zip'
-        '（python tool/fetch_piper_models.py --zip-only 生成）';
+    // The APK carries the voices and unpacks them on first launch. Reaching this
+    // hint means that did not happen (an APK built without them, e.g. a debug
+    // build made before `tts-models/` existed), so the archive is the way in.
+    return '未安装模型：正式包自带模型，这里只用于更新'
+        '——点「安装模型…」选 piper.zip';
   }
   final roots = await _candidateRoots();
   final where = roots.isEmpty ? piperModelRoot : roots.first;

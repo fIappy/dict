@@ -5,8 +5,10 @@ import android.speech.tts.UtteranceProgressListener
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 import java.util.Locale
 import java.util.UUID
+import java.util.zip.ZipInputStream
 
 /**
  * The numbers module speaks whole numbers through the device's own speech
@@ -18,6 +20,9 @@ import java.util.UUID
  *  - `voices`  -> the engine's installed voices
  *  - `speak`   -> speaks one utterance, answering when it has finished sounding
  *  - `stop`    -> silences whatever is speaking
+ *
+ * and through `local_dict/bundled_models`:
+ *  - `install` -> unpacks the Piper voices that ship inside the APK
  *
  * The engine initialises asynchronously, and `voices` can arrive before it is
  * ready — that call is therefore parked and answered from the init callback
@@ -78,6 +83,57 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, MODELS_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    // Off the main thread: 45 MB of archive takes a moment on a
+                    // phone and the first launch must not freeze.
+                    "install" -> Thread {
+                        val installed = installBundledModels()
+                        runOnUiThread { result.success(installed) }
+                    }.start()
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    /**
+     * Unpacks the voices that travel inside the APK into app storage, where the
+     * Dart side looks for them.
+     *
+     * Scoped storage keeps the app from reading a model another tool wrote into
+     * its data directory, and a phone that never touches a computer cannot import
+     * one either — so the archive ships in the APK and is unpacked here. The
+     * archive holds `us/…` and `uk/…` at its root; they land under
+     * `files/tts-models/piper/`, the layout `findPiperModel` probes. Idempotent:
+     * with both voices already unpacked it does nothing and answers true.
+     */
+    private fun installBundledModels(): Boolean {
+        val root = File(filesDir, "tts-models/piper")
+        if (listOf("us", "uk").all { File(root, "$it/model.onnx").isFile }) return true
+        val rootPath = root.canonicalPath + File.separator
+        return try {
+            assets.open(MODELS_ASSET).use { input ->
+                ZipInputStream(input).use { zip ->
+                    while (true) {
+                        val entry = zip.nextEntry ?: break
+                        val target = File(root, entry.name).canonicalFile
+                        // A path escaping the archive is refused, not written.
+                        if (!target.path.startsWith(rootPath)) continue
+                        if (entry.isDirectory) {
+                            target.mkdirs()
+                        } else {
+                            target.parentFile?.mkdirs()
+                            target.outputStream().use { out -> zip.copyTo(out) }
+                        }
+                    }
+                }
+            }
+            true
+        } catch (e: Exception) {
+            false
+        }
     }
 
     /**
@@ -148,5 +204,7 @@ class MainActivity : FlutterActivity() {
 
     private companion object {
         const val CHANNEL = "local_dict/sentence_voice"
+        const val MODELS_CHANNEL = "local_dict/bundled_models"
+        const val MODELS_ASSET = "piper.zip"
     }
 }

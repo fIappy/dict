@@ -118,8 +118,9 @@ build_target() {
       rm -f "$RELEASE"/*.apk
       cp build/app/outputs/flutter-apk/app-*-release.apk "$RELEASE/"
       cp "$ZIP" "$RELEASE/"
-      echo "android: $RELEASE/app-<abi>-release.apk + $RELEASE/piper.zip"
+      echo "android: $RELEASE/app-<abi>-release.apk (voices bundled, unpacked on first launch)"
       echo "  install with: tool/package_release.sh install   (picks the phone's ABI)"
+      echo "  the zip beside it only updates an install made before bundling"
       du -sh "$RELEASE" 2>/dev/null | sed 's/^/  /'
       ;;
     install)
@@ -173,4 +174,4 @@ echo
 echo "done. what each artefact needs to be shippable:"
 printf '  %-8s %s\n' windows "the Release folder as-is (models already inside)"
 printf '  %-8s %s\n' web "build/web as-is (models at /tts-models/…)"
-printf '  %-8s %s\n' android "one APK for the phone's ABI; models travel as piper.zip (imported once)"
+printf '  %-8s %s\n' android "one APK for the phone's ABI; the voices are bundled inside it"

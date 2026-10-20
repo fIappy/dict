@@ -4,10 +4,30 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// The Piper voices travel inside the APK: the app unpacks them into its own
+// storage on first launch, so the neural engine works right after install —
+// no computer, no download, no import step. The archive is produced by
+// `python tool/fetch_piper_models.py --zip-only` and is not in git; without it
+// the build still succeeds and the app falls back to the system voice and the
+// recordings.
+val piperArchive = rootProject.layout.projectDirectory.file("../tts-models/piper.zip")
+val bundledPiperModels = layout.buildDirectory.dir("generated/piperModels")
+val copyPiperModels = tasks.register<Copy>("copyPiperModels") {
+    onlyIf { piperArchive.asFile.exists() }
+    from(piperArchive) { into("") }
+    into(bundledPiperModels)
+}
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }
+    .configureEach { dependsOn(copyPiperModels) }
+
 android {
     namespace = "com.example.local_dict"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
+
+    // AGP's SourceSet API refuses a Provider here; the directory is filled by
+    // copyPiperModels, which every merge*Assets task depends on.
+    sourceSets["main"].assets.srcDir(bundledPiperModels.get().asFile)
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

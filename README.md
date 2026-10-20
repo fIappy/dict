@@ -215,7 +215,8 @@ tool/android_smoke.sh -s emulator-5554 --uninstall
 
 Piper 的模型得进应用私有目录，两条路落点相同（`/data/user/0/<包名>/files/tts-models/piper/<us|uk>`）：
 
-- **没有 root**：在应用里「安装模型…」选 `piper.zip` 导入；
+- **通常不需要**：正式包自带模型，首次启动自动解包（见[发布打包](#发布打包含-piper-模型)）；
+- **调试包/旧包没有内置**：在应用里「安装模型…」选 `piper.zip` 导入；
 - **已经 root**（`adb shell` 里 `su` 可用）：不必点手机上的文件选择器，直接推进去——
 
 ```bash
@@ -254,11 +255,12 @@ tool/package_release.sh windows        # 或 web / apk / all；加 --no-build �
 |---|---|---|---|
 | windows | `build/windows/x64/runner/Release/` | **同目录**下的 `tts-models/`（脚本自动拷入） | 整个 Release 文件夹打包分发 |
 | web | `build/web/` | `build/web/tts-models/`（脚本自动拷入） | 连同静态站点部署，nginx 片段见[部署指南 §5.3](docs/WEB_DEPLOYMENT.md#53-piper-模型数字训练的piper-神经语音引擎) |
-| apk | `build/release/app-<abi>-release.apk`（按 ABI 拆分，每个约 40–60 MB） | **不在 APK 里**：`build/release/piper.zip` 由用户导入 | 分发 APK + `piper.zip`；装好后「数字训练 → Piper 神经语音 → 安装模型…」选一次。**安装用 `tool/package_release.sh install`**：它按设备的 ABI 选包，避免拿通用包（versionCode 1）覆盖拆分包（2000+）报 downgrade |
+| apk | `build/release/app-<abi>-release.apk`（按 ABI 拆分，每个约 105–110 MB） | **已内置**：构建时把 `tts-models/piper.zip` 打进 `assets/`，首次启动由原生侧解到私有目录 | 只发 APK。**安装用 `tool/package_release.sh install`**：它按设备的 ABI 选包，避免拿通用包（versionCode 1）覆盖拆分包（2000+）报 downgrade |
 
-**Android 为什么不把模型打进 APK**：通用包要塞 4 套 sherpa-onnx（约 280 MB），所以 release 用 `--split-per-abi`；另外作用域存储下应用读不到"别的工具写进自己数据目录"的文件
-（`adb push` 到 `Android/data/…` 实测 `Permission denied`），所以只能由应用自己从 `piper.zip` 解到私有目录
-（与词典导入同一思路）；打进 assets 又会让每个安装包多 ~70 MB。现在 APK 保持约 60 MB，模型只在需要 Piper 的设备上导入一次。
+**模型随 APK 走**：Gradle 任务 `copyPiperModels` 把 `tts-models/piper.zip` 放进 assets（没准备模型时构建照常成功，应用自动回退），
+APK 装好第一次打开就解压到 `/data/user/0/<包名>/files/tts-models/piper/`，**不需要电脑、不需要下载、不需要导入**。
+没有内置模型时，手机既没有英语系统语音、又没有模型，整句朗读只能退到录音拼接（逐词录音，听感是一个一个单词）——
+这正是"安装即用"要解决的问题。通用包要塞 4 套 sherpa-onnx（约 280 MB），所以 release 仍用 `--split-per-abi`。
 
 **没有模型也能发**：整句朗读会自动换引擎（Piper 缺失 → 系统语音 → 自带录音拼接），训练区写明当前用的是谁；
 所以只想验证功能的构建不必先准备模型。
@@ -433,7 +435,7 @@ tts-models/piper/
 | 端 | 放哪里 | 说明 |
 |---|---|---|
 | Windows | 程序目录或仓库根目录下的 `tts-models/`，也可用 `TTS_MODEL_DIR` | 从 `build/windows/x64/runner/Release/` 往上能找到仓库根目录的 `tts-models/` |
-| Android | 用训练区的「**安装模型…**」按钮选 `piper.zip` 导入 | **不能用 `adb push`/文件管理器放进 `Android/data/…/files`**：Android 11+ 的作用域存储让应用读不到别的工具写进去的文件。导入时应用自己把压缩包解到私有目录（`/data/user/0/<包名>/files/tts-models/`），与词典导入同一思路 |
+| Android | **包内自带**：APK 的 `assets/piper.zip` 在首次启动时解到 `/data/user/0/<包名>/files/tts-models/piper/`；换声/更新用训练区的「**安装模型…**」 | **不能用 `adb push`/文件管理器放进 `Android/data/…/files`**：Android 11+ 的作用域存储让应用读不到别的工具写进去的文件，只认应用自己解出来的那份 |
 | Web | 站点根下的 `/tts-models/` | 浏览器不能列目录，按 `files.txt` 逐个取（约 35 MB/档，浏览器缓存后不再下载）；nginx 配置见部署指南 |
 
 `tts-models/piper.zip` 就是给 Android 导入用的那份压缩包（`--zip-only` 可单独重建，不必重新下载模型）。
