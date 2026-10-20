@@ -59,20 +59,24 @@
 
 import 'dart:math' as math;
 
-/// ×1.0 on the slider means this multiple of the voice's natural rate.
+/// ×1.0 on the slider means this multiple of the voice's natural rate **on the
+/// Windows engines** (see the note on the linear ones below).
 const double teachingAnchor = 0.5;
 
 /// Below this engine rate the prosody control stops responding.
 double get minimalEngineRate => oneCoreSteps.first.speed;
 
-/// The one conversion from a slider value to the rate an engine is asked for.
+/// Slider value → engine rate for the **Windows** voices.
 ///
-/// Every rate consumer — the Windows and Android system voices, the browser's
-/// speechSynthesis, Piper and the recorded-clip player — must be handed the
-/// result of this, and only this. Applying it inside one engine instead (as the
-/// Windows path used to) leaves the others playing at native speed for the same
-/// slider position.
-double engineRateFor(double uiRate) => uiRate * teachingAnchor;
+/// The anchor applies here and nowhere else: it is a calibration of these two
+/// voices (David reads the phrase in 1548 ms, ×1.0 puts it at 3100 ms, and the
+/// prosody scale's useful band only starts at 50%). The linear engines — Android's
+/// `setSpeechRate`, the browser's `utterance.rate`, Piper's `speed` and the
+/// player's playback rate — take a plain multiplier of the voice's own natural
+/// pace, so they are handed the slider value unchanged. Halving those a second
+/// time is what made the phone drill crawl: Piper's natural pace is already
+/// deliberate, and ×1.0 at 0.5 sounded like a tape at half speed.
+double windowsEngineRateFor(double uiRate) => uiRate * teachingAnchor;
 
 /// One achievable speed and the engine setting that produces it.
 class SpeechRateStep {
@@ -165,7 +169,7 @@ class SpeechPlan {
 
 /// The plan for an utterance of [wordCount] words at [engineRate].
 ///
-/// Takes the output of [engineRateFor], not a slider value: the conversion
+/// Takes the output of [windowsEngineRateFor], not a slider value: the conversion
 /// happens once, at the module that owns the slider.
 SpeechPlan speechPlanFor(double engineRate, {required int wordCount}) {
   final clamped = engineRate.clamp(_slowestEngineRate, _fastestEngineRate);

@@ -46,12 +46,16 @@ class _StubPiper extends PiperVoice {
   /// Every sentence the stub was asked to render, in order.
   final List<String> rendered = [];
 
+  /// The speed each render was asked for (`speed` = multiplier of natural).
+  final List<double> rates = [];
+
   @override
   Future<bool> isReady(String accent) async => true;
 
   @override
   Future<PcmClip?> synthesize(String text, {required String accent, required double rate}) async {
     rendered.add(text);
+    rates.add(rate);
     return PcmClip(Int16List.fromList(List.filled(22050, 3)), 22050);
   }
 }
@@ -1003,9 +1007,9 @@ void main() {
         'audio/numbers/thirty_uk.wav',
         'audio/numbers/four_uk.wav',
       ]);
-      expect(player.rates, everyElement(0.375),
-          reason: 'the speed knob reaches the player, converted once: 0.75 on the '
-              'slider is 0.375 of the voice\'s natural rate');
+      expect(player.rates, everyElement(0.75),
+          reason: 'the speed knob reaches the player as the slider value: the '
+              'clip player scales by a plain multiplier of natural pace');
 
       // The other accent is a different set of recordings, not a different word.
       await speaker.speak('one', accent: 'us', mode: SpeechMode.clips);
@@ -1478,8 +1482,9 @@ void main() {
       // One call, the whole sentence — not seven recorded words.
       expect(player.sentences, ['one thousand two hundred and thirty-four']);
       expect(player.sentenceAccents, ['us']);
-      expect(player.rates, [0.4],
-          reason: 'the engine is handed the anchored rate, not the slider value');
+      expect(player.rates, [0.8],
+          reason: 'Android/Web/Piper take the slider value; only the Windows '
+              'voices apply the teaching anchor, inside their own file');
       expect(player.played, isEmpty, reason: 'no clip playback when a voice exists');
     });
 
@@ -1663,22 +1668,22 @@ void main() {
     test('x1.0 on the slider is the teaching pace, not the voice native rate', () {
       // A native speaker says the calibration phrase in 1548 ms; the drill runs
       // it at 3100 ms because you are doing arithmetic in a second language.
-      expect(engineRateFor(1.0), 0.5);
-      expect(engineRateFor(NumbersLimits.minRate), closeTo(0.25, 1e-9));
-      expect(engineRateFor(NumbersLimits.maxRate), closeTo(0.75, 1e-9));
-      expect(engineRateFor(NumbersLimits.maxRate), lessThan(1.0),
+      expect(windowsEngineRateFor(1.0), 0.5);
+      expect(windowsEngineRateFor(NumbersLimits.minRate), closeTo(0.25, 1e-9));
+      expect(windowsEngineRateFor(NumbersLimits.maxRate), closeTo(0.75, 1e-9));
+      expect(windowsEngineRateFor(NumbersLimits.maxRate), lessThan(1.0),
           reason: 'native speed must stay out of the drill range');
     });
 
     test('the teaching pace is the prosody floor, with no pauses needed', () {
       // Anchoring regression: the old mapping asked for prosody 95-100% here.
-      final plan = speechPlanFor(engineRateFor(1.0), wordCount: 7);
+      final plan = speechPlanFor(windowsEngineRateFor(1.0), wordCount: 7);
       expect(plan.prosodyPercent, oneCoreSteps.first.setting);
       expect(plan.wordGapMs, 0);
     });
 
     test('below the prosody floor the shortfall is carried by pauses', () {
-      final slow = speechPlanFor(engineRateFor(NumbersLimits.minRate), wordCount: 7);
+      final slow = speechPlanFor(windowsEngineRateFor(NumbersLimits.minRate), wordCount: 7);
       expect(slow.prosodyPercent, oneCoreSteps.first.setting,
           reason: 'articulation is already at the floor');
       expect(slow.wordGapMs, greaterThan(0));
@@ -1697,7 +1702,7 @@ void main() {
       for (var ui = NumbersLimits.minRate;
           ui <= NumbersLimits.maxRate + 1e-9;
           ui += 0.05) {
-        final plan = speechPlanFor(engineRateFor(ui), wordCount: 7);
+        final plan = speechPlanFor(windowsEngineRateFor(ui), wordCount: 7);
         expect(plan.prosodyPercent, greaterThanOrEqualTo(lastProsody),
             reason: 'rate $ui');
         expect(plan.wordGapMs, lessThanOrEqualTo(lastGap), reason: 'rate $ui');
@@ -1723,22 +1728,42 @@ void main() {
       expect(sapiRate(-2), sapiSteps.first.setting);
     });
 
-    test('the speaker converts the slider value exactly once', () async {
-      // Every engine must receive the engine rate. Converting inside one engine
-      // instead leaves the others playing at native speed for the same slider
-      // position, which is what the Windows-only fix originally did.
+    test('the speaker hands every engine the slider value unchanged', () async {
+      // Only the Windows voices need the teaching anchor, and they apply it
+      // themselves. Android's setSpeechRate, the browser's utterance.rate,
+      // Piper's speed and the player all take a plain multiplier of the voice's
+      // own natural pace: halving here as well made the phone drill crawl.
       final player = _RecordingPlayer(supportsSentences: true);
       final speaker = NumberSpeaker(player: player, resolver: _noClips);
 
       await speaker.speak('two', accent: 'us', rate: 1.0);
-      expect(player.rates.single, 0.5, reason: 'x1.0 is half the natural rate');
+      expect(player.rates.single, 1.0, reason: 'x1.0 is the voice natural rate');
 
       player.rates.clear();
       await speaker.speak('two', accent: 'us', rate: NumbersLimits.minRate);
-      expect(player.rates.single, closeTo(0.25, 1e-9));
+      expect(player.rates.single, closeTo(NumbersLimits.minRate, 1e-9));
     });
 
-    test('clips mode receives the engine rate too', () async {
+    test('Piper is asked for the slider value as its speed', () async {
+      // The phone has no English system voice, so this is the path the drill
+      // takes there: halving it once more made x1.0 sound like a tape at half
+      // speed.
+      final piper = _StubPiper();
+      final speaker = NumberSpeaker(
+        player: _RecordingPlayer(),
+        resolver: _noClips,
+        piper: piper,
+      );
+
+      await speaker.speak('two', accent: 'us', rate: 1.0);
+      expect(piper.rates.single, 1.0, reason: 'x1.0 is Piper natural pace');
+
+      piper.rates.clear();
+      await speaker.speak('two', accent: 'us', rate: NumbersLimits.maxRate);
+      expect(piper.rates.single, closeTo(NumbersLimits.maxRate, 1e-9));
+    });
+
+    test('clips mode receives the slider value too', () async {
       final player = _RecordingPlayer(supportsSentences: true);
       final speaker = NumberSpeaker(
         player: player,
@@ -1749,7 +1774,7 @@ void main() {
           rate: NumbersLimits.maxRate, mode: SpeechMode.clips);
 
       expect(player.played, ['audio/numbers/two_us.wav']);
-      expect(player.rates.single, closeTo(0.75, 1e-9));
+      expect(player.rates.single, closeTo(NumbersLimits.maxRate, 1e-9));
     });
 
     test('a rate stored before the re-anchoring keeps its pace', () async {

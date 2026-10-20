@@ -1,7 +1,6 @@
 import '../audio/audio_manager.dart';
 import '../audio/pcm_audio.dart';
 import '../audio/piper_voice.dart';
-import '../audio/speech_rate.dart';
 import '../audio/speech_clip_player.dart';
 import '../audio/voice_choice.dart';
 import 'number_audio.dart';
@@ -92,9 +91,11 @@ class NumberSpeaker {
     SpeechMode mode = SpeechMode.sentence,
   }) async {
     final run = ++_runId;
-    // One conversion, at the component that talks to the engines: everything
-    // below (system voice, Piper, recorded clips) is handed an engine rate.
-    await _speak(sentence, accent: accent, rate: engineRateFor(rate), mode: mode, run: run);
+    // The slider value travels unchanged. Only the Windows voices need the
+    // teaching anchor and they apply it themselves (`speech_rate.dart`); Piper,
+    // Android's engine, the browser and the player take a plain multiplier of
+    // their own natural pace.
+    await _speak(sentence, accent: accent, rate: rate, mode: mode, run: run);
   }
 
   /// Speaks [sentences] one after another, waiting [gap] between them.
@@ -139,7 +140,6 @@ class NumberSpeaker {
     SpeechMode mode = SpeechMode.sentence,
   }) async {
     final run = ++_runId;
-    final engineRate = engineRateFor(rate);
     final joinRow = mode == SpeechMode.sentence && innerGap == Duration.zero;
     // Piper synthesizes on the device's CPU — about a second per number on a
     // phone — and that cost would land *between* two numbers, so the pause the
@@ -162,7 +162,7 @@ class NumberSpeaker {
         final rendered = await _playRenderedRow(
           parts,
           accent: accent,
-          rate: engineRate,
+          rate: rate,
           innerGap: innerGap,
           run: run,
         );
@@ -178,7 +178,7 @@ class NumberSpeaker {
 
       for (var j = 0; j < parts.length; j++) {
         if (_stale(run)) return;
-        await _speak(parts[j], accent: accent, rate: engineRate, mode: mode, run: run);
+        await _speak(parts[j], accent: accent, rate: rate, mode: mode, run: run);
         if (_stale(run) || j == parts.length - 1) break;
         await Future.delayed(innerGap);
       }

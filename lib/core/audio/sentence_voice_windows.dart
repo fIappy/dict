@@ -152,13 +152,16 @@ $sapi.Rate = $SapiRate
 Process? _speaking;
 
 /// Speaks [text] as one utterance through SAPI.
+///
+/// [rate] is the slider value; `windowsEngineRateFor` turns it into the engine
+/// rate this voice's -10…10 scale is looked up on.
 Future<bool> speakWithSystemVoice(String text, SentenceVoice voice, {double rate = 1.0}) async {
   try {
     final script = await _helperScript();
     _speaking = await Process.start('powershell', [
       '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script.path,
       '-Action', 'speak', '-Engine', 'sapi', '-Voice', voice.name,
-      '-SapiRate', '${sapiRate(rate)}', '-Text', text,
+      '-SapiRate', '${sapiRate(windowsEngineRateFor(rate))}', '-Text', text,
     ]);
     final exitCode = await _speaking!.exitCode;
     _speaking = null;
@@ -188,7 +191,10 @@ Future<String?> synthesizeWithVoice(
     for (final unit in text.codeUnits) {
       hash = (hash * 31 + unit) & 0x7fffffff;
     }
-    final plan = speechPlanFor(rate, wordCount: RegExp(r'\S+').allMatches(text).length);
+    final plan = speechPlanFor(
+      windowsEngineRateFor(rate),
+      wordCount: RegExp(r'\S+').allMatches(text).length,
+    );
     final out = File(p.join(
       dir.path,
       'sentence_${hash.toRadixString(16)}_${plan.prosodyPercent}_${plan.wordGapMs}.wav',
