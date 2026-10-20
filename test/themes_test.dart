@@ -79,6 +79,35 @@ void main() {
       }
     });
 
+    test('every COCA word is either placed or still queued', () async {
+      // The workflow (tool/THEMES_PLAN.md) is: classify the top of the queue,
+      // write a batch file, rerun the builder. This keeps the three in step —
+      // editing a batch without rerunning, or dropping a word by accident, shows
+      // up here rather than as a silently missing word in the app.
+      final ranks = cocaRanks();
+      final service = ThemeService();
+      await service.init();
+      final placed = <String>{for (final scene in service.scenes) ...scene.words};
+
+      final pendingFile = File('tool/themes_pending.txt');
+      expect(pendingFile.existsSync(), isTrue,
+          reason: 'run: dart run tool/build_themes.dart --pending');
+      final queued = <String>{
+        for (final line in pendingFile.readAsLinesSync())
+          if (line.trim().isNotEmpty && !line.trim().startsWith('#'))
+            line.trim().toLowerCase(),
+      };
+
+      final forgotten = ranks.keys
+          .where((word) => !placed.contains(word) && !queued.contains(word))
+          .toList();
+      expect(forgotten, isEmpty,
+          reason: 'rerun: dart run tool/build_themes.dart --pending');
+
+      final both = placed.intersection(queued);
+      expect(both, isEmpty, reason: 'queued words that are already placed: $both');
+    });
+
     test('no facet repeats a word', () async {
       final service = ThemeService();
       await service.init();

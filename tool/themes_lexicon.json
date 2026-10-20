@@ -24,6 +24,10 @@
   {
    "id": "virtual",
    "label": "虚拟"
+  },
+  {
+   "id": "function",
+   "label": "虚词"
   }
  ],
  "scenes": [
@@ -2470,6 +2474,12 @@
      "demon"
     ]
    }
+  },
+  {
+   "id": "general",
+   "label": "通用高频",
+   "hint": "虚词与不落在具体场景里的高频抽象词",
+   "groups": {}
   }
  ]
 }
