@@ -23,6 +23,7 @@ import 'package:local_dict/core/ipa/ipa_data.dart';
 import 'package:local_dict/core/ipa/ipa_model.dart';
 import 'package:local_dict/providers/alphabet_provider.dart';
 import 'package:local_dict/providers/numbers_provider.dart';
+import 'package:local_dict/providers/themes_provider.dart';
 import 'package:local_dict/core/alphabet/alphabet_data.dart';
 import 'package:local_dict/core/alphabet/alphabet_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -170,6 +171,7 @@ void main() {
             ChangeNotifierProvider(create: (_) => IpaProvider()),
             ChangeNotifierProvider(create: (_) => AlphabetProvider()),
             ChangeNotifierProvider(create: (_) => NumbersProvider()),
+            ChangeNotifierProvider(create: (_) => ThemesProvider()),
           ],
           child: const MaterialApp(
             home: HomeScreen(),

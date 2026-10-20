@@ -7,6 +7,7 @@ import 'providers/frequency_provider.dart';
 import 'providers/ipa_provider.dart';
 import 'providers/alphabet_provider.dart';
 import 'providers/numbers_provider.dart';
+import 'providers/themes_provider.dart';
 import 'providers/settings_provider.dart';
 import 'ui/screens/home_screen.dart';
 import 'ui/theme/app_theme.dart';
@@ -25,6 +26,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => IpaProvider()),
         ChangeNotifierProvider(create: (_) => AlphabetProvider()),
         ChangeNotifierProvider(create: (_) => NumbersProvider()),
+        ChangeNotifierProvider(create: (_) => ThemesProvider()),
       ],
       child: const LocalDictApp(),
     ),

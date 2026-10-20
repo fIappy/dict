@@ -8,6 +8,7 @@ import '../../providers/frequency_provider.dart';
 import '../../providers/ipa_provider.dart';
 import '../../providers/alphabet_provider.dart';
 import '../../providers/numbers_provider.dart';
+import '../../providers/themes_provider.dart';
 import 'alphabet_detail_view.dart';
 import 'alphabet_screen.dart';
 import 'dictionary_manager_screen.dart';
@@ -18,6 +19,7 @@ import 'ipa_detail_view.dart';
 import 'ipa_screen.dart';
 import 'numbers_detail_view.dart';
 import 'numbers_screen.dart';
+import 'themes_screen.dart';
 import 'search_screen.dart';
 import 'word_detail_screen.dart';
 
@@ -42,6 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context.read<HistoryProvider>().initialize();
       context.read<FrequencyProvider>().initialize();
       context.read<NumbersProvider>().initialize();
+      context.read<ThemesProvider>().initialize();
       context.read<SettingsProvider>().initialize();
     });
   }
@@ -126,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            // Eight destinations no longer fit the 720 px default window with
+            // Nine destinations no longer fit the 720 px default window with
             // a label under every icon (历史/词典 were already clipped before the
             // numbers module was added). Showing the label of the selected item
             // only — the rest keep their tooltips — fits them all. `scrollable`
@@ -148,6 +151,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: Icon(Icons.trending_up_rounded),
                 selectedIcon: Icon(Icons.trending_up_rounded),
                 label: Text('词频'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.category_outlined),
+                selectedIcon: Icon(Icons.category_rounded),
+                label: Text('主题'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.record_voice_over_outlined),
@@ -225,17 +233,17 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           Expanded(
-            child: _selectedIndex == 3
+            child: _selectedIndex == 4
                 ? IpaDetailView(
                     isPaneView: true,
                     phoneme: ipaProvider.currentPhoneme,
                   )
-                : (_selectedIndex == 4
+                : (_selectedIndex == 5
                     ? AlphabetDetailView(
                         isPaneView: true,
                         letter: alphabetProvider.currentLetter,
                       )
-                    : (_selectedIndex == 5
+                    : (_selectedIndex == 6
                         ? const NumbersDetailView(isPaneView: true)
                         : WordDetailScreen(
                             isPaneView: true,
@@ -256,14 +264,16 @@ class _HomeScreenState extends State<HomeScreen> {
       case 2:
         return const FrequencyScreen(isPaneView: true);
       case 3:
-        return const IpaScreen(isPaneView: true);
+        return const ThemesScreen(isPaneView: true);
       case 4:
-        return const AlphabetScreen(isPaneView: true);
+        return const IpaScreen(isPaneView: true);
       case 5:
-        return const NumbersScreen(isPaneView: true);
+        return const AlphabetScreen(isPaneView: true);
       case 6:
-        return const HistoryScreen(isPaneView: true);
+        return const NumbersScreen(isPaneView: true);
       case 7:
+        return const HistoryScreen(isPaneView: true);
+      case 8:
         return const DictionaryManagerScreen();
       default:
         return const SearchScreen(isPaneView: true);
@@ -278,6 +288,7 @@ class _HomeScreenState extends State<HomeScreen> {
           SearchScreen(isPaneView: false),
           FavoritesScreen(isPaneView: false),
           FrequencyScreen(isPaneView: false),
+          ThemesScreen(isPaneView: false),
           IpaScreen(isPaneView: false),
           AlphabetScreen(isPaneView: false),
           NumbersScreen(isPaneView: false),
@@ -303,6 +314,11 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(
             icon: Icon(Icons.trending_up_rounded),
             label: '词频',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.category_outlined),
+            selectedIcon: Icon(Icons.category_rounded),
+            label: '主题',
           ),
           NavigationDestination(
             icon: Icon(Icons.record_voice_over_outlined),
