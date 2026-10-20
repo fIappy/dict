@@ -172,7 +172,7 @@ void main() {
           reason: 'a fresh scene starts folded again');
     });
 
-    test('a long facet pages at 300 words, a short one does not', () async {
+    test('a long facet pages at 50 words, a short one does not', () async {
       final provider = ThemesProvider();
       await provider.initialize();
       provider.select(provider.scenes.first.id);
@@ -279,6 +279,40 @@ void main() {
       await tester.tap(find.text(long.label).first);
       await tester.pumpAndSettle();
       expect(find.byType(ActionChip), findsNothing, reason: 'folding hides the words');
+    });
+
+    testWidgets('the page label jumps to a typed page', (tester) async {
+      final provider = ThemesProvider();
+      await provider.initialize();
+      provider.select(provider.scenes.first.id);
+      final long = provider.visibleGroups
+          .reduce((a, b) => a.words.length >= b.words.length ? a : b);
+      final pages = provider.facetPageCount(long);
+      expect(pages, greaterThan(5), reason: 'needs a facet long enough to jump in');
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<ThemesProvider>.value(value: provider),
+            ChangeNotifierProvider(create: (_) => DictionaryProvider()),
+          ],
+          child: const MaterialApp(home: ThemesScreen(isPaneView: true)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(long.label).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('第 1 / $pages 页'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).last, '5');
+      await tester.tap(find.text('跳转'));
+      await tester.pumpAndSettle();
+
+      expect(provider.facetPage(long), 4);
+      expect(find.text('第 5 / $pages 页'), findsOneWidget);
+      expect(provider.facetWords(long).first, long.words[ThemesProvider.facetPageSize * 4]);
     });
   });
 }

@@ -258,6 +258,20 @@ class _ThemesScreenState extends State<ThemesScreen> {
     );
   }
 
+  /// 50 words a page means a big facet runs to dozens of pages, where
+  /// next-page-only navigation is useless. Tapping the label asks for a page.
+  Future<void> _jumpToPage(
+      BuildContext context, ThemesProvider provider, ThemeGroup group) async {
+    final target = await showDialog<int>(
+      context: context,
+      builder: (_) => _PageJumpDialog(
+        page: provider.facetPage(group) + 1,
+        count: provider.facetPageCount(group),
+      ),
+    );
+    if (target != null) provider.setFacetPage(group, target - 1);
+  }
+
   /// Pager for one long facet. It sits above the chips so flipping a page never
   /// scrolls the control out of reach.
   Widget _facetPager(
@@ -275,9 +289,16 @@ class _ThemesScreenState extends State<ThemesScreen> {
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           onPressed: page == 0 ? null : () => provider.setFacetPage(group, page - 1),
         ),
-        Text(
-          '第 ${page + 1} / $count 页',
-          style: TextStyle(fontSize: 11.5, color: theme.hintColor),
+        InkWell(
+          onTap: () => _jumpToPage(context, provider, group),
+          borderRadius: BorderRadius.circular(4),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: Text(
+              '第 ${page + 1} / $count 页',
+              style: TextStyle(fontSize: 11.5, color: theme.hintColor),
+            ),
+          ),
         ),
         IconButton(
           icon: const Icon(Icons.chevron_right_rounded, size: 18),
@@ -345,6 +366,58 @@ class _SceneHeader extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The page prompt. It owns its controller: disposing one as soon as
+/// `showDialog` returns tears it down while the route is still animating out.
+class _PageJumpDialog extends StatefulWidget {
+  const _PageJumpDialog({required this.page, required this.count});
+
+  final int page;
+  final int count;
+
+  @override
+  State<_PageJumpDialog> createState() => _PageJumpDialogState();
+}
+
+class _PageJumpDialogState extends State<_PageJumpDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: '${widget.page}');
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() =>
+      Navigator.pop(context, int.tryParse(_controller.text.trim()));
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('跳到第几页（共 ${widget.count} 页）',
+          style: const TextStyle(fontSize: 15)),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        style: const TextStyle(fontSize: 13),
+        decoration: const InputDecoration(
+          isDense: true,
+          border: OutlineInputBorder(),
+        ),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('跳转')),
+      ],
     );
   }
 }

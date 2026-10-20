@@ -10,10 +10,10 @@ import '../core/themes/theme_service.dart';
 class ThemesProvider extends ChangeNotifier {
   /// Facets longer than this page; shorter ones render in one go. 通用高频's
   /// 情况 facet holds ~3.4k words, and handing that to a single `Wrap` stalls.
-  static const int facetPageThreshold = 500;
+  static const int facetPageThreshold = 50;
 
   /// Words per page for facets above [facetPageThreshold].
-  static const int facetPageSize = 300;
+  static const int facetPageSize = 50;
 
   final ThemeService _service = ThemeService();
 
