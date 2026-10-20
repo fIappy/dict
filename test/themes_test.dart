@@ -79,33 +79,22 @@ void main() {
       }
     });
 
-    test('every COCA word is either placed or still queued', () async {
-      // The workflow (tool/THEMES_PLAN.md) is: classify the top of the queue,
-      // write a batch file, rerun the builder. This keeps the three in step —
-      // editing a batch without rerunning, or dropping a word by accident, shows
-      // up here rather than as a silently missing word in the app.
+    test('every COCA word is placed', () async {
+      // The acceptance criterion for full coverage: the 17,634 de-duplicated
+      // COCA headwords are all reachable from a scene. Adding a COCA word
+      // without classifying it fails here.
       final ranks = cocaRanks();
       final service = ThemeService();
       await service.init();
       final placed = <String>{for (final scene in service.scenes) ...scene.words};
 
-      final pendingFile = File('tool/themes_pending.txt');
-      expect(pendingFile.existsSync(), isTrue,
-          reason: 'run: dart run tool/build_themes.dart --pending');
-      final queued = <String>{
-        for (final line in pendingFile.readAsLinesSync())
-          if (line.trim().isNotEmpty && !line.trim().startsWith('#'))
-            line.trim().toLowerCase(),
-      };
-
-      final forgotten = ranks.keys
-          .where((word) => !placed.contains(word) && !queued.contains(word))
-          .toList();
-      expect(forgotten, isEmpty,
-          reason: 'rerun: dart run tool/build_themes.dart --pending');
-
-      final both = placed.intersection(queued);
-      expect(both, isEmpty, reason: 'queued words that are already placed: $both');
+      // totalWords counts *placements* (a word may sit in up to 3 scenes), so
+      // it is >= the distinct count, not equal to it.
+      expect(placed.length, ranks.length);
+      expect(service.totalWords, greaterThanOrEqualTo(ranks.length));
+      final missing =
+          ranks.keys.where((word) => !placed.contains(word)).toList()..sort();
+      expect(missing, isEmpty, reason: 'unclassified: ${missing.take(20).toList()}');
     });
 
     test('no facet repeats a word', () async {
