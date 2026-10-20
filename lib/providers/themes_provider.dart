@@ -2,24 +2,29 @@ import 'package:flutter/foundation.dart';
 
 import '../core/themes/theme_service.dart';
 
-/// State of the 主题 module: which scene is open and what the search box holds.
+/// State of the 主题 module: which scene is open, what the search box holds, and
+/// which facets (人 / 事 / 物 …) the reader has opened.
 ///
 /// Nothing here is persisted — the scene list is meant to be browsed, and coming
 /// back to the top-level list on restart is the sane default.
 class ThemesProvider extends ChangeNotifier {
-  /// Scenes longer than this are paged; shorter ones render in one go.
-  static const int pageWordThreshold = 500;
+  /// Facets longer than this page; shorter ones render in one go. 通用高频's
+  /// 情况 facet holds ~3.4k words, and handing that to a single `Wrap` stalls.
+  static const int facetPageThreshold = 500;
 
-  /// Words per page for scenes above [pageWordThreshold]. 通用高频 holds ~9.7k
-  /// words, and handing all of them to a `Wrap` on open is a visible stall.
-  static const int pageSize = 300;
+  /// Words per page for facets above [facetPageThreshold].
+  static const int facetPageSize = 300;
 
   final ThemeService _service = ThemeService();
 
   bool _isLoading = true;
   String? _sceneId;
   String _query = '';
-  int _page = 0;
+
+  /// Facets the reader opened. Everything starts folded so a scene's six facet
+  /// headers are visible at once instead of 人 filling the whole viewport.
+  final Set<String> _expandedFacets = {};
+  final Map<String, int> _facetPages = {};
 
   bool get isLoading => _isLoading;
   String get query => _query;
@@ -52,8 +57,9 @@ class ThemesProvider extends ChangeNotifier {
   }
 
   /// The open scene's facets with the words the search box keeps, dropping
-  /// facets that end up empty. Not paged — [visibleGroups] is the paged view.
-  List<ThemeGroup> get _filteredGroups {
+  /// facets that end up empty. Words are complete here — [facetWords] is the
+  /// paged view of one facet.
+  List<ThemeGroup> get visibleGroups {
     final scene = selectedScene;
     if (scene == null) return const [];
     final query = _query.trim().toLowerCase();
@@ -69,64 +75,48 @@ class ThemesProvider extends ChangeNotifier {
     ];
   }
 
-  /// Every matching word in the open scene, across all pages.
+  /// Every matching word in the open scene, across all facets.
   int get visibleWordCount {
     var total = 0;
-    for (final group in _filteredGroups) {
+    for (final group in visibleGroups) {
       total += group.words.length;
     }
     return total;
   }
 
-  int get pageCount {
-    final total = visibleWordCount;
-    if (total <= pageWordThreshold) return 1;
-    return (total + pageSize - 1) ~/ pageSize;
+  bool isFacetExpanded(String facetId) => _expandedFacets.contains(facetId);
+
+  void toggleFacet(String facetId) {
+    if (!_expandedFacets.remove(facetId)) _expandedFacets.add(facetId);
+    notifyListeners();
   }
 
-  int get page {
-    final last = pageCount - 1;
-    if (last < 0) return 0;
-    return _page > last ? last : _page;
+  int facetPageCount(ThemeGroup group) {
+    final total = group.words.length;
+    if (total <= facetPageThreshold) return 1;
+    return (total + facetPageSize - 1) ~/ facetPageSize;
   }
 
-  /// The current page of the open scene, still grouped, still in frequency
-  /// order. A facet can continue onto the next page, so [groupTotalWords] is not
-  /// always `words.length` — the facet header shows both.
-  List<ThemeGroup> get visibleGroups {
-    final groups = _filteredGroups;
-    if (pageCount <= 1) return groups;
-    final start = page * pageSize;
-    return _slice(groups, start, start + pageSize);
+  int facetPage(ThemeGroup group) {
+    final stored = _facetPages[group.id] ?? 0;
+    final last = facetPageCount(group) - 1;
+    return stored > last ? last : stored;
   }
 
-  /// The facet's full size under the current filter — [visibleGroups] may carry
-  /// only the part of it that lands on the current page.
-  int groupTotalWords(String id) {
-    for (final group in _filteredGroups) {
-      if (group.id == id) return group.words.length;
-    }
-    return 0;
+  /// The slice of [group] to render: the whole facet, or its current page.
+  List<String> facetWords(ThemeGroup group) {
+    if (facetPageCount(group) <= 1) return group.words;
+    final start = facetPage(group) * facetPageSize;
+    final end = start + facetPageSize;
+    return group.words.sublist(start, end < group.words.length ? end : group.words.length);
   }
 
-  static List<ThemeGroup> _slice(List<ThemeGroup> groups, int start, int end) {
-    final page = <ThemeGroup>[];
-    var offset = 0;
-    for (final group in groups) {
-      final groupStart = offset;
-      final groupEnd = groupStart + group.words.length;
-      offset = groupEnd;
-      if (groupEnd <= start) continue;
-      if (groupStart >= end) break;
-      final from = start > groupStart ? start - groupStart : 0;
-      final to = end < groupEnd ? end - groupStart : group.words.length;
-      page.add(ThemeGroup(
-        id: group.id,
-        label: group.label,
-        words: group.words.sublist(from, to),
-      ));
-    }
-    return page;
+  void setFacetPage(ThemeGroup group, int page) {
+    final last = facetPageCount(group) - 1;
+    final next = page < 0 ? 0 : (page > last ? last : page);
+    if ((_facetPages[group.id] ?? 0) == next) return;
+    _facetPages[group.id] = next;
+    notifyListeners();
   }
 
   Future<void> initialize() async {
@@ -139,7 +129,8 @@ class ThemesProvider extends ChangeNotifier {
     if (_sceneId == sceneId) return;
     _sceneId = sceneId;
     _query = '';
-    _page = 0;
+    _expandedFacets.clear();
+    _facetPages.clear();
     notifyListeners();
   }
 
@@ -147,22 +138,21 @@ class ThemesProvider extends ChangeNotifier {
     if (_sceneId == null) return;
     _sceneId = null;
     _query = '';
-    _page = 0;
+    _expandedFacets.clear();
+    _facetPages.clear();
     notifyListeners();
   }
 
   void setQuery(String value) {
     if (_query == value) return;
     _query = value;
-    // A narrower result set may have fewer pages than the one we were on.
-    _page = 0;
-    notifyListeners();
-  }
-
-  void setPage(int page) {
-    final next = page < 0 ? 0 : (page > pageCount - 1 ? pageCount - 1 : page);
-    if (next == _page) return;
-    _page = next;
+    _facetPages.clear();
+    // Reveal what matched — a hit hidden behind a folded header reads as no hit.
+    if (value.trim().isNotEmpty) {
+      for (final group in visibleGroups) {
+        _expandedFacets.add(group.id);
+      }
+    }
     notifyListeners();
   }
 }

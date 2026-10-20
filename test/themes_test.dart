@@ -147,52 +147,69 @@ void main() {
       expect(provider.visibleWordCount, 0);
     });
 
-    test('a long scene is paged 300 words at a time', () async {
+    test('facets start folded and toggle open', () async {
       final provider = ThemesProvider();
       await provider.initialize();
+      final scene = provider.scenes.first;
+      provider.select(scene.id);
 
-      final big = provider.scenes.reduce((a, b) => a.count >= b.count ? a : b);
-      expect(big.count, greaterThan(ThemesProvider.pageWordThreshold));
-      provider.select(big.id);
+      expect(provider.visibleGroups.length, greaterThan(1));
+      for (final group in provider.visibleGroups) {
+        expect(provider.isFacetExpanded(group.id), isFalse,
+            reason: 'a scene opens with its facet headers, not a wall of words');
+      }
 
-      int shownWords() =>
-          provider.visibleGroups.fold(0, (n, group) => n + group.words.length);
+      final first = provider.visibleGroups.first;
+      provider.toggleFacet(first.id);
+      expect(provider.isFacetExpanded(first.id), isTrue);
+      provider.toggleFacet(first.id);
+      expect(provider.isFacetExpanded(first.id), isFalse);
 
-      expect(shownWords(), ThemesProvider.pageSize);
-      expect(provider.pageCount,
-          (big.count + ThemesProvider.pageSize - 1) ~/ ThemesProvider.pageSize);
-      expect(provider.visibleWordCount, big.count,
-          reason: 'the scene header reports the whole scene, not the page');
-
-      final head = provider.visibleGroups.first;
-      expect(provider.groupTotalWords(head.id), greaterThan(head.words.length),
-          reason: 'a facet longer than one page keeps reporting its full size');
-
-      final firstPageHead = provider.visibleGroups.first.words.first;
-      provider.setPage(1);
-      expect(provider.page, 1);
-      expect(shownWords(), ThemesProvider.pageSize);
-      expect(provider.visibleGroups.first.words.first, isNot(firstPageHead));
-
-      provider.setQuery('zzzznotaword');
-      expect(provider.page, 0, reason: 'a new query restarts at page 1');
-      expect(provider.pageCount, 1);
-      expect(provider.visibleGroups, isEmpty);
-
-      provider.setQuery('');
-      expect(provider.page, 0);
+      provider.toggleFacet(first.id);
+      provider.backToScenes();
+      provider.select(scene.id);
+      expect(provider.isFacetExpanded(first.id), isFalse,
+          reason: 'a fresh scene starts folded again');
     });
 
-    test('a short scene stays on one page', () async {
+    test('a long facet pages at 300 words, a short one does not', () async {
       final provider = ThemesProvider();
       await provider.initialize();
+      provider.select(provider.scenes.first.id);
 
-      final small = provider.scenes.reduce((a, b) => a.count <= b.count ? a : b);
-      expect(small.count, lessThanOrEqualTo(ThemesProvider.pageWordThreshold));
-      provider.select(small.id);
-      expect(provider.pageCount, 1);
-      expect(provider.visibleGroups.fold(0, (n, group) => n + group.words.length),
-          small.count);
+      final groups = provider.visibleGroups;
+      final long = groups.reduce((a, b) => a.words.length >= b.words.length ? a : b);
+      final short = groups.reduce((a, b) => a.words.length <= b.words.length ? a : b);
+      const size = ThemesProvider.facetPageSize;
+
+      expect(long.words.length, greaterThan(ThemesProvider.facetPageThreshold));
+      expect(provider.facetPageCount(long), (long.words.length + size - 1) ~/ size);
+      expect(provider.facetWords(long).length, size);
+      expect(provider.visibleGroups.firstWhere((g) => g.id == long.id).words.length,
+          long.words.length, reason: 'the facet header keeps the full count');
+
+      expect(provider.facetPageCount(short), 1);
+      expect(provider.facetWords(short), short.words);
+
+      final head = provider.facetWords(long).first;
+      provider.setFacetPage(long, 1);
+      expect(provider.facetPage(long), 1);
+      expect(provider.facetWords(long).first, isNot(head));
+      expect(provider.facetWords(long).first, long.words[size]);
+    });
+
+    test('searching a scene opens the facets that matched', () async {
+      final provider = ThemesProvider();
+      await provider.initialize();
+      provider.select(provider.scenes.first.id);
+      final probe = provider.visibleGroups.first.words.first;
+      provider.setQuery(probe.substring(0, 3));
+
+      expect(provider.visibleGroups, isNotEmpty);
+      for (final group in provider.visibleGroups) {
+        expect(provider.isFacetExpanded(group.id), isTrue,
+            reason: 'a hit hidden behind a folded header reads as no hit');
+      }
     });
   });
 
@@ -220,18 +237,17 @@ void main() {
       expect(provider.selectedScene, isNotNull);
       final facet = provider.visibleGroups.first;
       expect(find.text(facet.label), findsWidgets);
+      await tester.tap(find.text(facet.label).first);
+      await tester.pumpAndSettle();
       expect(find.text(facet.words.first), findsWidgets);
     });
 
-    testWidgets('the pager walks a long scene in 300-word pages', (tester) async {
+    testWidgets('facets fold, and a long facet pages in place', (tester) async {
       final provider = ThemesProvider();
       await provider.initialize();
-      final big = provider.scenes.reduce((a, b) => a.count >= b.count ? a : b);
-      provider.select(big.id);
-      provider.setPage(1);
-      final secondPageHead = provider.visibleGroups.first.words.first;
-      provider.setPage(0);
-      final pages = provider.pageCount;
+      provider.select(provider.scenes.first.id);
+      final groups = provider.visibleGroups;
+      final long = groups.reduce((a, b) => a.words.length >= b.words.length ? a : b);
 
       await tester.pumpWidget(
         MultiProvider(
@@ -244,24 +260,25 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('第 1 / $pages 页'), findsOneWidget);
+      for (final group in groups) {
+        expect(find.text(group.label), findsWidgets);
+      }
+      expect(find.byType(ActionChip), findsNothing, reason: 'all facets start folded');
 
-      final head = provider.visibleGroups.first;
-      expect(find.text('${head.words.length} / ${provider.groupTotalWords(head.id)}'),
-          findsOneWidget,
-          reason: 'a facet cut by the page boundary shows "shown / total"');
+      await tester.tap(find.text(long.label).first);
+      await tester.pumpAndSettle();
+      expect(provider.isFacetExpanded(long.id), isTrue);
+      expect(find.byType(ActionChip), findsWidgets);
+      expect(find.text('第 1 / ${provider.facetPageCount(long)} 页'), findsOneWidget);
 
       await tester.tap(find.byTooltip('下一页'));
       await tester.pumpAndSettle();
+      expect(provider.facetPage(long), 1);
+      expect(find.text('第 2 / ${provider.facetPageCount(long)} 页'), findsOneWidget);
 
-      expect(provider.page, 1);
-      expect(find.text('第 2 / $pages 页'), findsOneWidget);
-      expect(find.text(secondPageHead), findsWidgets,
-          reason: 'page 2 starts where page 1 stopped');
-
-      await tester.tap(find.byTooltip('上一页'));
+      await tester.tap(find.text(long.label).first);
       await tester.pumpAndSettle();
-      expect(provider.page, 0);
+      expect(find.byType(ActionChip), findsNothing, reason: 'folding hides the words');
     });
   });
 }

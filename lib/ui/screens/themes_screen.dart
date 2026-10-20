@@ -25,20 +25,11 @@ class ThemesScreen extends StatefulWidget {
 
 class _ThemesScreenState extends State<ThemesScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final ScrollController _detailScroll = ScrollController();
 
   @override
   void dispose() {
     _searchController.dispose();
-    _detailScroll.dispose();
     super.dispose();
-  }
-
-  /// Paging replaces the word list in place; without this the reader would
-  /// land at the same scroll offset on the next page.
-  void _goPage(ThemesProvider provider, int page) {
-    provider.setPage(page);
-    if (_detailScroll.hasClients) _detailScroll.jumpTo(0);
   }
 
   void _onWordTapped(BuildContext context, String word) {
@@ -113,13 +104,7 @@ class _ThemesScreenState extends State<ThemesScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : scene == null
                     ? _buildSceneList(context, provider, isDark)
-                    : Column(
-                        children: [
-                          Expanded(child: _buildSceneDetail(context, provider)),
-                          if (provider.pageCount > 1)
-                            _buildPager(context, provider),
-                        ],
-                      ),
+                    : _buildSceneDetail(context, provider),
           ),
           if (!provider.isLoading)
             Padding(
@@ -199,54 +184,73 @@ class _ThemesScreenState extends State<ThemesScreen> {
     }
     final theme = Theme.of(context);
     return ListView.builder(
-      controller: _detailScroll,
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
       itemCount: groups.length,
       itemBuilder: (context, index) {
         final group = groups[index];
+        final expanded = provider.isFacetExpanded(group.id);
         return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.only(bottom: 6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Text(
-                    group.label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.primary,
-                    ),
+              InkWell(
+                onTap: () => provider.toggleFacet(group.id),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Icon(
+                        expanded
+                            ? Icons.expand_more_rounded
+                            : Icons.chevron_right_rounded,
+                        size: 18,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        group.label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${group.words.length}',
+                        style: TextStyle(fontSize: 11.5, color: theme.hintColor),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Divider(
+                          color: theme.dividerColor.withValues(alpha: 0.35),
+                          height: 1,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    _groupCountLabel(provider, group),
-                    style: TextStyle(fontSize: 11.5, color: theme.hintColor),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Divider(
-                      color: theme.dividerColor.withValues(alpha: 0.35),
-                      height: 1,
-                    ),
-                  ),
-                ],
+                ),
               ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final word in group.words)
-                    ActionChip(
-                      label: Text(word, style: const TextStyle(fontSize: 12.5)),
-                      visualDensity: VisualDensity.compact,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      onPressed: () => _onWordTapped(context, word),
-                    ),
-                ],
-              ),
+              if (expanded) ...[
+                if (provider.facetPageCount(group) > 1)
+                  _facetPager(context, provider, group),
+                const SizedBox(height: 2),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final word in provider.facetWords(group))
+                      ActionChip(
+                        label: Text(word, style: const TextStyle(fontSize: 12.5)),
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        onPressed: () => _onWordTapped(context, word),
+                      ),
+                  ],
+                ),
+              ],
             ],
           ),
         );
@@ -254,51 +258,37 @@ class _ThemesScreenState extends State<ThemesScreen> {
     );
   }
 
-  /// A facet can run past a page boundary; show "shown / total" so a partial
-  /// facet is not read as a short one.
-  String _groupCountLabel(ThemesProvider provider, ThemeGroup group) {
-    final total = provider.groupTotalWords(group.id);
-    final shown = group.words.length;
-    return shown < total ? '$shown / $total' : '$shown';
-  }
-
-  /// Page controls for scenes long enough to be paged (see
-  /// [ThemesProvider.pageWordThreshold]). Hidden entirely for short scenes.
-  Widget _buildPager(BuildContext context, ThemesProvider provider) {
+  /// Pager for one long facet. It sits above the chips so flipping a page never
+  /// scrolls the control out of reach.
+  Widget _facetPager(
+      BuildContext context, ThemesProvider provider, ThemeGroup group) {
     final theme = Theme.of(context);
-    final page = provider.page;
-    final count = provider.pageCount;
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: theme.dividerColor.withValues(alpha: 0.4)),
+    final page = provider.facetPage(group);
+    final count = provider.facetPageCount(group);
+    return Row(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.chevron_left_rounded, size: 18),
+          tooltip: '上一页',
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          onPressed: page == 0 ? null : () => provider.setFacetPage(group, page - 1),
         ),
-      ),
-      padding: const EdgeInsets.fromLTRB(6, 2, 6, 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left_rounded, size: 20),
-            tooltip: '上一页',
-            visualDensity: VisualDensity.compact,
-            onPressed: page == 0 ? null : () => _goPage(provider, page - 1),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: Text(
-              '第 ${page + 1} / $count 页',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right_rounded, size: 20),
-            tooltip: '下一页',
-            visualDensity: VisualDensity.compact,
-            onPressed: page >= count - 1 ? null : () => _goPage(provider, page + 1),
-          ),
-        ],
-      ),
+        Text(
+          '第 ${page + 1} / $count 页',
+          style: TextStyle(fontSize: 11.5, color: theme.hintColor),
+        ),
+        IconButton(
+          icon: const Icon(Icons.chevron_right_rounded, size: 18),
+          tooltip: '下一页',
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          onPressed:
+              page >= count - 1 ? null : () => provider.setFacetPage(group, page + 1),
+        ),
+      ],
     );
   }
 }
