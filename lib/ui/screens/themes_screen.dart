@@ -25,11 +25,20 @@ class ThemesScreen extends StatefulWidget {
 
 class _ThemesScreenState extends State<ThemesScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _detailScroll = ScrollController();
 
   @override
   void dispose() {
     _searchController.dispose();
+    _detailScroll.dispose();
     super.dispose();
+  }
+
+  /// Paging replaces the word list in place; without this the reader would
+  /// land at the same scroll offset on the next page.
+  void _goPage(ThemesProvider provider, int page) {
+    provider.setPage(page);
+    if (_detailScroll.hasClients) _detailScroll.jumpTo(0);
   }
 
   void _onWordTapped(BuildContext context, String word) {
@@ -104,7 +113,13 @@ class _ThemesScreenState extends State<ThemesScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : scene == null
                     ? _buildSceneList(context, provider, isDark)
-                    : _buildSceneDetail(context, provider),
+                    : Column(
+                        children: [
+                          Expanded(child: _buildSceneDetail(context, provider)),
+                          if (provider.pageCount > 1)
+                            _buildPager(context, provider),
+                        ],
+                      ),
           ),
           if (!provider.isLoading)
             Padding(
@@ -184,6 +199,7 @@ class _ThemesScreenState extends State<ThemesScreen> {
     }
     final theme = Theme.of(context);
     return ListView.builder(
+      controller: _detailScroll,
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
       itemCount: groups.length,
       itemBuilder: (context, index) {
@@ -205,7 +221,7 @@ class _ThemesScreenState extends State<ThemesScreen> {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    '${group.words.length}',
+                    _groupCountLabel(provider, group),
                     style: TextStyle(fontSize: 11.5, color: theme.hintColor),
                   ),
                   const SizedBox(width: 8),
@@ -235,6 +251,54 @@ class _ThemesScreenState extends State<ThemesScreen> {
           ),
         );
       },
+    );
+  }
+
+  /// A facet can run past a page boundary; show "shown / total" so a partial
+  /// facet is not read as a short one.
+  String _groupCountLabel(ThemesProvider provider, ThemeGroup group) {
+    final total = provider.groupTotalWords(group.id);
+    final shown = group.words.length;
+    return shown < total ? '$shown / $total' : '$shown';
+  }
+
+  /// Page controls for scenes long enough to be paged (see
+  /// [ThemesProvider.pageWordThreshold]). Hidden entirely for short scenes.
+  Widget _buildPager(BuildContext context, ThemesProvider provider) {
+    final theme = Theme.of(context);
+    final page = provider.page;
+    final count = provider.pageCount;
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: theme.dividerColor.withValues(alpha: 0.4)),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(6, 2, 6, 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left_rounded, size: 20),
+            tooltip: '上一页',
+            visualDensity: VisualDensity.compact,
+            onPressed: page == 0 ? null : () => _goPage(provider, page - 1),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Text(
+              '第 ${page + 1} / $count 页',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right_rounded, size: 20),
+            tooltip: '下一页',
+            visualDensity: VisualDensity.compact,
+            onPressed: page >= count - 1 ? null : () => _goPage(provider, page + 1),
+          ),
+        ],
+      ),
     );
   }
 }

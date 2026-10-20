@@ -146,6 +146,54 @@ void main() {
       expect(provider.visibleGroups, isEmpty);
       expect(provider.visibleWordCount, 0);
     });
+
+    test('a long scene is paged 300 words at a time', () async {
+      final provider = ThemesProvider();
+      await provider.initialize();
+
+      final big = provider.scenes.reduce((a, b) => a.count >= b.count ? a : b);
+      expect(big.count, greaterThan(ThemesProvider.pageWordThreshold));
+      provider.select(big.id);
+
+      int shownWords() =>
+          provider.visibleGroups.fold(0, (n, group) => n + group.words.length);
+
+      expect(shownWords(), ThemesProvider.pageSize);
+      expect(provider.pageCount,
+          (big.count + ThemesProvider.pageSize - 1) ~/ ThemesProvider.pageSize);
+      expect(provider.visibleWordCount, big.count,
+          reason: 'the scene header reports the whole scene, not the page');
+
+      final head = provider.visibleGroups.first;
+      expect(provider.groupTotalWords(head.id), greaterThan(head.words.length),
+          reason: 'a facet longer than one page keeps reporting its full size');
+
+      final firstPageHead = provider.visibleGroups.first.words.first;
+      provider.setPage(1);
+      expect(provider.page, 1);
+      expect(shownWords(), ThemesProvider.pageSize);
+      expect(provider.visibleGroups.first.words.first, isNot(firstPageHead));
+
+      provider.setQuery('zzzznotaword');
+      expect(provider.page, 0, reason: 'a new query restarts at page 1');
+      expect(provider.pageCount, 1);
+      expect(provider.visibleGroups, isEmpty);
+
+      provider.setQuery('');
+      expect(provider.page, 0);
+    });
+
+    test('a short scene stays on one page', () async {
+      final provider = ThemesProvider();
+      await provider.initialize();
+
+      final small = provider.scenes.reduce((a, b) => a.count <= b.count ? a : b);
+      expect(small.count, lessThanOrEqualTo(ThemesProvider.pageWordThreshold));
+      provider.select(small.id);
+      expect(provider.pageCount, 1);
+      expect(provider.visibleGroups.fold(0, (n, group) => n + group.words.length),
+          small.count);
+    });
   });
 
   group('Themes screen', () {
@@ -173,6 +221,47 @@ void main() {
       final facet = provider.visibleGroups.first;
       expect(find.text(facet.label), findsWidgets);
       expect(find.text(facet.words.first), findsWidgets);
+    });
+
+    testWidgets('the pager walks a long scene in 300-word pages', (tester) async {
+      final provider = ThemesProvider();
+      await provider.initialize();
+      final big = provider.scenes.reduce((a, b) => a.count >= b.count ? a : b);
+      provider.select(big.id);
+      provider.setPage(1);
+      final secondPageHead = provider.visibleGroups.first.words.first;
+      provider.setPage(0);
+      final pages = provider.pageCount;
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<ThemesProvider>.value(value: provider),
+            ChangeNotifierProvider(create: (_) => DictionaryProvider()),
+          ],
+          child: const MaterialApp(home: ThemesScreen(isPaneView: true)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('第 1 / $pages 页'), findsOneWidget);
+
+      final head = provider.visibleGroups.first;
+      expect(find.text('${head.words.length} / ${provider.groupTotalWords(head.id)}'),
+          findsOneWidget,
+          reason: 'a facet cut by the page boundary shows "shown / total"');
+
+      await tester.tap(find.byTooltip('下一页'));
+      await tester.pumpAndSettle();
+
+      expect(provider.page, 1);
+      expect(find.text('第 2 / $pages 页'), findsOneWidget);
+      expect(find.text(secondPageHead), findsWidgets,
+          reason: 'page 2 starts where page 1 stopped');
+
+      await tester.tap(find.byTooltip('上一页'));
+      await tester.pumpAndSettle();
+      expect(provider.page, 0);
     });
   });
 }
