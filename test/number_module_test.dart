@@ -1863,10 +1863,15 @@ void main() {
       await durations.close();
     });
 
+    // The margins here are deliberately lopsided: a *stale* event is delivered
+    // immediately (elapsed ≈ 0 ms) against a threshold of hundreds of
+    // milliseconds, so a machine under load cannot make it look plausible. An
+    // earlier version waited 10 ms against a 60 ms threshold and failed whenever
+    // the test run was busy.
     Future<bool> waitFor({
-      Duration minPlausible = const Duration(milliseconds: 60),
-      Duration durationWait = const Duration(milliseconds: 20),
-      Duration guard = const Duration(milliseconds: 120),
+      Duration minPlausible = const Duration(milliseconds: 200),
+      Duration durationWait = const Duration(milliseconds: 250),
+      Duration guard = const Duration(milliseconds: 400),
       Duration Function(Duration?)? stallGuard,
     }) =>
         awaitPlayback(
@@ -1883,20 +1888,20 @@ void main() {
       var done = false;
       final wait = waitFor().then((value) => done = value);
 
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-      completions.add(null); // the previous source being torn down
-      await Future<void>.delayed(const Duration(milliseconds: 25));
+      // Delivered immediately: the previous source being torn down.
+      completions.add(null);
+      await Future<void>.delayed(const Duration(milliseconds: 40));
       expect(done, isFalse,
-          reason: 'a 10 ms "completion" cannot be this playback finishing');
+          reason: 'a completion this soon cannot be this playback finishing');
 
-      await Future<void>.delayed(const Duration(milliseconds: 80));
+      await Future<void>.delayed(const Duration(milliseconds: 250));
       completions.add(null); // its own, plausible completion
       expect(await wait, isTrue);
     });
 
     test('a plausible completion ends the wait', () async {
       final wait = waitFor();
-      await Future<void>.delayed(const Duration(milliseconds: 80));
+      await Future<void>.delayed(const Duration(milliseconds: 250));
       completions.add(null);
       expect(await wait, isTrue);
     });
@@ -1919,7 +1924,7 @@ void main() {
         seen = reported;
         return const Duration(milliseconds: 30);
       });
-      await Future<void>.delayed(const Duration(milliseconds: 5));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
       durations.add(const Duration(seconds: 2));
       expect(await wait, isFalse);
       expect(seen, const Duration(seconds: 2));
