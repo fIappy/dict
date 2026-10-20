@@ -1,5 +1,9 @@
 package com.example.local_dict
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import io.flutter.embedding.android.FlutterActivity
@@ -96,6 +100,46 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        // Playback has to outlive the app being on screen: this service is what
+        // keeps Android from freezing the process mid-clip.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AUDIO_BACKGROUND_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "start" -> {
+                        startAudioBackground()
+                        result.success(null)
+                    }
+                    "stop" -> {
+                        stopService(Intent(this, AudioBackgroundService::class.java))
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    /**
+     * Starts the media-playback foreground service.
+     *
+     * Only ever called while the app is visible — playback starts from the UI,
+     * which is the one moment Android allows a foreground service to be started.
+     */
+    private fun startAudioBackground() {
+        val intent = Intent(this, AudioBackgroundService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+        // Android 13+ hides the notification when this is not granted; the
+        // service itself still runs, so a refusal is not fatal.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_REQUEST)
+        }
     }
 
     /**
@@ -206,5 +250,7 @@ class MainActivity : FlutterActivity() {
         const val CHANNEL = "local_dict/sentence_voice"
         const val MODELS_CHANNEL = "local_dict/bundled_models"
         const val MODELS_ASSET = "piper.zip"
+        const val AUDIO_BACKGROUND_CHANNEL = "local_dict/audio_background"
+        const val NOTIFICATION_REQUEST = 4211
     }
 }

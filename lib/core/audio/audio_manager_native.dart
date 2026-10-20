@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../services/dictionary_service.dart';
+import 'audio_background.dart';
 import 'ipa_asset.dart';
 import 'playback_wait.dart';
 import 'sentence_voice.dart';
@@ -44,6 +45,7 @@ class AudioManager implements SpeechClipPlayer {
     _currentlyPlayingTag = playTag;
     _isPlaying = true;
     onStateChanged?.call(true);
+    AudioBackground.begin();
 
     try {
       if (accent == 'uk') {
@@ -96,6 +98,7 @@ class AudioManager implements SpeechClipPlayer {
     } catch (e) {
       debugPrint('Error playing pronunciation for $word: $e');
     } finally {
+      AudioBackground.end();
       Future.delayed(const Duration(milliseconds: 1200), () {
         if (_currentlyPlayingTag == playTag) {
           _isPlaying = false;
@@ -155,6 +158,7 @@ class AudioManager implements SpeechClipPlayer {
     _currentlyPlayingTag = playTag;
     _isPlaying = true;
     onStateChanged?.call(true);
+    AudioBackground.begin();
 
     try {
       await _player.stop();
@@ -167,6 +171,7 @@ class AudioManager implements SpeechClipPlayer {
     } catch (e) {
       debugPrint('Error playing IPA phoneme audio $audioAssetKey ($accent): $e');
     } finally {
+      AudioBackground.end();
       Future.delayed(const Duration(milliseconds: 1000), () {
         if (_currentlyPlayingTag == playTag) {
           _isPlaying = false;
@@ -186,6 +191,7 @@ class AudioManager implements SpeechClipPlayer {
     _currentlyPlayingTag = playTag;
     _isPlaying = true;
     onStateChanged?.call(true);
+    AudioBackground.begin();
 
     try {
       final assetPath = 'audio/letters/${letterKey.toLowerCase()}_$accent.mp3';
@@ -194,6 +200,7 @@ class AudioManager implements SpeechClipPlayer {
     } catch (e) {
       debugPrint('Error playing letter audio $letterKey ($accent): $e');
     } finally {
+      AudioBackground.end();
       Future.delayed(const Duration(milliseconds: 800), () {
         if (_currentlyPlayingTag == playTag) {
           _isPlaying = false;
@@ -238,6 +245,7 @@ class AudioManager implements SpeechClipPlayer {
   }) async {
     _currentlyPlayingTag = tag;
     _isPlaying = true;
+    AudioBackground.begin();
     try {
       if (rate != 1.0) {
         try {
@@ -268,6 +276,7 @@ class AudioManager implements SpeechClipPlayer {
     } catch (e) {
       debugPrint('Speech clip $label failed: $e');
     } finally {
+      AudioBackground.end();
       if (_currentlyPlayingTag == tag) {
         _isPlaying = false;
         _currentlyPlayingTag = null;
@@ -313,6 +322,7 @@ class AudioManager implements SpeechClipPlayer {
 
     _currentlyPlayingTag = 'sentence_$accent';
     _isPlaying = true;
+    AudioBackground.begin();
     try {
       if (voice.engine == VoiceEngine.oneCore) {
         final wav = await synthesizeWithVoice(text, voice, rate: rate);
@@ -327,6 +337,7 @@ class AudioManager implements SpeechClipPlayer {
       }
       return await speakWithSystemVoice(text, voice, rate: rate);
     } finally {
+      AudioBackground.end();
       _isPlaying = false;
       _currentlyPlayingTag = null;
     }
@@ -378,6 +389,7 @@ class AudioManager implements SpeechClipPlayer {
     // A sentence is spoken by a child process (or played from a rendered file),
     // so stopping means killing the process and silencing the player.
     cancelSystemVoice();
+    AudioBackground.stopNow();
     try {
       await _player.stop();
       _isPlaying = false;
