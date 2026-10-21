@@ -25,6 +25,7 @@ class AiArchiveItem {
     this.title = '',
     this.lines = const [],
     this.text = '',
+    this.reasoning = '',
   });
 
   final String id;
@@ -46,6 +47,9 @@ class AiArchiveItem {
 
   /// The passage body (empty for sentences).
   final String text;
+
+  /// The model's reasoning for this generation, when the endpoint exposed it.
+  final String reasoning;
 
   DateTime get created => DateTime.fromMillisecondsSinceEpoch(createdAt);
 
@@ -95,6 +99,7 @@ class AiArchiveItem {
               GeneratedSentence.fromJson(line.cast<String, dynamic>()),
       ],
       text: json['text']?.toString() ?? '',
+      reasoning: json['reasoning']?.toString() ?? '',
     );
   }
 }

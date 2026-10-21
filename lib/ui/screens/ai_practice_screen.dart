@@ -136,6 +136,10 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
           _buildSentenceCard(context, provider, config),
           const SizedBox(height: 14),
           _buildPassageCard(context, provider, config),
+          if (provider.reasoning != null) ...[
+            const SizedBox(height: 14),
+            _buildReasoningCard(context, provider),
+          ],
           const SizedBox(height: 14),
           _buildArchive(context, provider),
         ],
@@ -467,6 +471,37 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
     );
   }
 
+  /// What the model thought before answering. Collapsed by default: it is
+  /// reference material, not the thing the reader came for.
+  Widget _buildReasoningCard(BuildContext context, AiPracticeProvider provider) {
+    final theme = Theme.of(context);
+    final text = provider.reasoning!;
+    return Card(
+      elevation: 0,
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 14),
+        shape: const Border(),
+        collapsedShape: const Border(),
+        leading: Icon(Icons.psychology_alt_rounded, size: 18, color: theme.hintColor),
+        title: const Text('思考过程',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        subtitle: Text('${text.length} 字',
+            style: TextStyle(fontSize: 11.5, color: theme.hintColor)),
+        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: SelectableText(
+              text,
+              style: TextStyle(
+                  fontSize: 12.5, height: 1.55, color: theme.hintColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildArchive(BuildContext context, AiPracticeProvider provider) {
     final theme = Theme.of(context);
     final items = provider.archiveFor(widget.scene.id);
@@ -558,6 +593,23 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
         ],
       ),
       children: [
+        if (item.reasoning.isNotEmpty) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text('思考过程',
+                style: TextStyle(fontSize: 11.5, color: theme.hintColor)),
+          ),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: SelectableText(
+              item.reasoning,
+              style: TextStyle(
+                  fontSize: 12, height: 1.5, color: theme.hintColor),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
         Align(
           alignment: Alignment.centerLeft,
           child: item.kind == AiItemKind.passage

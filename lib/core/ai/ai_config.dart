@@ -1,3 +1,21 @@
+/// How hard the model should think before answering.
+///
+/// `low` is the default: these are short teaching texts, and a model that
+/// deliberates for thirty seconds to write five example sentences makes the
+/// page feel broken. Servers that do not know the parameter are retried
+/// without it, so this never becomes a hard requirement.
+enum AiReasoningEffort { none, minimal, low, medium, high }
+
+extension AiReasoningEffortLabel on AiReasoningEffort {
+  String get label => switch (this) {
+        AiReasoningEffort.none => '关',
+        AiReasoningEffort.minimal => '最低',
+        AiReasoningEffort.low => '低',
+        AiReasoningEffort.medium => '中',
+        AiReasoningEffort.high => '高',
+      };
+}
+
 /// Endpoint, key and model for an OpenAI-compatible chat completion API.
 ///
 /// The shape is the de-facto standard: `POST <base>/chat/completions` with
@@ -9,6 +27,7 @@ class AiConfig {
     required this.baseUrl,
     required this.apiKey,
     required this.model,
+    this.reasoningEffort = AiReasoningEffort.low,
   });
 
   static const String defaultBaseUrl = 'https://api.openai.com/v1';
@@ -22,6 +41,8 @@ class AiConfig {
   final String apiKey;
 
   final String model;
+
+  final AiReasoningEffort reasoningEffort;
 
   bool get isConfigured => baseUrl.trim().isNotEmpty && model.trim().isNotEmpty;
 

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/dictionary_provider.dart';
+import '../../core/ai/ai_config.dart';
+import '../../core/ai/openai_client.dart';
 import '../../providers/settings_provider.dart';
 import 'dictionary_manager_screen.dart';
 
@@ -222,6 +224,9 @@ class _AiSettingsCard extends StatefulWidget {
 }
 
 class _AiSettingsCardState extends State<_AiSettingsCard> {
+  bool _loadingModels = false;
+  String? _modelsError;
+
   late final TextEditingController _base = TextEditingController(
     text: widget.settings.aiBaseUrl,
   );
@@ -243,6 +248,7 @@ class _AiSettingsCardState extends State<_AiSettingsCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final effort = widget.settings.aiReasoningEffort;
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
@@ -279,12 +285,114 @@ class _AiSettingsCardState extends State<_AiSettingsCard> {
               obscure: true,
             ),
             const SizedBox(height: 10),
-            _field(_model, '模型', 'gpt-4o-mini', widget.settings.setAiModel),
+            _field(
+              _model,
+              '模型',
+              'gpt-4o-mini',
+              widget.settings.setAiModel,
+              suffix: IconButton(
+                icon: _loadingModels
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded, size: 18),
+                tooltip: '读取接口支持的模型',
+                onPressed: _loadingModels ? null : _fetchModels,
+              ),
+            ),
+            if (_modelsError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  _modelsError!,
+                  style: TextStyle(fontSize: 11.5, color: theme.colorScheme.error),
+                ),
+              ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Text('思考强度',
+                    style: TextStyle(fontSize: 12, color: theme.hintColor)),
+                const SizedBox(width: 10),
+                SegmentedButton<AiReasoningEffort>(
+                  showSelectedIcon: false,
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  segments: [
+                    for (final value in AiReasoningEffort.values)
+                      ButtonSegment(value: value, label: Text(value.label)),
+                  ],
+                  selected: {effort},
+                  onSelectionChanged: (selection) =>
+                      widget.settings.setAiReasoningEffort(selection.first),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
+
+  /// The model list as the endpoint reports it; picking one writes the field.
+  Future<void> _fetchModels() async {
+    setState(() {
+      _loadingModels = true;
+      _modelsError = null;
+    });
+    final client = OpenAiClient(
+      config: AiConfig(
+        baseUrl: _base.text,
+        apiKey: _key.text,
+        model: _model.text,
+      ),
+    );
+    try {
+      final models = await client.listModels();
+      if (!mounted) return;
+      final picked = await _pickModel(models);
+      if (picked != null) {
+        _model.text = picked;
+        await widget.settings.setAiModel(picked);
+      }
+    } on AiException catch (e) {
+      if (mounted) setState(() => _modelsError = e.message);
+    } finally {
+      client.close();
+      if (mounted) setState(() => _loadingModels = false);
+    }
+  }
+
+  Future<String?> _pickModel(List<String> models) => showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text('接口支持的模型（${models.length}）',
+              style: const TextStyle(fontSize: 15)),
+          content: SizedBox(
+            width: 420,
+            height: 380,
+            child: ListView.builder(
+              itemCount: models.length,
+              itemBuilder: (_, index) => ListTile(
+                dense: true,
+                selected: models[index] == _model.text.trim(),
+                title: Text(models[index], style: const TextStyle(fontSize: 13)),
+                onTap: () => Navigator.pop(dialogContext, models[index]),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
+            ),
+          ],
+        ),
+      );
 
   Widget _field(
     TextEditingController controller,
@@ -292,6 +400,7 @@ class _AiSettingsCardState extends State<_AiSettingsCard> {
     String hint,
     Future<void> Function(String) save, {
     bool obscure = false,
+    Widget? suffix,
   }) {
     return TextField(
       controller: controller,
@@ -304,6 +413,7 @@ class _AiSettingsCardState extends State<_AiSettingsCard> {
         labelText: label,
         hintText: hint,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        suffixIcon: suffix,
       ),
       // Written through on every keystroke: a field this short costs nothing to
       // persist, and leaving the page must not lose it.

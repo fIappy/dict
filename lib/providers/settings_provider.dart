@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/ai/ai_config.dart';
+
 class SettingsProvider extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
   double _fontSizeScale = 1.0;
@@ -10,6 +12,7 @@ class SettingsProvider extends ChangeNotifier {
   String _aiBaseUrl = 'https://api.openai.com/v1';
   String _aiApiKey = '';
   String _aiModel = 'gpt-4o-mini';
+  AiReasoningEffort _aiReasoningEffort = AiReasoningEffort.low;
 
   ThemeMode get themeMode => _themeMode;
   double get fontSizeScale => _fontSizeScale;
@@ -21,6 +24,7 @@ class SettingsProvider extends ChangeNotifier {
   String get aiBaseUrl => _aiBaseUrl;
   String get aiApiKey => _aiApiKey;
   String get aiModel => _aiModel;
+  AiReasoningEffort get aiReasoningEffort => _aiReasoningEffort;
 
   /// Pause between two lines during 顺序播放 of an entry's phrases/examples.
   Duration get sentenceGap =>
@@ -46,6 +50,11 @@ class SettingsProvider extends ChangeNotifier {
     _aiBaseUrl = prefs.getString('ai_base_url') ?? 'https://api.openai.com/v1';
     _aiApiKey = prefs.getString('ai_api_key') ?? '';
     _aiModel = prefs.getString('ai_model') ?? 'gpt-4o-mini';
+    final effortName = prefs.getString('ai_reasoning_effort');
+    _aiReasoningEffort = AiReasoningEffort.values.firstWhere(
+      (e) => e.name == effortName,
+      orElse: () => AiReasoningEffort.low,
+    );
     notifyListeners();
   }
 
@@ -109,5 +118,13 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('ai_model', clean);
+  }
+
+  Future<void> setAiReasoningEffort(AiReasoningEffort effort) async {
+    if (_aiReasoningEffort == effort) return;
+    _aiReasoningEffort = effort;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('ai_reasoning_effort', effort.name);
   }
 }

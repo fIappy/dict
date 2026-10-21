@@ -19,8 +19,11 @@ class _CapturingClient extends OpenAiClient {
   String system = '';
   String user = '';
 
+  /// What the fake model "thought"; empty means the server showed nothing.
+  String reasoningText = '';
+
   @override
-  Future<String> complete({
+  Future<AiReply> complete({
     required String system,
     required String user,
     double temperature = 0.7,
@@ -28,7 +31,10 @@ class _CapturingClient extends OpenAiClient {
   }) async {
     this.system = system;
     this.user = user;
-    return reply;
+    return AiReply(
+      text: reply,
+      reasoning: reasoningText.isEmpty ? null : reasoningText,
+    );
   }
 }
 
@@ -97,12 +103,13 @@ void main() {
       );
       final agent = _agent(client);
 
-      final passage = await agent.passage(
+      final result = await agent.passage(
         sceneLabel: '旅行住宿',
         sceneHint: '酒店、行程与交通',
         words: const ['itinerary', 'lounge'],
         level: PracticeLevel.easy,
       );
+      final passage = result.passage;
 
       expect(client.user, contains('旅行住宿'));
       expect(client.user, contains('itinerary, lounge'));

@@ -32,6 +32,7 @@ class AiPracticeProvider extends ChangeNotifier {
   GeneratedPassage? _passage;
   List<String> _passageWords = const [];
   List<AiArchiveItem> _archive = const [];
+  String? _reasoning;
 
   bool get isGenerating => _isGenerating;
   String? get error => _error;
@@ -43,6 +44,9 @@ class AiPracticeProvider extends ChangeNotifier {
   /// see which band of the theme it was built from.
   List<String> get passageWords => _passageWords;
   List<AiArchiveItem> get archive => _archive;
+
+  /// The thinking the last generation came with, when the endpoint exposes it.
+  String? get reasoning => _reasoning;
 
   List<AiArchiveItem> archiveFor(String sceneId) => [
     for (final item in _archive)
@@ -58,6 +62,7 @@ class AiPracticeProvider extends ChangeNotifier {
     _passage = null;
     _passageWords = const [];
     _error = null;
+    _reasoning = null;
     notifyListeners();
   }
 
@@ -83,8 +88,9 @@ class AiPracticeProvider extends ChangeNotifier {
     final result = await _agent(
       config,
     ).sentences(word: word, count: count, level: level, sceneLabel: sceneLabel);
-    _sentences = result;
+    _sentences = result.items;
     _sentencesWord = word;
+    _reasoning = result.reasoning.isEmpty ? null : result.reasoning;
     await _archiveItem(
       AiArchiveItem(
         id: _newId(),
@@ -95,7 +101,8 @@ class AiPracticeProvider extends ChangeNotifier {
         createdAt: DateTime.now().millisecondsSinceEpoch,
         model: config.model,
         word: word,
-        lines: result,
+        lines: result.items,
+        reasoning: result.reasoning,
       ),
     );
   });
@@ -117,8 +124,9 @@ class AiPracticeProvider extends ChangeNotifier {
       words: words,
       level: level,
     );
-    _passage = result;
+    _passage = result.passage;
     _passageWords = words;
+    _reasoning = result.reasoning.isEmpty ? null : result.reasoning;
     await _archiveItem(
       AiArchiveItem(
         id: _newId(),
@@ -128,8 +136,9 @@ class AiPracticeProvider extends ChangeNotifier {
         level: level,
         createdAt: DateTime.now().millisecondsSinceEpoch,
         model: config.model,
-        title: result.title,
-        text: result.text,
+        title: result.passage.title,
+        text: result.passage.text,
+        reasoning: result.reasoning,
       ),
     );
   });

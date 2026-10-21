@@ -27,20 +27,24 @@ class _FakeAgent extends ThemeAgent {
   final GeneratedPassage? passageReply;
   PracticeLevel? lastLevel;
   List<String>? lastWords;
+  String reasoningText = '';
 
   @override
-  Future<List<GeneratedSentence>> sentences({
+  Future<({List<GeneratedSentence> items, String reasoning})> sentences({
     required String word,
     required int count,
     required PracticeLevel level,
     String? sceneLabel,
   }) async {
     lastLevel = level;
-    return sentencesReply ?? [const GeneratedSentence(text: 'A fake sentence.')];
+    return (
+      items: sentencesReply ?? [const GeneratedSentence(text: 'A fake sentence.')],
+      reasoning: reasoningText,
+    );
   }
 
   @override
-  Future<GeneratedPassage> passage({
+  Future<({GeneratedPassage passage, String reasoning})> passage({
     required String sceneLabel,
     required String sceneHint,
     required List<String> words,
@@ -48,10 +52,35 @@ class _FakeAgent extends ThemeAgent {
   }) async {
     lastLevel = level;
     lastWords = words;
-    return passageReply ??
-        const GeneratedPassage(title: 'Fake', text: 'A fake passage.');
+    return (
+      passage: passageReply ??
+          const GeneratedPassage(title: 'Fake', text: 'A fake passage.'),
+      reasoning: reasoningText,
+    );
   }
 }
+
+
+http.Response _ok(String content, {String? reasoning}) => http.Response(
+      jsonEncode({
+        'id': 'chatcmpl-1',
+        'object': 'chat.completion',
+        'created': 0,
+        'model': 'fake',
+        'choices': [
+          {
+            'index': 0,
+            'finish_reason': 'stop',
+            'message': {
+              'role': 'assistant',
+              'content': content,
+              'reasoning_content': ?reasoning,
+            },
+          },
+        ],
+      }),
+      200,
+    );
 
 AiPracticeProvider _provider(_FakeAgent agent) => AiPracticeProvider(
       agentBuilder: (_) => agent,
@@ -199,6 +228,27 @@ void main() {
       expect(provider.isGenerating, isFalse);
     });
 
+
+    test('the reasoning is kept with the result and the archive entry', () async {
+      final agent = _FakeAgent(
+        sentencesReply: [const GeneratedSentence(text: 'X.')],
+      )..reasoningText = 'weighed two senses of the word';
+      final provider = _provider(agent);
+
+      await provider.generateSentences(
+        config: _config,
+        sceneId: 's',
+        sceneLabel: 'S',
+        word: 'x',
+        count: 3,
+        level: PracticeLevel.easy,
+      );
+
+      expect(provider.reasoning, 'weighed two senses of the word');
+      expect(provider.archiveFor('s').single.reasoning,
+          'weighed two senses of the word');
+    });
+
     test('opening another theme drops the previous results', () async {
       final provider = _provider(_FakeAgent());
       await provider.generateSentences(
@@ -239,10 +289,8 @@ void main() {
         }),
       );
 
-      expect(
-        await client.complete(system: 's', user: 'u'),
-        'Hello.',
-      );
+      final reply = await client.complete(system: 's', user: 'u');
+      expect(reply.text, 'Hello.');
     });
 
     test('a rejected key is reported as such, not as a stack trace', () async {
@@ -285,6 +333,87 @@ void main() {
       );
     });
 
+
+    test('reasoning comes back with the answer', () async {
+      final client = OpenAiClient(
+        config: _config,
+        httpClient: MockClient(
+          (_) async => _ok('Hello.', reasoning: 'First I read the theme.'),
+        ),
+      );
+
+      final reply = await client.complete(system: 's', user: 'u');
+      expect(reply.text, 'Hello.');
+      expect(reply.reasoning, contains('First I read the theme'));
+    });
+
+    test('the configured reasoning effort is sent', () async {
+      Map<String, dynamic>? body;
+      final client = OpenAiClient(
+        config: const AiConfig(
+          baseUrl: 'http://localhost/v1',
+          apiKey: 'k',
+          model: 'm',
+          reasoningEffort: AiReasoningEffort.medium,
+        ),
+        httpClient: MockClient((request) async {
+          body = jsonDecode(request.body) as Map<String, dynamic>;
+          return _ok('Hi.');
+        }),
+      );
+
+      await client.complete(system: 's', user: 'u');
+      expect(body!['reasoning_effort'], 'medium');
+    });
+
+    test('a server that rejects the effort is asked again without it', () async {
+      final bodies = <Map<String, dynamic>>[];
+      final client = OpenAiClient(
+        config: _config,
+        httpClient: MockClient((request) async {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          bodies.add(body);
+          if (bodies.length == 1) {
+            return http.Response(
+              jsonEncode({
+                'error': {'message': 'Unsupported parameter: reasoning_effort'},
+              }),
+              400,
+            );
+          }
+          return _ok('Fine.');
+        }),
+      );
+
+      final reply = await client.complete(system: 's', user: 'u');
+      expect(bodies, hasLength(2));
+      expect(bodies.first['reasoning_effort'], 'low');
+      expect(bodies.last.containsKey('reasoning_effort'), isFalse);
+      expect(reply.text, 'Fine.');
+    });
+
+    test('models come from the endpoint, sorted', () async {
+      final client = OpenAiClient(
+        config: _config,
+        httpClient: MockClient((request) async {
+          expect(request.method, 'GET');
+          expect(request.url.path, '/v1/models');
+          return http.Response(
+            jsonEncode({
+              'object': 'list',
+              'data': [
+                {'id': 'model-b', 'object': 'model', 'created': 0, 'owned_by': 'x'},
+                {'id': 'model-a', 'object': 'model', 'created': 0, 'owned_by': 'x'},
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      expect(await client.listModels(), ['model-a', 'model-b']);
+    });
+
     test('the endpoint is normalised', () {
       const base = AiConfig(baseUrl: 'https://x.test/v1/', apiKey: '', model: 'm');
       expect(base.chatCompletionsUrl, 'https://x.test/v1/chat/completions');
@@ -304,7 +433,7 @@ class _ThrowingAgent extends ThemeAgent {
         );
 
   @override
-  Future<List<GeneratedSentence>> sentences({
+  Future<({List<GeneratedSentence> items, String reasoning})> sentences({
     required String word,
     required int count,
     required PracticeLevel level,

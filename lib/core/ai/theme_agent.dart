@@ -242,13 +242,13 @@ class ThemeAgent {
     return pickWords(ranked, level, count);
   }
 
-  Future<List<GeneratedSentence>> sentences({
+  Future<({List<GeneratedSentence> items, String reasoning})> sentences({
     required String word,
     required int count,
     required PracticeLevel level,
     String? sceneLabel,
   }) async {
-    final raw = await _client.complete(
+    final reply = await _client.complete(
       system: _sentenceSystem,
       user: _sentenceUser(
         word: word,
@@ -259,14 +259,14 @@ class ThemeAgent {
       temperature: 0.6,
       maxTokens: 1200,
     );
-    final parsed = parseSentences(raw);
+    final parsed = parseSentences(reply.text);
     if (parsed.isEmpty) {
       throw const AiException('模型没有返回可用的句子');
     }
-    return parsed;
+    return (items: parsed, reasoning: reply.reasoning ?? '');
   }
 
-  Future<GeneratedPassage> passage({
+  Future<({GeneratedPassage passage, String reasoning})> passage({
     required String sceneLabel,
     required String sceneHint,
     required List<String> words,
@@ -275,7 +275,7 @@ class ThemeAgent {
     if (words.isEmpty) {
       throw const AiException('这个主题里没有可用于生成短文的词');
     }
-    final raw = await _client.complete(
+    final reply = await _client.complete(
       system: _passageSystem,
       user: _passageUser(
         sceneLabel: sceneLabel,
@@ -286,11 +286,11 @@ class ThemeAgent {
       temperature: 0.75,
       maxTokens: 1600,
     );
-    final parsed = parsePassage(raw);
+    final parsed = parsePassage(reply.text);
     if (parsed.text.isEmpty) {
       throw const AiException('模型没有返回可用的短文');
     }
-    return parsed;
+    return (passage: parsed, reasoning: reply.reasoning ?? '');
   }
 
   // ------------------------------------------------------------------ prompts
