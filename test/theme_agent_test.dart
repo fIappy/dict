@@ -7,12 +7,15 @@ import 'package:local_dict/core/ai/theme_agent.dart';
 /// Captures the prompt instead of calling a server, and answers with a canned
 /// reply. Lets the prompt itself be asserted.
 class _CapturingClient extends OpenAiClient {
-  _CapturingClient({this.reply = '{}'})
-      : super(
-          config: const AiConfig(
+  _CapturingClient({
+    this.reply = '{}',
+    AiReasoningEffort effort = AiReasoningEffort.low,
+  }) : super(
+          config: AiConfig(
             baseUrl: 'http://127.0.0.1:11434/v1',
             apiKey: '',
             model: 'test-model',
+            reasoningEffort: effort,
           ),
         );
 
@@ -113,6 +116,32 @@ void main() {
           reason: 'only the chosen band goes into the prompt');
     });
 
+    test('a long passage is split into paragraphs the model can count',
+        () async {
+      final client = _CapturingClient(
+        reply: '{"title":"A Walk","text":"Some text."}',
+      );
+      await _agent(client).passage(
+        sceneLabel: 'S',
+        sceneHint: 'H',
+        words: const ['ward'],
+        level: PracticeLevel.easy,
+        length: 1000,
+      );
+      expect(client.user,
+          contains('Write exactly 5 paragraphs of about 200 words each'));
+
+      await _agent(client).passage(
+        sceneLabel: 'S',
+        sceneHint: 'H',
+        words: const ['ward'],
+        level: PracticeLevel.easy,
+        length: 300,
+      );
+      expect(client.user, isNot(contains('paragraphs of about')),
+          reason: 'short pieces stay a single block');
+    });
+
     test('a long passage gets more tokens and a longer deadline', () async {
       final client = _CapturingClient(
         reply: '{"title":"A Walk","text":"Some text."}',
@@ -125,7 +154,31 @@ void main() {
         length: 2000,
       );
       expect(client.lastMaxTokens, 4600);
-      expect(client.lastTimeout, const Duration(seconds: 363));
+      expect(client.lastTimeout, const Duration(seconds: 727),
+          reason: 'the default reasoning effort doubles the deadline');
+    });
+
+    test('a reasoning model gets a longer deadline than a plain one', () async {
+      final plain = _CapturingClient(
+        reply: '{"title":"A Walk","text":"Some text."}',
+        effort: AiReasoningEffort.none,
+      );
+      final thinking = _CapturingClient(
+        reply: '{"title":"A Walk","text":"Some text."}',
+        effort: AiReasoningEffort.high,
+      );
+      for (final client in [plain, thinking]) {
+        await _agent(client).passage(
+          sceneLabel: 'S',
+          sceneHint: 'H',
+          words: const ['ward'],
+          level: PracticeLevel.easy,
+          length: 1000,
+        );
+      }
+      expect(plain.lastTimeout, const Duration(seconds: 197));
+      expect(thinking.lastTimeout, const Duration(seconds: 787),
+          reason: '30 + 1000/6 = 197, four times over for high effort');
     });
   });
 

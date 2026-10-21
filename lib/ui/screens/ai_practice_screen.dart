@@ -121,6 +121,12 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
   }
 
   Future<void> _generatePassage(AiConfig config) async {
+    // The field is the truth: typing 1000 and going straight to the button
+    // used to keep the old value, because a mouse click does not take focus.
+    final typed = int.tryParse(_lengthController.text.trim());
+    if (typed != null && typed != _passageLength) {
+      _applyPassageLength(typed);
+    }
     final provider = context.read<AiPracticeProvider>();
     final ranked = provider.rankedWordsFor(widget.scene.id, widget.scene.words);
     final total = ranked.length;
@@ -128,11 +134,12 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
     final from = (_bandFrom ?? 1).clamp(1, total);
     final to = (_bandTo ?? (total < _defaultBand ? total : _defaultBand))
         .clamp(from, total);
+    final length = _passageLength;
     final words = wordsInBand(
       ranked,
       from: from,
       to: to,
-      length: _passageLength,
+      length: length,
     );
     await provider.generatePassage(
       config: config,
@@ -141,7 +148,7 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
       sceneHint: widget.scene.hint,
       requiredWords: words,
       level: _passageLevel,
-      length: _passageLength,
+      length: length,
       style: _passageStyle,
       wordsNote:
           'These come from theme ranks $from-$to of $total by frequency; the '
@@ -510,12 +517,26 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      passage.title,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          passage.title,
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          _wordCountLine(provider, passage),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: provider.passageShort
+                                ? theme.colorScheme.error
+                                : theme.hintColor,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   IconButton(
@@ -923,6 +944,15 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
         ),
       ],
     );
+  }
+
+  /// "实际 151 词 · 要求约 1000 词", red when the model fell well short.
+  String _wordCountLine(AiPracticeProvider provider, GeneratedPassage passage) {
+    final asked = provider.archiveSource?.length ?? _passageLength;
+    final actual = passage.wordCount;
+    final tail = asked > 0 ? '要求约 $asked 词' : '未指定长度';
+    final short = asked > 0 && actual < asked * 0.7;
+    return '实际 $actual 词 · $tail${short ? ' · 比要求短很多' : ''}';
   }
 
   /// Explains the two marks on generated text, once per card.

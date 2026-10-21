@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'ai_config.dart';
 import 'openai_client.dart';
 import 'passage_style.dart';
 
@@ -78,6 +79,10 @@ class GeneratedPassage {
   /// Fixed collocations the model found in [text], verbatim.
   final List<String> phrases;
 
+  /// English words in [text], the number the reader asked about.
+  int get wordCount =>
+      RegExp(r"[A-Za-z][A-Za-z'’-]*").allMatches(text).length;
+
   Map<String, dynamic> toJson() =>
       {'title': title, 'text': text, if (phrases.isNotEmpty) 'phrases': phrases};
 
@@ -151,13 +156,28 @@ class ThemeAgent {
       // Roughly two tokens per English word plus the JSON scaffolding; a long
       // passage also needs a longer deadline than the client's default.
       maxTokens: (length * 2 + 600).clamp(800, 8000),
-      timeout: Duration(seconds: (30 + length / 6).round().clamp(90, 900)),
+      timeout: _passageTimeout(length),
     );
     final parsed = parsePassage(reply.text);
     if (parsed.text.isEmpty) {
       throw const AiException('模型没有返回可用的短文');
     }
     return (passage: parsed, reasoning: reply.reasoning ?? '');
+  }
+
+  /// A reasoning model spends minutes thinking before it writes: a 1000-word
+  /// request on DeepSeek produced ~29k characters of reasoning, so a flat
+  /// deadline would turn every long passage into a timeout.
+  Duration _passageTimeout(int length) {
+    final base = 30 + length / 6;
+    final factor = switch (_client.config.reasoningEffort) {
+      AiReasoningEffort.none => 1.0,
+      AiReasoningEffort.minimal => 1.5,
+      AiReasoningEffort.low => 2.0,
+      AiReasoningEffort.medium => 3.0,
+      AiReasoningEffort.high => 4.0,
+    };
+    return Duration(seconds: (base * factor).round().clamp(90, 3600));
   }
 
   // ------------------------------------------------------------------ prompts
@@ -226,6 +246,13 @@ class ThemeAgent {
             'phrases, nominalisation), precise word choice.',
     };
     final note = wordsNote.isEmpty ? '' : '\n$wordsNote';
+    // One 1000-word block is where models drift short; explicit per-paragraph
+    // budgets hold much better than a single total.
+    final paragraphs = length >= 400 ? (length / 200).ceil().clamp(2, 10) : 0;
+    final plan = paragraphs == 0
+        ? ''
+        : '- Write exactly $paragraphs paragraphs of about '
+            '${(length / paragraphs).round()} words each, and do not stop early.\n';
     final extraRules = extra.trim().isEmpty
         ? ''
         : '\nAdditional requirements from the learner — follow them unless they '
@@ -239,6 +266,7 @@ class ThemeAgent {
         'Write ONE passage of about $length words.\n'
         '$levelRules\n'
         'Content rules:\n'
+        '$plan'
         '- Use every required word.\n'
         '- Keep exactly one topic and the requested style throughout.\n'
         '- No grammar, collocation or logic errors.\n'

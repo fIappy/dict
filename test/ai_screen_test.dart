@@ -109,6 +109,27 @@ void main() {
     expect(find.text('Night Shift'), findsOneWidget);
   });
 
+  testWidgets('the typed length is what the request uses, and a short answer says so',
+      (tester) async {
+    final agent = _PassageAgent();
+    final provider = AiPracticeProvider(agentBuilder: (_) => agent);
+    await _mount(tester, provider);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byType(TextField).at(1));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(1), '1000');
+    // Straight to the button, the way a mouse user does it.
+    await tester.ensureVisible(find.text('生成短文'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('生成短文'));
+    await tester.pumpAndSettle();
+
+    expect(agent.lastLength, 1000);
+    expect(find.textContaining('实际 9 词 · 要求约 1000 词'), findsOneWidget);
+    expect(find.textContaining('比要求短很多'), findsOneWidget);
+  });
+
   testWidgets('a band wider than the passage can hold says so', (tester) async {
     final agent = _PassageAgent();
     final provider = AiPracticeProvider(agentBuilder: (_) => agent);

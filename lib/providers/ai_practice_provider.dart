@@ -37,6 +37,7 @@ class AiPracticeProvider extends ChangeNotifier {
   String? _sentencesWord;
   GeneratedPassage? _passage;
   List<String> _passageWords = const [];
+  int _passageLength = 0;
   List<AiArchiveItem> _archive = const [];
   AiArchiveItem? _source;
   String? _reasoning;
@@ -69,6 +70,16 @@ class AiPracticeProvider extends ChangeNotifier {
   /// The words the last passage was required to use — shown so the reader can
   /// see which band of the theme it was built from.
   List<String> get passageWords => _passageWords;
+
+  /// How long the last passage was asked to be, in words.
+  int get passageLength => _passageLength;
+
+  /// True when the model wrote well under the requested length.
+  bool get passageShort {
+    final passage = _passage;
+    if (passage == null || _passageLength <= 0) return false;
+    return passage.wordCount < _passageLength * 0.7;
+  }
   List<AiArchiveItem> get archive => _archive;
 
   /// The archived item currently on screen, when it was loaded from the
@@ -91,6 +102,7 @@ class AiPracticeProvider extends ChangeNotifier {
     _sentencesWord = null;
     _passage = null;
     _passageWords = const [];
+    _passageLength = 0;
     _source = null;
     _error = null;
     _reasoning = null;
@@ -164,6 +176,7 @@ class AiPracticeProvider extends ChangeNotifier {
     );
     _passage = result.passage;
     _passageWords = words;
+    _passageLength = length;
     _reasoning = result.reasoning.isEmpty ? null : result.reasoning;
     await _archiveItem(
       AiArchiveItem(
@@ -198,6 +211,7 @@ class AiPracticeProvider extends ChangeNotifier {
         phrases: item.phrases,
       );
       _passageWords = item.words;
+      _passageLength = item.length;
       _sentences = const [];
       _sentencesWord = null;
     } else {
