@@ -145,6 +145,44 @@ void main() {
           throwsA(isA<AiException>()));
     });
 
+    test('a brace in the prose does not derail the payload', () {
+      final out = ThemeAgent.parseSentences(
+          'Sure. (Note: {this} is not JSON.) {"sentences":[{"text":"Ok."}]}');
+      expect(out.single.text, 'Ok.');
+    });
+
+    test('two answers in a row: the first valid one wins', () {
+      final out = ThemeAgent.parseSentences(
+          '{"sentences":[{"text":"First."}]}\n{"sentences":[{"text":"Second."}]}');
+      expect(out.single.text, 'First.');
+    });
+
+    test('full-width braces from a chatty model are tolerated', () {
+      final out = ThemeAgent.parseSentences(
+          '好的：｛"sentences":［｛"text":"Full width."｝］｝');
+      expect(out.single.text, 'Full width.');
+    });
+
+    test('a single sentence object is not thrown away', () {
+      final out = ThemeAgent.parseSentences('{"text":"Solo.","translation":"单独。"}');
+      expect(out.single.text, 'Solo.');
+      expect(out.single.translation, '单独。');
+    });
+
+    test('braces inside strings do not break the scan', () {
+      final out = ThemeAgent.parseSentences(
+          r'{"sentences":[{"text":"He wrote {\"hi\"} on it."}]}');
+      expect(out.single.text, 'He wrote {"hi"} on it.');
+    });
+
+    test('the failure message shows what the endpoint actually said', () {
+      expect(
+        () => ThemeAgent.parseSentences('Sorry, I cannot help with that.'),
+        throwsA(isA<AiException>().having(
+            (e) => e.message, 'message', contains('Sorry, I cannot help'))),
+      );
+    });
+
     test('a passage may be keyed text or passage', () {
       expect(ThemeAgent.parsePassage('{"title":"T","text":"Body."}').text,
           'Body.');

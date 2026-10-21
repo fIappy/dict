@@ -371,38 +371,116 @@ class ThemeAgent {
 
   // ------------------------------------------------------------------ parsing
 
-  /// Reads the model's answer. Servers wrap JSON in prose or code fences often
-  /// enough that a strict decode would fail on good answers.
-  static String _jsonPayload(String raw) {
-    var text = raw.trim();
-    final fence = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```').firstMatch(text);
-    if (fence != null) text = fence.group(1)!.trim();
-    final start = text.indexOf('{');
-    final end = text.lastIndexOf('}');
-    if (start >= 0 && end > start) return text.substring(start, end + 1);
-    final arrayStart = text.indexOf('[');
-    final arrayEnd = text.lastIndexOf(']');
-    if (arrayStart >= 0 && arrayEnd > arrayStart) {
-      return '{"sentences":${text.substring(arrayStart, arrayEnd + 1)}}';
+  /// Decodes the model's answer.
+  ///
+  /// Servers are far less obedient than the prompt: reasoning models narrate
+  /// before answering, some wrap the JSON in code fences, some answer with two
+  /// objects, and prose can hold braces of its own. Every balanced `{…}` /
+  /// `[…]` span is tried in order instead of the old "first brace to last
+  /// brace" guess, which fell over the moment a brace appeared in the intro.
+  static Object? _decode(String raw) {
+    for (final candidate in _candidates(raw)) {
+      try {
+        return jsonDecode(candidate);
+      } on FormatException {
+        continue;
+      }
     }
-    return text;
+    throw AiException('模型返回的内容不是合法 JSON（开头：${_snippet(raw)}）');
   }
 
+  /// Ordered guesses: the whole text, each fenced block, then every balanced
+  /// brace/bracket span. Full-width punctuation is mapped first — a model that
+  /// writes `｛` is not giving us JSON, whatever else it got right.
+  static Iterable<String> _candidates(String raw) sync* {
+    final text = raw
+        .replaceAll('｛', '{')
+        .replaceAll('｝', '}')
+        .replaceAll('［', '[')
+        .replaceAll('］', ']')
+        .replaceAll('＂', '"')
+        .trim();
+    if (text.isEmpty) return;
+    yield text;
+    for (final match in RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```').allMatches(text)) {
+      final inner = match.group(1)!.trim();
+      if (inner.isNotEmpty) yield inner;
+    }
+    var tried = 0;
+    for (var i = 0; i < text.length && tried < 200; i++) {
+      final c = text[i];
+      if (c != '{' && c != '[') continue;
+      final end = _balancedEnd(text, i);
+      if (end <= i) continue;
+      tried++;
+      yield text.substring(i, end + 1);
+    }
+  }
+
+  /// The index of the brace that closes the one at [start], skipping braces
+  /// inside string literals and their escapes; -1 when it never closes.
+  static int _balancedEnd(String text, int start) {
+    final open = text[start];
+    final close = open == '{' ? '}' : ']';
+    var depth = 0;
+    var inString = false;
+    var escaped = false;
+    for (var i = start; i < text.length; i++) {
+      final c = text[i];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (c == r'\') {
+          escaped = true;
+        } else if (c == '"') {
+          inString = false;
+        }
+        continue;
+      }
+      if (c == '"') {
+        inString = true;
+      } else if (c == open) {
+        depth++;
+      } else if (c == close) {
+        depth--;
+        if (depth == 0) return i;
+      }
+    }
+    return -1;
+  }
+
+  /// The start of whatever came back, so the reader (and a bug report) can see
+  /// what the endpoint actually said instead of only that parsing failed.
+  static String _snippet(String raw) {
+    final flat = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (flat.isEmpty) return '（空）';
+    return flat.length <= 180 ? flat : '${flat.substring(0, 180)}…';
+  }
+
+
+  /// Reads a list of sentences out of the model's answer.
+  ///
+  /// Accepts the asked-for `{"sentences":[…]}` shape, a bare array, and a
+  /// single `{"text":…}` object — local models drift between all three.
   static List<GeneratedSentence> parseSentences(String raw) {
-    final decoded = _decode(_jsonPayload(raw));
-    final list = decoded is List
-        ? decoded
-        : (decoded is Map ? decoded['sentences'] : null);
-    if (list is! List) return const [];
+    final decoded = _decode(raw);
+    final candidates = switch (decoded) {
+      final List<Object?> list => list,
+      final Map<Object?, Object?> map => switch (map['sentences']) {
+        final List<Object?> list => list,
+        _ => map['text'] != null ? <Object?>[map] : const <Object?>[],
+      },
+      _ => const <Object?>[],
+    };
 
     final out = <GeneratedSentence>[];
     final seen = <String>{};
-    for (final item in list) {
+    for (final item in candidates) {
       final sentence = item is String
           ? GeneratedSentence(text: item.trim())
           : item is Map
-          ? GeneratedSentence.fromJson(item.cast<String, dynamic>())
-          : null;
+              ? GeneratedSentence.fromJson(item.cast<String, dynamic>())
+              : null;
       if (sentence == null || sentence.text.isEmpty) continue;
       if (!seen.add(sentence.text.toLowerCase())) continue;
       out.add(sentence);
@@ -411,7 +489,7 @@ class ThemeAgent {
   }
 
   static GeneratedPassage parsePassage(String raw) {
-    final decoded = _decode(_jsonPayload(raw));
+    final decoded = _decode(raw);
     if (decoded is! Map) {
       throw const AiException('模型返回的短文不是 JSON 对象');
     }
@@ -422,13 +500,5 @@ class ThemeAgent {
       title: title.isEmpty ? 'Untitled' : title,
       text: text,
     );
-  }
-
-  static Object? _decode(String payload) {
-    try {
-      return jsonDecode(payload);
-    } on FormatException {
-      throw const AiException('模型返回的内容不是合法 JSON');
-    }
   }
 }
