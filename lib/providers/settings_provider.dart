@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/ai/ai_config.dart';
+import '../core/ai/passage_style.dart';
 
 class SettingsProvider extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
@@ -13,6 +14,8 @@ class SettingsProvider extends ChangeNotifier {
   String _aiApiKey = '';
   String _aiModel = 'gpt-4o-mini';
   AiReasoningEffort _aiReasoningEffort = AiReasoningEffort.low;
+  int _passageLength = 140;
+  PassageStyle _passageStyle = PassageStyle.descriptive;
 
   ThemeMode get themeMode => _themeMode;
   double get fontSizeScale => _fontSizeScale;
@@ -25,6 +28,10 @@ class SettingsProvider extends ChangeNotifier {
   String get aiApiKey => _aiApiKey;
   String get aiModel => _aiModel;
   AiReasoningEffort get aiReasoningEffort => _aiReasoningEffort;
+
+  /// How long the reader wants generated passages, in words.
+  int get passageLength => _passageLength;
+  PassageStyle get passageStyle => _passageStyle;
 
   /// Pause between two lines during 顺序播放 of an entry's phrases/examples.
   Duration get sentenceGap =>
@@ -50,6 +57,8 @@ class SettingsProvider extends ChangeNotifier {
     _aiBaseUrl = prefs.getString('ai_base_url') ?? 'https://api.openai.com/v1';
     _aiApiKey = prefs.getString('ai_api_key') ?? '';
     _aiModel = prefs.getString('ai_model') ?? 'gpt-4o-mini';
+    _passageLength = prefs.getInt('passage_length') ?? 140;
+    _passageStyle = PassageStyle.byName(prefs.getString('passage_style'));
     final effortName = prefs.getString('ai_reasoning_effort');
     _aiReasoningEffort = AiReasoningEffort.values.firstWhere(
       (e) => e.name == effortName,
@@ -70,6 +79,23 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('font_size_scale', scale);
+  }
+
+  Future<void> setPassageLength(int words) async {
+    final value = words.clamp(20, 10000);
+    if (value == _passageLength) return;
+    _passageLength = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('passage_length', value);
+  }
+
+  Future<void> setPassageStyle(PassageStyle style) async {
+    if (style == _passageStyle) return;
+    _passageStyle = style;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('passage_style', style.name);
   }
 
   Future<void> setTtsLanguage(String lang) async {

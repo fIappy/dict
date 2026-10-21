@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:local_dict/core/ai/ai_archive.dart';
 import 'package:local_dict/core/ai/ai_config.dart';
 import 'package:local_dict/core/ai/openai_client.dart';
+import 'package:local_dict/core/ai/passage_style.dart';
 import 'package:local_dict/core/ai/theme_agent.dart';
 import 'package:local_dict/providers/ai_practice_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -43,15 +44,28 @@ class _FakeAgent extends ThemeAgent {
     );
   }
 
+  PassageStyle? lastStyle;
+  int? lastLength;
+  String lastExtra = '';
+  String lastNote = '';
+
   @override
   Future<({GeneratedPassage passage, String reasoning})> passage({
     required String sceneLabel,
     required String sceneHint,
     required List<String> words,
     required PracticeLevel level,
+    PassageStyle style = PassageStyle.descriptive,
+    int length = 140,
+    String wordsNote = '',
+    String extra = '',
   }) async {
     lastLevel = level;
     lastWords = words;
+    lastStyle = style;
+    lastLength = length;
+    lastExtra = extra;
+    lastNote = wordsNote;
     return (
       passage: passageReply ??
           const GeneratedPassage(title: 'Fake', text: 'A fake passage.'),
@@ -195,17 +209,48 @@ void main() {
         sceneId: 'medical',
         sceneLabel: '医疗健康',
         sceneHint: '医院、诊疗',
-        sceneWords: const ['ward', 'nurse', 'suture', 'stethoscope', 'clinic'],
+        requiredWords: const ['suture', 'stethoscope', 'clinic'],
         level: PracticeLevel.hard,
-        wordCount: 3,
       );
 
       expect(ok, isTrue);
       expect(provider.passage?.title, 'Night Shift');
       expect(provider.passageWords, hasLength(3));
+      expect(agent.lastWords, ['suture', 'stethoscope', 'clinic']);
       expect(agent.lastLevel, PracticeLevel.hard);
       expect(provider.archiveFor('medical').single.title, 'Night Shift');
       expect(provider.archiveFor('medical').single.level, PracticeLevel.hard);
+    });
+
+    test('passage settings travel with the request and the archive entry',
+        () async {
+      final agent = _FakeAgent(
+        passageReply: const GeneratedPassage(title: 'Night Shift', text: 'Body.'),
+      );
+      final provider = _provider(agent);
+
+      await provider.generatePassage(
+        config: _config,
+        sceneId: 'medical',
+        sceneLabel: '医疗健康',
+        sceneHint: '医院、诊疗',
+        requiredWords: const ['suture', 'stethoscope'],
+        level: PracticeLevel.medium,
+        length: 1000,
+        style: PassageStyle.humorous,
+        wordsNote: 'These come from theme ranks 200-300 of 600.',
+        extra: '提到上海',
+      );
+
+      expect(agent.lastStyle, PassageStyle.humorous);
+      expect(agent.lastLength, 1000);
+      expect(agent.lastExtra, '提到上海');
+      expect(agent.lastNote, 'These come from theme ranks 200-300 of 600.');
+
+      final item = provider.archiveFor('medical').single;
+      expect(item.length, 1000);
+      expect(item.style, 'humorous');
+      expect(item.words, ['suture', 'stethoscope']);
     });
 
     test('a failed generation keeps the error and archives nothing', () async {
@@ -283,7 +328,7 @@ void main() {
         sceneId: 'sports',
         sceneLabel: '体育运动',
         sceneHint: '比赛',
-        sceneWords: const ['coach', 'match', 'team'],
+        requiredWords: const ['coach', 'match', 'team'],
         level: PracticeLevel.easy,
       );
 
@@ -309,7 +354,7 @@ void main() {
         sceneId: 'sports',
         sceneLabel: '体育运动',
         sceneHint: '比赛',
-        sceneWords: const ['coach', 'match', 'team'],
+        requiredWords: const ['coach', 'match', 'team'],
         level: PracticeLevel.medium,
       );
       final item = provider.archiveFor('sports').single;

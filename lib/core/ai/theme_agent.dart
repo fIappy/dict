@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import '../frequency/frequency_service.dart';
 import 'openai_client.dart';
+import 'passage_style.dart';
 
 /// How hard the generated English should be.
 enum PracticeLevel { easy, medium, hard }
@@ -89,184 +89,15 @@ class GeneratedPassage {
       );
 }
 
-/// Words too grammatical to make an interesting practice sentence. They are the
-/// only thing the head of a frequency list contains, so a theme whose "easy"
-/// band is taken literally would be handed `the / of / and` to write a passage
-/// around.
-const Set<String> _stopwords = {
-  'a',
-  'an',
-  'the',
-  'be',
-  'is',
-  'am',
-  'are',
-  'was',
-  'were',
-  'been',
-  'being',
-  'of',
-  'to',
-  'in',
-  'on',
-  'at',
-  'by',
-  'for',
-  'with',
-  'from',
-  'into',
-  'onto',
-  'as',
-  'and',
-  'or',
-  'but',
-  'nor',
-  'so',
-  'yet',
-  'if',
-  'than',
-  'then',
-  'that',
-  'this',
-  'these',
-  'those',
-  'it',
-  'its',
-  'he',
-  'she',
-  'they',
-  'them',
-  'his',
-  'her',
-  'their',
-  'we',
-  'us',
-  'our',
-  'you',
-  'your',
-  'i',
-  'me',
-  'my',
-  'not',
-  'no',
-  'do',
-  'does',
-  'did',
-  'have',
-  'has',
-  'had',
-  'will',
-  'would',
-  'can',
-  'could',
-  'may',
-  'might',
-  'must',
-  'shall',
-  'should',
-  'there',
-  'here',
-  'who',
-  'whom',
-  'whose',
-  'which',
-  'what',
-  'when',
-  'where',
-  'why',
-  'how',
-  'all',
-  'any',
-  'both',
-  'each',
-  'few',
-  'more',
-  'most',
-  'other',
-  'some',
-  'such',
-  'only',
-  'own',
-  'same',
-  'too',
-  'very',
-  'just',
-  'also',
-  'up',
-  'down',
-  'out',
-  'off',
-  'over',
-  'under',
-  'again',
-  'once',
-  'about',
-  'after',
-  'before',
-};
-
 /// Turns a theme's vocabulary into a prompt and the answer into text.
 ///
-/// The theme side is what makes this more than a generic chat box: the words
-/// the passage has to use are chosen from the scene by COCA rank, so "easy"
-/// really is frequent vocabulary and "hard" really is the tail of the list.
+/// The theme side is what makes this more than a generic chat box: the prompt
+/// names the exact words of the chosen frequency band instead of the whole
+/// vocabulary, so the model is not handed a word list it cannot use.
 class ThemeAgent {
-  ThemeAgent({required OpenAiClient client, FrequencyService? frequency})
-    : _client = client,
-      _frequency = frequency ?? FrequencyService();
+  ThemeAgent({required OpenAiClient client}) : _client = client;
 
   final OpenAiClient _client;
-  final FrequencyService _frequency;
-
-  /// Rank given to a word the frequency list does not know: rarer than anything
-  /// in it, which is exactly what the hard band wants.
-  static const int unknownRank = 30000;
-
-  /// Picks the words a passage must use. Pure over [ranked] so the banding can
-  /// be tested without loading the frequency asset.
-  static List<String> pickWords(
-    List<RankedWord> ranked,
-    PracticeLevel level,
-    int count,
-  ) {
-    final usable = <RankedWord>[];
-    final seen = <String>{};
-    for (final entry in ranked) {
-      final word = entry.word.trim().toLowerCase();
-      if (word.length < 3) continue;
-      if (_stopwords.contains(word)) continue;
-      if (!seen.add(word)) continue;
-      usable.add(RankedWord(word, entry.rank));
-    }
-    if (usable.isEmpty) return const [];
-    usable.sort((a, b) => a.rank.compareTo(b.rank));
-
-    final take = count < usable.length ? count : usable.length;
-    switch (level) {
-      case PracticeLevel.easy:
-        return [for (final w in usable.take(take)) w.word];
-      case PracticeLevel.hard:
-        return [for (final w in usable.reversed.take(take)) w.word]..sort();
-      case PracticeLevel.medium:
-        final start = ((usable.length - take) / 2).floor();
-        return [for (final w in usable.skip(start).take(take)) w.word];
-    }
-  }
-
-  /// The band for [sceneWords] under [level], as the real COCA ranks see it.
-  List<String> pickSceneWords(
-    Iterable<String> sceneWords,
-    PracticeLevel level,
-    int count,
-  ) {
-    final ranked = <RankedWord>[];
-    for (final word in sceneWords) {
-      final rank = _frequency.getFrequency(word)?.rank ?? unknownRank;
-      ranked.add(RankedWord(word, rank));
-    }
-    return pickWords(ranked, level, count);
-  }
-
   Future<({List<GeneratedSentence> items, String reasoning})> sentences({
     required String word,
     required int count,
@@ -296,6 +127,10 @@ class ThemeAgent {
     required String sceneHint,
     required List<String> words,
     required PracticeLevel level,
+    PassageStyle style = PassageStyle.descriptive,
+    int length = 140,
+    String wordsNote = '',
+    String extra = '',
   }) async {
     if (words.isEmpty) {
       throw const AiException('这个主题里没有可用于生成短文的词');
@@ -307,9 +142,16 @@ class ThemeAgent {
         sceneHint: sceneHint,
         words: words,
         level: level,
+        style: style,
+        length: length,
+        wordsNote: wordsNote,
+        extra: extra,
       ),
       temperature: 0.75,
-      maxTokens: 1600,
+      // Roughly two tokens per English word plus the JSON scaffolding; a long
+      // passage also needs a longer deadline than the client's default.
+      maxTokens: (length * 2 + 600).clamp(800, 8000),
+      timeout: Duration(seconds: (30 + length / 6).round().clamp(90, 900)),
     );
     final parsed = parsePassage(reply.text);
     if (parsed.text.isEmpty) {
@@ -367,33 +209,40 @@ class ThemeAgent {
     required String sceneHint,
     required List<String> words,
     required PracticeLevel level,
+    required PassageStyle style,
+    required int length,
+    String wordsNote = '',
+    String extra = '',
   }) {
-    final length = switch (level) {
-      PracticeLevel.easy => '90-120',
-      PracticeLevel.medium => '130-160',
-      PracticeLevel.hard => '170-220',
-    };
     final levelRules = switch (level) {
       PracticeLevel.easy =>
-        '- easy: mostly one-clause sentences, only common vocabulary besides the '
-            'required words (they are the most frequent members of this theme).',
+        '- easy syntax: mostly one-clause sentences and everyday vocabulary '
+            'besides the required words.',
       PracticeLevel.medium =>
-        '- medium: a mix of simple and complex sentences, everyday vocabulary.',
+        '- medium syntax: a mix of simple and complex sentences, everyday '
+            'vocabulary.',
       PracticeLevel.hard =>
-        '- hard: complex sentences (subordinate clauses, participial phrases, '
-            'nominalisation); the required words are the rarest members of this '
-            'theme, so use them precisely.',
+        '- hard syntax: complex sentences (subordinate clauses, participial '
+            'phrases, nominalisation), precise word choice.',
     };
+    final note = wordsNote.isEmpty ? '' : '\n$wordsNote';
+    final extraRules = extra.trim().isEmpty
+        ? ''
+        : '\nAdditional requirements from the learner — follow them unless they '
+            'contradict a rule above:\n${extra.trim()}\n';
     return 'Theme: $sceneLabel — $sceneHint\n'
+        'Style: ${style.label} — ${style.prompt}\n'
+        'Length: about $length words (within 10%).\n'
         'Level: ${level.promptName}\n'
-        'Required words (from this theme): ${words.join(', ')}\n\n'
+        'Required words (each must appear at least once, in a correct and '
+        'natural sense): ${words.join(', ')}$note\n\n'
         'Write ONE passage of about $length words.\n'
         '$levelRules\n'
         'Content rules:\n'
-        '- Use at least 80% of the required words, each in a correct and natural '
-        'sense.\n'
-        '- Keep exactly one topic.\n'
+        '- Use every required word.\n'
+        '- Keep exactly one topic and the requested style throughout.\n'
         '- No grammar, collocation or logic errors.\n'
+        '$extraRules'
         'Also list 5-10 fixed collocations or set phrases that appear verbatim in '
         'the passage.\n'
         'Return this JSON shape:\n'

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_dict/core/ai/ai_config.dart';
 import 'package:local_dict/core/ai/openai_client.dart';
+import 'package:local_dict/core/ai/passage_style.dart';
 import 'package:local_dict/core/ai/theme_agent.dart';
 
 /// Captures the prompt instead of calling a server, and answers with a canned
@@ -21,6 +22,8 @@ class _CapturingClient extends OpenAiClient {
 
   /// What the fake model "thought"; empty means the server showed nothing.
   String reasoningText = '';
+  Duration? lastTimeout;
+  int? lastMaxTokens;
 
   @override
   Future<AiReply> complete({
@@ -28,9 +31,12 @@ class _CapturingClient extends OpenAiClient {
     required String user,
     double temperature = 0.7,
     int? maxTokens,
+    Duration? timeout,
   }) async {
     this.system = system;
     this.user = user;
+    lastTimeout = timeout;
+    lastMaxTokens = maxTokens;
     return AiReply(
       text: reply,
       reasoning: reasoningText.isEmpty ? null : reasoningText,
@@ -41,42 +47,6 @@ class _CapturingClient extends OpenAiClient {
 ThemeAgent _agent(OpenAiClient client) => ThemeAgent(client: client);
 
 void main() {
-  group('word bands', () {
-    final ranked = [
-      const RankedWord('the', 1), // stopword
-      const RankedWord('time', 50),
-      const RankedWord('travel', 900),
-      const RankedWord('itinerary', 12000),
-      const RankedWord('peregrination', 30000),
-      const RankedWord('travel', 900), // duplicate
-      const RankedWord('go', 30), // shorter than three letters
-    ];
-
-    test('easy takes the most frequent words and skips grammar words', () {
-      expect(ThemeAgent.pickWords(ranked, PracticeLevel.easy, 2),
-          ['time', 'travel']);
-    });
-
-    test('hard takes the rarest words', () {
-      expect(ThemeAgent.pickWords(ranked, PracticeLevel.hard, 2),
-          ['itinerary', 'peregrination']);
-    });
-
-    test('medium sits between the two', () {
-      final picked = ThemeAgent.pickWords(ranked, PracticeLevel.medium, 2);
-      expect(picked, ['travel', 'itinerary']);
-    });
-
-    test('a band wider than the pool returns the pool', () {
-      expect(ThemeAgent.pickWords(ranked, PracticeLevel.easy, 99),
-          ['time', 'travel', 'itinerary', 'peregrination']);
-    });
-
-    test('an empty pool yields nothing', () {
-      expect(ThemeAgent.pickWords(const [], PracticeLevel.easy, 4), isEmpty);
-    });
-  });
-
   group('prompts', () {
     test('the sentence prompt carries the word, the count and the level', () async {
       final client = _CapturingClient(reply: '{"sentences":[{"text":"ok."}]}');
@@ -113,9 +83,49 @@ void main() {
 
       expect(client.user, contains('旅行住宿'));
       expect(client.user, contains('itinerary, lounge'));
-      expect(client.user, contains('at least 80%'));
+      expect(client.user, contains('about 140 words'));
       expect(passage.title, 'A Walk');
       expect(passage.text, 'Some text.');
+    });
+
+    test('style, length, band note and extra rules reach the model', () async {
+      final client = _CapturingClient(
+        reply: '{"title":"A Walk","text":"Some text."}',
+      );
+
+      await _agent(client).passage(
+        sceneLabel: '旅行住宿',
+        sceneHint: '酒店、行程与交通',
+        words: const ['itinerary'],
+        level: PracticeLevel.medium,
+        style: PassageStyle.news,
+        length: 1000,
+        wordsNote: 'These come from theme ranks 200-300 of 600 by frequency.',
+        extra: '多用被动语态',
+      );
+
+      expect(client.user, contains('新闻式'));
+      expect(client.user, contains('inverted pyramid'));
+      expect(client.user, contains('about 1000 words'));
+      expect(client.user, contains('ranks 200-300 of 600'));
+      expect(client.user, contains('多用被动语态'));
+      expect(client.user, isNot(contains('lounge')),
+          reason: 'only the chosen band goes into the prompt');
+    });
+
+    test('a long passage gets more tokens and a longer deadline', () async {
+      final client = _CapturingClient(
+        reply: '{"title":"A Walk","text":"Some text."}',
+      );
+      await _agent(client).passage(
+        sceneLabel: 'S',
+        sceneHint: 'H',
+        words: const ['ward'],
+        level: PracticeLevel.easy,
+        length: 2000,
+      );
+      expect(client.lastMaxTokens, 4600);
+      expect(client.lastTimeout, const Duration(seconds: 363));
     });
   });
 

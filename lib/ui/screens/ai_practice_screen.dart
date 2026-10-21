@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../../core/ai/ai_archive.dart';
 import '../../core/ai/ai_config.dart';
+import '../../core/ai/passage_style.dart';
 import '../../core/ai/theme_agent.dart';
+import '../../core/ai/vocabulary_band.dart';
 import '../../core/mdx/entry_speech.dart';
 import '../../core/themes/theme_service.dart';
 import '../widgets/annotated_text.dart';
@@ -29,10 +31,20 @@ class AiPracticeScreen extends StatefulWidget {
 
 class _AiPracticeScreenState extends State<AiPracticeScreen> {
   final TextEditingController _wordController = TextEditingController();
+  final TextEditingController _lengthController = TextEditingController();
+  final TextEditingController _extraController = TextEditingController();
   int _sentenceCount = 5;
   final ScrollController _scroll = ScrollController();
   PracticeLevel _sentenceLevel = PracticeLevel.easy;
   PracticeLevel _passageLevel = PracticeLevel.easy;
+
+  /// Passage knobs. Length and style live in settings; the frequency band is
+  /// per theme, so it stays here and resets when another theme is opened.
+  int _passageLength = 140;
+  PassageStyle _passageStyle = PassageStyle.descriptive;
+  int? _bandFrom;
+  int? _bandTo;
+  bool _seeded = false;
 
   @override
   void initState() {
@@ -51,6 +63,8 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
   void dispose() {
     _scroll.dispose();
     _wordController.dispose();
+    _lengthController.dispose();
+    _extraController.dispose();
     super.dispose();
   }
 
@@ -107,15 +121,40 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
   }
 
   Future<void> _generatePassage(AiConfig config) async {
-    await context.read<AiPracticeProvider>().generatePassage(
+    final provider = context.read<AiPracticeProvider>();
+    final ranked = provider.rankedWordsFor(widget.scene.id, widget.scene.words);
+    final total = ranked.length;
+    if (total == 0) return;
+    final from = (_bandFrom ?? 1).clamp(1, total);
+    final to = (_bandTo ?? (total < _defaultBand ? total : _defaultBand))
+        .clamp(from, total);
+    final words = wordsInBand(
+      ranked,
+      from: from,
+      to: to,
+      length: _passageLength,
+    );
+    await provider.generatePassage(
       config: config,
       sceneId: widget.scene.id,
       sceneLabel: widget.scene.label,
       sceneHint: widget.scene.hint,
-      sceneWords: widget.scene.words,
+      requiredWords: words,
       level: _passageLevel,
+      length: _passageLength,
+      style: _passageStyle,
+      wordsNote:
+          'These come from theme ranks $from-$to of $total by frequency; the '
+          'rest of the theme is not required.',
+      extra: _extraController.text,
     );
   }
+
+  /// How many of a theme's most frequent words a passage asks for when the
+  /// reader has not narrowed the band yet.
+  static const int _defaultBand = 60;
+
+  int get _sceneWordCount => widget.scene.words.length;
 
   @override
   Widget build(BuildContext context) {
@@ -123,6 +162,14 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
     final settings = context.watch<SettingsProvider>();
     final config = _config(settings);
     final theme = Theme.of(context);
+    if (!_seeded) {
+      // First frame only: later edits own these values, and the settings store
+      // is written back on change.
+      _seeded = true;
+      _passageLength = settings.passageLength;
+      _passageStyle = settings.passageStyle;
+      _lengthController.text = '$_passageLength';
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -427,13 +474,19 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              '易 = 主题里最高频的词，句子短；难 = 最低频的词，句子结构更复杂。',
+              '难度影响句式复杂度；必须出现的词由下面的词频区间决定。',
               style: TextStyle(
                 fontSize: 11.5,
                 height: 1.4,
                 color: theme.hintColor,
               ),
             ),
+            const SizedBox(height: 8),
+            _buildLengthRow(context, provider),
+            const SizedBox(height: 6),
+            _buildStyleChips(context),
+            const SizedBox(height: 2),
+            _buildBandAndExtra(context, provider),
             const SizedBox(height: 10),
             Align(
               alignment: Alignment.centerLeft,
@@ -686,6 +739,174 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  void _applyPassageLength(int raw) {
+    final value = raw.clamp(20, 10000);
+    setState(() => _passageLength = value);
+    _lengthController.text = '$value';
+    _lengthController.selection =
+        TextSelection.collapsed(offset: _lengthController.text.length);
+    context.read<SettingsProvider>().setPassageLength(value);
+  }
+
+  Widget _buildLengthRow(BuildContext context, AiPracticeProvider provider) {
+    final theme = Theme.of(context);
+    final total = _sceneWordCount;
+    final sliderValue = _passageLength.clamp(50, 2000).toDouble();
+    return Row(
+      children: [
+        Text('长度', style: TextStyle(fontSize: 11.5, color: theme.hintColor)),
+        Expanded(
+          child: Slider(
+            min: 50,
+            max: 2000,
+            divisions: 39,
+            value: sliderValue,
+            label: '约 $_passageLength 词',
+            onChanged: provider.isGenerating
+                ? null
+                : (value) => setState(() => _passageLength = value.round()),
+            onChangeEnd: (value) =>
+                context.read<SettingsProvider>().setPassageLength(_passageLength),
+          ),
+        ),
+        SizedBox(
+          width: 68,
+          child: TextField(
+            controller: _lengthController,
+            enabled: !provider.isGenerating,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12.5),
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+              border: OutlineInputBorder(),
+            ),
+            onSubmitted: (text) => _applyPassageLength(
+              int.tryParse(text.trim()) ?? _passageLength,
+            ),
+            onTapOutside: (_) => _applyPassageLength(
+              int.tryParse(_lengthController.text.trim()) ?? _passageLength,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text('词', style: TextStyle(fontSize: 11.5, color: theme.hintColor)),
+        const SizedBox(width: 6),
+        Text(
+          '主题共 $total 词',
+          style: TextStyle(fontSize: 11, color: theme.hintColor),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStyleChips(BuildContext context) {
+    final theme = Theme.of(context);
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(right: 2),
+          child: Text('风格',
+              style: TextStyle(fontSize: 11.5, color: theme.hintColor)),
+        ),
+        for (final style in PassageStyle.values)
+          ChoiceChip(
+            label: Text(style.label, style: const TextStyle(fontSize: 11.5)),
+            selected: _passageStyle == style,
+            visualDensity: VisualDensity.compact,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            onSelected: (_) {
+              setState(() => _passageStyle = style);
+              context.read<SettingsProvider>().setPassageStyle(style);
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildBandAndExtra(BuildContext context, AiPracticeProvider provider) {
+    final theme = Theme.of(context);
+    final ranked = provider.rankedWordsFor(widget.scene.id, widget.scene.words);
+    final total = ranked.length;
+    if (total == 0) return const SizedBox.shrink();
+
+    final from = (_bandFrom ?? 1).clamp(1, total);
+    final to = (_bandTo ?? (total < _defaultBand ? total : _defaultBand))
+        .clamp(from, total);
+    final required =
+        wordsInBand(ranked, from: from, to: to, length: _passageLength);
+    final hasExtra = _extraController.text.trim().isNotEmpty;
+
+    return ExpansionTile(
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(bottom: 8),
+      shape: const Border(),
+      collapsedShape: const Border(),
+      leading: Icon(Icons.tune_rounded, size: 18, color: theme.hintColor),
+      title: const Text('词汇区间与追加要求',
+          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+      subtitle: Text(
+        '排名 $from–$to / 共 $total · 将要求 ${required.length} 词'
+        '${hasExtra ? ' · 有追加要求' : ''}',
+        style: TextStyle(fontSize: 11, color: theme.hintColor),
+      ),
+      children: [
+        if (total > 1)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              RangeSlider(
+                min: 1,
+                max: total.toDouble(),
+                divisions: total > 1 ? total - 1 : null,
+                values: RangeValues(from.toDouble(), to.toDouble()),
+                labels: RangeLabels('$from', '$to'),
+                onChanged: provider.isGenerating
+                    ? null
+                    : (values) => setState(() {
+                          _bandFrom = values.start.round();
+                          _bandTo = values.end.round();
+                        }),
+              ),
+              Text(
+                '按词频从高到低排；只把这段区间里的词交给模型。',
+                style: TextStyle(fontSize: 11, color: theme.hintColor),
+              ),
+              const SizedBox(height: 6),
+            ],
+          ),
+        if (provider.passageWords.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '上次要求的词：${provider.passageWords.join(', ')}',
+                style: TextStyle(fontSize: 11, color: theme.hintColor),
+              ),
+            ),
+          ),
+        TextField(
+          controller: _extraController,
+          enabled: !provider.isGenerating,
+          minLines: 2,
+          maxLines: 4,
+          style: const TextStyle(fontSize: 12.5),
+          decoration: const InputDecoration(
+            isDense: true,
+            hintText: '追加要求，例如：多用被动语态 / 提到上海 / 结尾留一个悬念',
+            border: OutlineInputBorder(),
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+      ],
     );
   }
 

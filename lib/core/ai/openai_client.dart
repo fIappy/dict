@@ -67,6 +67,7 @@ class OpenAiClient {
     required String user,
     double temperature = 0.7,
     int? maxTokens,
+    Duration? timeout,
   }) async {
     if (!config.isConfigured) {
       throw const AiException('尚未配置 AI 接口，请到设置里填写 Base URL 与模型');
@@ -79,6 +80,7 @@ class OpenAiClient {
           temperature: temperature,
           maxTokens: maxTokens,
           effort: config.reasoningEffort,
+          timeout: timeout,
         );
       } on oai.ApiException catch (e) {
         // Older servers reject the parameter outright. Asking again without it
@@ -90,12 +92,13 @@ class OpenAiClient {
           temperature: temperature,
           maxTokens: maxTokens,
           effort: null,
+          timeout: timeout,
         );
       }
     } on AiException {
       rethrow;
     } on TimeoutException {
-      throw AiException('接口超时（${timeout.inSeconds} 秒没有响应）');
+      throw AiException('接口超时（${(timeout ?? this.timeout).inSeconds} 秒没有响应）');
     } on oai.ApiException catch (e) {
       throw AiException(_statusMessage(e.statusCode, e.message));
     } on oai.OpenAIException catch (e) {
@@ -111,6 +114,7 @@ class OpenAiClient {
     required double temperature,
     required int? maxTokens,
     required AiReasoningEffort? effort,
+    Duration? timeout,
   }) async {
     final reply = await _chat(
       [ChatMessage.system(system), ChatMessage.humanText(user)],
@@ -120,7 +124,7 @@ class OpenAiClient {
         maxTokens: maxTokens,
         reasoningEffort: effort == null ? null : _chatEffort(effort),
       ),
-    ).timeout(timeout);
+    ).timeout(timeout ?? this.timeout);
 
     final text = reply.contentAsString;
     if (text.trim().isEmpty) {

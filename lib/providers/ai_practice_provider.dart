@@ -3,7 +3,9 @@ import 'package:flutter/foundation.dart';
 import '../core/ai/ai_archive.dart';
 import '../core/ai/ai_config.dart';
 import '../core/ai/openai_client.dart';
+import '../core/ai/passage_style.dart';
 import '../core/ai/theme_agent.dart';
+import '../core/ai/vocabulary_band.dart';
 import '../core/frequency/frequency_service.dart';
 
 /// State of the AI practice page: the two generators, their results, and the
@@ -38,8 +40,23 @@ class AiPracticeProvider extends ChangeNotifier {
   List<AiArchiveItem> _archive = const [];
   AiArchiveItem? _source;
   String? _reasoning;
+  String? _rankedSceneId;
+  List<String> _rankedSceneWords = const [];
 
   bool get isGenerating => _isGenerating;
+
+  /// The open theme's vocabulary in COCA order. The band controls count in
+  /// this order; the ranking is cached because it walks the whole theme.
+  List<String> rankedWordsFor(String sceneId, Iterable<String> words) {
+    if (_rankedSceneId != sceneId) {
+      _rankedSceneId = sceneId;
+      _rankedSceneWords = rankByFrequency(
+        words,
+        (word) => _frequency.getFrequency(word)?.rank,
+      );
+    }
+    return _rankedSceneWords;
+  }
 
   /// Which of the two generators is running, so only its own button reports
   /// progress and the other just goes quiet.
@@ -126,17 +143,24 @@ class AiPracticeProvider extends ChangeNotifier {
     required String sceneId,
     required String sceneLabel,
     required String sceneHint,
-    required Iterable<String> sceneWords,
+    required List<String> requiredWords,
     required PracticeLevel level,
-    int wordCount = 12,
+    int length = 140,
+    PassageStyle style = PassageStyle.descriptive,
+    String wordsNote = '',
+    String extra = '',
   }) => _run(AiRunKind.passage, () async {
     final agent = _agent(config);
-    final words = agent.pickSceneWords(sceneWords, level, wordCount);
+    final words = requiredWords;
     final result = await agent.passage(
       sceneLabel: sceneLabel,
       sceneHint: sceneHint,
       words: words,
       level: level,
+      style: style,
+      length: length,
+      wordsNote: wordsNote,
+      extra: extra,
     );
     _passage = result.passage;
     _passageWords = words;
@@ -154,6 +178,8 @@ class AiPracticeProvider extends ChangeNotifier {
         text: result.passage.text,
         phrases: result.passage.phrases,
         words: words,
+        length: length,
+        style: style.name,
         reasoning: result.reasoning,
       ),
     );
@@ -232,7 +258,7 @@ class AiPracticeProvider extends ChangeNotifier {
     final client = OpenAiClient(config: config);
     final builder = _agentBuilder;
     if (builder != null) return builder(client);
-    return ThemeAgent(client: client, frequency: _frequency);
+    return ThemeAgent(client: client);
   }
 
   static String _newId() =>

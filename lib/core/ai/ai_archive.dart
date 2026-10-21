@@ -27,6 +27,8 @@ class AiArchiveItem {
     this.text = '',
     this.phrases = const [],
     this.words = const [],
+    this.length = 0,
+    this.style = '',
     this.reasoning = '',
   });
 
@@ -56,6 +58,12 @@ class AiArchiveItem {
   /// The theme words the passage was asked to use.
   final List<String> words;
 
+  /// Requested length in words, when the item is a passage.
+  final int length;
+
+  /// Passage style name, when the item is a passage.
+  final String style;
+
   /// The model's reasoning for this generation, when the endpoint exposed it.
   final String reasoning;
 
@@ -75,6 +83,8 @@ class AiArchiveItem {
     if (text.isNotEmpty) 'text': text,
     if (phrases.isNotEmpty) 'phrases': phrases,
     if (words.isNotEmpty) 'words': words,
+    if (length > 0) 'length': length,
+    if (style.isNotEmpty) 'style': style,
     if (reasoning.isNotEmpty) 'reasoning': reasoning,
   };
 
@@ -112,6 +122,8 @@ class AiArchiveItem {
       text: json['text']?.toString() ?? '',
       phrases: readPhraseList(json['phrases']),
       words: readPhraseList(json['words']),
+      length: (json['length'] as num?)?.toInt() ?? 0,
+      style: json['style']?.toString() ?? '',
       reasoning: json['reasoning']?.toString() ?? '',
     );
   }
