@@ -23,8 +23,8 @@ String accentForLanguage(String language) =>
 /// so starting again cannot overlap the previous run.
 class EntrySpeechProvider extends ChangeNotifier {
   EntrySpeechProvider({SpeechClipPlayer? player, PiperVoice? piper})
-      : _player = player ?? AudioManager(),
-        _piper = piper ?? PiperVoice();
+    : _player = player ?? AudioManager(),
+      _piper = piper ?? PiperVoice();
 
   final SpeechClipPlayer _player;
   final PiperVoice? _piper;
@@ -91,6 +91,31 @@ class EntrySpeechProvider extends ChangeNotifier {
     if (run != _run) return;
     _isPlaying = false;
     _currentIndex = null;
+    notifyListeners();
+  }
+
+  /// Speaks text the reader picked out of the entry — a definition line, a
+  /// usage note, an explanation the archive never flagged as an example.
+  ///
+  /// The entry's own example markup only covers the lines a dictionary chose to
+  /// tag; everything else is plain rendered text, and selecting it is how it
+  /// gets a voice.
+  Future<void> speakText(
+    String text, {
+    required double rate,
+    required String accent,
+  }) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+    stop();
+    final run = _run;
+    _items = const [];
+    _isPlaying = true;
+    _currentIndex = null;
+    notifyListeners();
+    await _speak(trimmed, accent: accent, rate: rate, run: run);
+    if (run != _run) return;
+    _isPlaying = false;
     notifyListeners();
   }
 

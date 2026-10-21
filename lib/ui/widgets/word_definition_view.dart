@@ -26,6 +26,7 @@ class WordDefinitionView extends StatefulWidget {
 
 class _WordDefinitionViewState extends State<WordDefinitionView> {
   int _selectedTabIndex = 0;
+  String _selectedText = '';
   final AudioManager _audioManager = AudioManager();
 
   @override
@@ -74,7 +75,8 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
       if (activeContent.isEmpty) activeContent = widget.entry.rawHtml;
     } else {
       final curTab = tabs[_selectedTabIndex];
-      activeContent = panels[curTab.tag] ?? panels['default'] ?? widget.entry.rawHtml;
+      activeContent =
+          panels[curTab.tag] ?? panels['default'] ?? widget.entry.rawHtml;
     }
 
     return Column(
@@ -88,7 +90,9 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
               color: isDark ? const Color(0xFF1E2430) : const Color(0xFFF1F5F9),
               border: Border(
                 bottom: BorderSide(
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                  color: isDark
+                      ? const Color(0xFF334155)
+                      : const Color(0xFFE2E8F0),
                 ),
               ),
             ),
@@ -166,7 +170,9 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
             border: Border.all(
               color: isSelected
                   ? activeColor
-                  : (isDark ? const Color(0xFF3B4861) : const Color(0xFFCBD5E1)),
+                  : (isDark
+                        ? const Color(0xFF3B4861)
+                        : const Color(0xFFCBD5E1)),
             ),
           ),
           child: Text(
@@ -176,7 +182,9 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               color: isSelected
                   ? Colors.white
-                  : (isDark ? const Color(0xFFE2E8F0) : const Color(0xFF334155)),
+                  : (isDark
+                        ? const Color(0xFFE2E8F0)
+                        : const Color(0xFF334155)),
             ),
           ),
         ),
@@ -189,10 +197,15 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
     // indices it hands back address the same list the links carry.
     final prepared = prepareEntrySpeech(html);
     final primaryColor = Theme.of(context).colorScheme.primary;
-    final primaryHex = '#${primaryColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
+    final primaryHex =
+        '#${primaryColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
     final secondaryTextColor = isDark ? '#94A3B8' : '#64748B';
-    final exBgColor = isDark ? 'rgba(59, 130, 246, 0.10)' : 'rgba(59, 130, 246, 0.06)';
-    final borderColor = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)';
+    final exBgColor = isDark
+        ? 'rgba(59, 130, 246, 0.10)'
+        : 'rgba(59, 130, 246, 0.06)';
+    final borderColor = isDark
+        ? 'rgba(255, 255, 255, 0.12)'
+        : 'rgba(0, 0, 0, 0.1)';
 
     final entryStyles = _entryStyles(
       primary: primaryHex,
@@ -201,43 +214,79 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
       border: borderColor,
     );
 
-    return HtmlWidget(
-      prepared.html,
-      textStyle: TextStyle(
-        fontSize: 15.0 * widget.fontSizeScale,
-        height: 1.6,
-      ),
-      customStylesBuilder: entryStyles,
-      onTapUrl: (url) {
-        if (url.startsWith('speech://')) {
-          final index = int.tryParse(url.substring('speech://'.length));
-          if (index != null && index < prepared.utterances.length) {
-            final settings = context.read<SettingsProvider>();
-            context.read<EntrySpeechProvider>().playOne(
-              prepared.utterances[index],
-              rate: settings.speechRate,
-              accent: accentForLanguage(settings.ttsLanguage),
-            );
-          }
-          return true;
-        }
-        if (url.startsWith('sound://')) {
-          final soundKey = url.substring('sound://'.length);
-          _audioManager.playWord(word: widget.entry.word, soundKey: soundKey);
-          return true;
-        } else if (url.startsWith('entry://')) {
-          final target = url.substring('entry://'.length);
-          widget.onWordTap?.call(target);
-          return true;
-        } else {
-          final cleaned = url.replaceAll(RegExp(r'[^a-zA-Z\-]'), '');
-          if (cleaned.isNotEmpty) {
-            widget.onWordTap?.call(cleaned);
+    return SelectionArea(
+      onSelectionChanged: (content) => _selectedText = content?.plainText ?? '',
+      contextMenuBuilder: (menuContext, state) => _selectionMenu(state),
+      child: HtmlWidget(
+        prepared.html,
+        textStyle: TextStyle(
+          fontSize: 15.0 * widget.fontSizeScale,
+          height: 1.6,
+        ),
+        customStylesBuilder: entryStyles,
+        onTapUrl: (url) {
+          if (url.startsWith('speech://')) {
+            final index = int.tryParse(url.substring('speech://'.length));
+            if (index != null && index < prepared.utterances.length) {
+              final settings = context.read<SettingsProvider>();
+              context.read<EntrySpeechProvider>().playOne(
+                prepared.utterances[index],
+                rate: settings.speechRate,
+                accent: accentForLanguage(settings.ttsLanguage),
+              );
+            }
             return true;
           }
-        }
-        return false;
-      },
+          if (url.startsWith('sound://')) {
+            final soundKey = url.substring('sound://'.length);
+            _audioManager.playWord(word: widget.entry.word, soundKey: soundKey);
+            return true;
+          } else if (url.startsWith('entry://')) {
+            final target = url.substring('entry://'.length);
+            widget.onWordTap?.call(target);
+            return true;
+          } else {
+            final cleaned = url.replaceAll(RegExp(r'[^a-zA-Z\-]'), '');
+            if (cleaned.isNotEmpty) {
+              widget.onWordTap?.call(cleaned);
+              return true;
+            }
+          }
+          return false;
+        },
+      ),
+    );
+  }
+
+  /// The text-selection menu, with reading appended: tagged example lines have
+  /// their own speaker icons, but a definition or a note only gets a voice once
+  /// it can be selected.
+  Widget _selectionMenu(SelectableRegionState state) {
+    final items = [...state.contextMenuButtonItems];
+    final selected = _selectedText.trim();
+    if (selected.isNotEmpty) {
+      items.add(
+        ContextMenuButtonItem(
+          label: '朗读所选',
+          onPressed: () {
+            ContextMenuController.removeAny();
+            _speakSelected(selected);
+          },
+        ),
+      );
+    }
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: state.contextMenuAnchors,
+      buttonItems: items,
+    );
+  }
+
+  void _speakSelected(String text) {
+    final settings = context.read<SettingsProvider>();
+    context.read<EntrySpeechProvider>().speakText(
+      text,
+      rate: settings.speechRate,
+      accent: accentForLanguage(settings.ttsLanguage),
     );
   }
 

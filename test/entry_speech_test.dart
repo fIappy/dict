@@ -209,6 +209,29 @@ void main() {
       expect(provider.isPlaying, isFalse);
     });
 
+    test('a selection is spoken through the same voice', () async {
+      final player = _RecordingPlayer();
+      final provider = EntrySpeechProvider(player: player, piper: _StubPiper(ready: false));
+
+      await provider.speakText('  A definition nobody tagged.  ',
+          rate: 1.2, accent: 'uk');
+
+      expect(player.sentences, ['A definition nobody tagged.'],
+          reason: 'the selection is one utterance, trimmed');
+      expect(player.rates.last, 1.2);
+      expect(player.accents.last, 'uk');
+      expect(provider.isPlaying, isFalse);
+    });
+
+    test('an empty selection says nothing', () async {
+      final player = _RecordingPlayer();
+      final provider = EntrySpeechProvider(player: player, piper: _StubPiper(ready: false));
+
+      await provider.speakText('   ', rate: 1.0, accent: 'us');
+      expect(player.sentences, isEmpty);
+      expect(provider.isPlaying, isFalse);
+    });
+
     test('en-GB settings read with the British voice', () {
       expect(accentForLanguage('en-US'), 'us');
       expect(accentForLanguage('en-GB'), 'uk');
