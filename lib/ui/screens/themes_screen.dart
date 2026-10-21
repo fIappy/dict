@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/platform/ai_window_launcher.dart';
 import '../../core/themes/theme_service.dart';
 import '../../providers/dictionary_provider.dart';
 import '../../providers/themes_provider.dart';
@@ -67,11 +68,7 @@ class _ThemesScreenState extends State<ThemesScreen> {
               wordCount: provider.visibleWordCount,
               onBack: provider.backToScenes,
               isDark: isDark,
-              onAiPractice: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => AiPracticeScreen(scene: scene),
-                ),
-              ),
+              onAiPractice: () => _openAiPractice(context, scene),
             ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
@@ -351,6 +348,16 @@ class _ThemesScreenState extends State<ThemesScreen> {
     );
   }
 }
+
+  /// Desktop gets a window of its own (one per theme, so the dictionary stays
+  /// usable); everything else falls back to a normal page.
+  Future<void> _openAiPractice(BuildContext context, ThemeScene scene) async {
+    if (await openAiWindow(scene.id)) return;
+    if (!context.mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => AiPracticeScreen(scene: scene)),
+    );
+  }
 
 class _SceneHeader extends StatelessWidget {
   const _SceneHeader({
