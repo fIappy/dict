@@ -103,7 +103,9 @@ class SettingsScreen extends StatelessWidget {
       ],
     );
 
-    if (isPaneView) return content;
+    // Embedded in the mobile tab stack: the page has no AppBar of its own, so
+    // the status bar would sit on top of the first section title.
+    if (isPaneView) return SafeArea(bottom: false, child: content);
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
       body: content,

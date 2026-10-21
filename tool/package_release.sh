@@ -131,8 +131,19 @@ build_target() {
         echo "adb not found; set ADB=/path/to/adb" >&2
         return 1
       fi
+      local serial=()
+      [ -n "${ADB_SERIAL:-}" ] && serial=(-s "$ADB_SERIAL")
+      if [ -z "${ADB_SERIAL:-}" ]; then
+        local count
+        count=$("$ADB_BIN" devices | awk 'NR>1 && $2 == "device"' | wc -l)
+        if [ "$count" -ne 1 ]; then
+          echo "more than one device is connected; set ADB_SERIAL=<serial>:" >&2
+          "$ADB_BIN" devices | tail -n +2 | sed 's/^/  /' >&2
+          return 1
+        fi
+      fi
       local abi apk
-      abi=$("$ADB_BIN" shell getprop ro.product.cpu.abi 2>/dev/null | tr -d '\r')
+      abi=$("$ADB_BIN" "${serial[@]}" shell getprop ro.product.cpu.abi 2>/dev/null | tr -d '\r')
       case "$abi" in
         arm64*) apk=app-arm64-v8a-release.apk ;;
         armeabi*) apk=app-armeabi-v7a-release.apk ;;
@@ -140,7 +151,7 @@ build_target() {
         *) echo "unknown device ABI: '${abi}'" >&2; return 1 ;;
       esac
       echo "installing $apk on ${abi:-the device}…"
-      "$ADB_BIN" install -r "$RELEASE/$apk"
+      "$ADB_BIN" "${serial[@]}" install -r "$RELEASE/$apk"
       ;;
   esac
 }
