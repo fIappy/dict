@@ -25,15 +25,23 @@ class AiConfig {
 
   bool get isConfigured => baseUrl.trim().isNotEmpty && model.trim().isNotEmpty;
 
-  /// Accepts a base ending in `/v1`, or a full endpoint pasted in by mistake.
-  String get chatCompletionsUrl {
+  /// The base the client library gets: trailing slashes dropped, and a full
+  /// `/chat/completions` endpoint (pasted in by mistake) reduced to its base,
+  /// because the library appends the path itself.
+  String get apiBaseUrl {
     var base = baseUrl.trim();
     while (base.endsWith('/')) {
       base = base.substring(0, base.length - 1);
     }
-    if (base.endsWith('/chat/completions')) return base;
-    return '$base/chat/completions';
+    const suffix = '/chat/completions';
+    if (base.endsWith(suffix)) {
+      base = base.substring(0, base.length - suffix.length);
+    }
+    return base;
   }
+
+  /// For display and for the tests that pin the normalisation.
+  String get chatCompletionsUrl => '$apiBaseUrl/chat/completions';
 
   @override
   String toString() => 'AiConfig($chatCompletionsUrl, model: $model)';

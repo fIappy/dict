@@ -19,9 +19,10 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  # Real floor is driven by the newest language/Flutter features used:
-  # null-aware elements (Dart 3.8) and RadioGroup / CardThemeData (Flutter 3.32).
-  sdk: '>=3.8.0 <4.0.0'
+  # Real floor is driven by the newest features used: langchain 0.9 needs
+  # Dart 3.9, and null-aware elements (3.8) / RadioGroup (Flutter 3.32) are
+  # already below that.
+  sdk: '>=3.9.0 <4.0.0'
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -55,6 +56,9 @@ dependencies:
   web: ^1.1.1
   sherpa_onnx: ^1.13.8
   archive: ^4.5.2
+  langchain: ^0.9.0
+  langchain_openai: ^0.9.0
+  openai_dart: ^8.1.0
 
 dev_dependencies:
   flutter_test:
