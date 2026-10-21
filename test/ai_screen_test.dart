@@ -109,6 +109,29 @@ void main() {
     expect(find.text('Night Shift'), findsOneWidget);
   });
 
+  testWidgets('the five-rung ladder reaches the passage request', (tester) async {
+    final agent = _PassageAgent();
+    final provider = AiPracticeProvider(agentBuilder: (_) => agent);
+    await _mount(tester, provider);
+    await tester.pumpAndSettle();
+
+    // Both cards carry the ladder: 易 较易 中 较难 难.
+    expect(find.text('较易'), findsNWidgets(2));
+    expect(find.text('较难'), findsNWidgets(2));
+
+    await tester.ensureVisible(find.text('较难').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('较难').last);
+    await tester.pump();
+
+    await tester.ensureVisible(find.text('生成短文'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('生成短文'));
+    await tester.pumpAndSettle();
+
+    expect(agent.lastLevel, PracticeLevel.hard);
+  });
+
   testWidgets('the typed length is what the request uses, and a short answer says so',
       (tester) async {
     final agent = _PassageAgent();
@@ -232,6 +255,7 @@ void main() {
 /// Records what the passage request carried.
 class _PassageAgent extends _BlockingAgent {
   PassageStyle? lastStyle;
+  PracticeLevel? lastLevel;
   int? lastLength;
   List<String>? lastWords;
   String lastNote = '';
@@ -249,6 +273,7 @@ class _PassageAgent extends _BlockingAgent {
     String extra = '',
   }) async {
     lastStyle = style;
+    lastLevel = level;
     lastLength = length;
     lastWords = words;
     lastNote = wordsNote;

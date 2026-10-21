@@ -314,13 +314,15 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
               ),
             ],
             const SizedBox(height: 10),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 _levelSelector(
                   _sentenceLevel,
                   (level) => setState(() => _sentenceLevel = level),
                 ),
-                const Spacer(),
                 SegmentedButton<int>(
                   showSelectedIcon: false,
                   style: const ButtonStyle(
@@ -481,7 +483,7 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              '难度影响句式复杂度；必须出现的词由下面的词频区间决定。',
+              '难度控制句型与内容深度（五档）；必须出现的词由下面的词频区间决定。',
               style: TextStyle(
                 fontSize: 11.5,
                 height: 1.4,
@@ -1006,10 +1008,16 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
       style: const ButtonStyle(
         visualDensity: VisualDensity.compact,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        ),
       ),
       segments: [
         for (final level in PracticeLevel.values)
-          ButtonSegment(value: level, label: Text(level.label)),
+          ButtonSegment(
+            value: level,
+            label: Text(level.label, style: const TextStyle(fontSize: 12)),
+          ),
       ],
       selected: {value},
       onSelectionChanged: (selection) => onChanged(selection.first),

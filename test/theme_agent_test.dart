@@ -116,6 +116,54 @@ void main() {
           reason: 'only the chosen band goes into the prompt');
     });
 
+    test('the passage ladder talks about syntax and depth only', () async {
+      final client = _CapturingClient(
+        reply: '{"title":"A Walk","text":"Some text."}',
+      );
+      final agent = _agent(client);
+
+      await agent.passage(
+        sceneLabel: 'S',
+        sceneHint: 'H',
+        words: const ['ward'],
+        level: PracticeLevel.expert,
+      );
+      expect(client.user, contains('Level: expert'));
+      expect(client.user, contains('embedded clauses'));
+      expect(client.user, contains('acknowledge a counterpoint'));
+
+      await agent.passage(
+        sceneLabel: 'S',
+        sceneHint: 'H',
+        words: const ['ward'],
+        level: PracticeLevel.starter,
+      );
+      expect(client.user, contains('Level: starter'));
+      expect(client.user, contains('one clause per sentence'));
+      expect(client.user, contains('no analysis'));
+    });
+
+    test('each sentence rung has its own length and pattern', () async {
+      final client = _CapturingClient(
+        reply: '{"sentences":[{"text":"A cat sat."}]}',
+      );
+      final agent = _agent(client);
+
+      await agent.sentences(
+        word: 'cat',
+        count: 1,
+        level: PracticeLevel.starter,
+      );
+      expect(client.user, contains('5-9 words, one clause'));
+
+      await agent.sentences(
+        word: 'cat',
+        count: 1,
+        level: PracticeLevel.expert,
+      );
+      expect(client.user, contains('16-28 words'));
+    });
+
     test('a long passage is split into paragraphs the model can count',
         () async {
       final client = _CapturingClient(

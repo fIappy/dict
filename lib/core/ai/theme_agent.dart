@@ -5,20 +5,27 @@ import 'openai_client.dart';
 import 'passage_style.dart';
 
 /// How hard the generated English should be.
-enum PracticeLevel { easy, medium, hard }
+/// How demanding the writing itself is — sentence patterns and how deep the
+/// content goes. Which words must appear is a separate setting (the frequency
+/// band), so this no longer says anything about vocabulary.
+enum PracticeLevel { starter, easy, medium, hard, expert }
 
 extension PracticeLevelLabel on PracticeLevel {
   String get label => switch (this) {
-    PracticeLevel.easy => '易',
+    PracticeLevel.starter => '易',
+    PracticeLevel.easy => '较易',
     PracticeLevel.medium => '中',
-    PracticeLevel.hard => '难',
+    PracticeLevel.hard => '较难',
+    PracticeLevel.expert => '难',
   };
 
   /// The word the model is given; prompts are written in English.
   String get promptName => switch (this) {
+    PracticeLevel.starter => 'starter',
     PracticeLevel.easy => 'easy',
     PracticeLevel.medium => 'medium',
     PracticeLevel.hard => 'hard',
+    PracticeLevel.expert => 'expert',
   };
 }
 
@@ -191,6 +198,18 @@ class ThemeAgent {
       '- Never invent a meaning the target word does not have.\n'
       '- Reply with JSON only: no prose, no code fences.';
 
+  /// What a sentence should look like at each rung of the ladder.
+  static String _sentenceShape(PracticeLevel level) => switch (level) {
+    PracticeLevel.starter => '5-9 words, one clause, present or past simple',
+    PracticeLevel.easy => '7-13 words, one clause plus at most one short phrase',
+    PracticeLevel.medium =>
+      '10-16 words, one subordinate clause or a participial phrase',
+    PracticeLevel.hard =>
+      '13-21 words, subordination, passives or nominalisation',
+    PracticeLevel.expert =>
+      '16-28 words, embedded or cleft structures, precise register',
+  };
+
   static String _sentenceUser({
     required String word,
     required int count,
@@ -203,8 +222,10 @@ class ThemeAgent {
         'senses; inflected forms are fine.\n'
         'Order them from easiest to hardest and from shortest to longest '
         '(level: ${level.promptName}).\n'
-        'Each sentence: 6-22 words, self-contained, natural collocations, and a '
-        'different grammatical pattern from the others.\n'
+        'Sentence length and pattern by level: '
+        '${_sentenceShape(level)}.\n'
+        'Every sentence must be self-contained, use natural collocations, and '
+        'show a different grammatical pattern from the others.\n'
         'No two sentences may be paraphrases of each other.\n'
         'For each sentence list 0-3 fixed collocations or set phrases that appear '
         'verbatim in it (e.g. "take care of", "in charge of"); use an empty list '
@@ -235,15 +256,32 @@ class ThemeAgent {
     String extra = '',
   }) {
     final levelRules = switch (level) {
+      PracticeLevel.starter =>
+        '- starter syntax: one clause per sentence (subject + verb + object), '
+            'present or past simple only, no subordination, no passives.\n'
+            '- depth: name what happened and who was there; no analysis, no '
+            'opinions, no metaphors.',
       PracticeLevel.easy =>
-        '- easy syntax: mostly one-clause sentences and everyday vocabulary '
-            'besides the required words.',
+        '- easy syntax: mostly short sentences, coordinating words (and, but, '
+            'so, because), a few simple past/present perfect forms.\n'
+        '- depth: one concrete situation told in order; at most one sentence of '
+            'comment.',
       PracticeLevel.medium =>
-        '- medium syntax: a mix of simple and complex sentences, everyday '
-            'vocabulary.',
+        '- medium syntax: a mix of simple and complex sentences, one subordinate '
+            'clause at a time, occasional passive voice.\n'
+        '- depth: describe and explain — say how something works or why it '
+            'matters, with a clear opening, body and close.',
       PracticeLevel.hard =>
-        '- hard syntax: complex sentences (subordinate clauses, participial '
-            'phrases, nominalisation), precise word choice.',
+        '- hard syntax: subordinate and relative clauses, participial phrases, '
+            'nominalisation, varied sentence length.\n'
+        '- depth: interpret rather than only report — connect cause and effect, '
+            'weigh two readings of the same event, use precise register.',
+      PracticeLevel.expert =>
+        '- expert syntax: dense, embedded clauses; inversion, cleft sentences '
+            'and ellipsis used deliberately; no filler.\n'
+        '- depth: make a claim, support it with evidence from the scene, '
+            'acknowledge a counterpoint, and land on a conclusion that is more '
+            'than a summary.',
     };
     final note = wordsNote.isEmpty ? '' : '\n$wordsNote';
     // One 1000-word block is where models drift short; explicit per-paragraph
