@@ -36,6 +36,7 @@ class AiPracticeProvider extends ChangeNotifier {
   GeneratedPassage? _passage;
   List<String> _passageWords = const [];
   List<AiArchiveItem> _archive = const [];
+  AiArchiveItem? _source;
   String? _reasoning;
 
   bool get isGenerating => _isGenerating;
@@ -53,6 +54,10 @@ class AiPracticeProvider extends ChangeNotifier {
   List<String> get passageWords => _passageWords;
   List<AiArchiveItem> get archive => _archive;
 
+  /// The archived item currently on screen, when it was loaded from the
+  /// archive rather than generated just now.
+  AiArchiveItem? get archiveSource => _source;
+
   /// The thinking the last generation came with, when the endpoint exposes it.
   String? get reasoning => _reasoning;
 
@@ -69,6 +74,7 @@ class AiPracticeProvider extends ChangeNotifier {
     _sentencesWord = null;
     _passage = null;
     _passageWords = const [];
+    _source = null;
     _error = null;
     _reasoning = null;
     notifyListeners();
@@ -146,10 +152,44 @@ class AiPracticeProvider extends ChangeNotifier {
         model: config.model,
         title: result.passage.title,
         text: result.passage.text,
+        phrases: result.passage.phrases,
+        words: words,
         reasoning: result.reasoning,
       ),
     );
   });
+
+  /// Puts a saved generation back on the page exactly as it was when it was
+  /// made: the same sentences or the same passage, the same reasoning, and the
+  /// same target words.
+  void showArchiveItem(AiArchiveItem item) {
+    _error = null;
+    _reasoning = item.reasoning.isEmpty ? null : item.reasoning;
+    if (item.kind == AiItemKind.passage) {
+      _passage = GeneratedPassage(
+        title: item.title,
+        text: item.text,
+        phrases: item.phrases,
+      );
+      _passageWords = item.words;
+      _sentences = const [];
+      _sentencesWord = null;
+    } else {
+      _sentences = item.lines;
+      _sentencesWord = item.word;
+      _passage = null;
+      _passageWords = const [];
+    }
+    _source = item;
+    notifyListeners();
+  }
+
+  /// Drops the "loaded from the archive" banner, leaving the text in place.
+  void clearSource() {
+    if (_source == null) return;
+    _source = null;
+    notifyListeners();
+  }
 
   Future<void> delete(String id) async {
     _archive = await _store.remove(id);
@@ -163,6 +203,7 @@ class AiPracticeProvider extends ChangeNotifier {
     _isGenerating = true;
     _running = kind;
     _error = null;
+    _source = null;
     notifyListeners();
     try {
       await body();

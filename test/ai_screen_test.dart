@@ -56,21 +56,49 @@ class _BlockingAgent extends ThemeAgent {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets('theme words are red and collocations are underlined',
+      (tester) async {
+    final provider = AiPracticeProvider(agentBuilder: (_) => _MarksAgent());
+    await _mount(tester, provider);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, 'coach');
+    await tester.tap(find.text('生成句子'));
+    await tester.pumpAndSettle();
+
+    _expectMarks(_annotated(tester, 'take care of'));
+  });
+
+  testWidgets('an archived generation is shown on the main page again',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'ai_archive_v1':
+          '[{"id":"a1","sceneId":"sports","sceneLabel":"体育运动","kind":"sentences",'
+              '"level":"easy","createdAt":1750000000000,"model":"m","word":"coach",'
+              '"lines":[{"text":"The coach called the team.","translation":"教练喊了队伍。"}]}]',
+    });
+    final provider = AiPracticeProvider(agentBuilder: (_) => _BlockingAgent());
+    await _mount(tester, provider);
+    await tester.pumpAndSettle();
+
+    expect(provider.sentences, isEmpty, reason: 'nothing generated yet');
+    expect(find.textContaining('来自归档'), findsNothing);
+
+    await tester.tap(find.text('coach · 1 句'));
+    await tester.pumpAndSettle();
+
+    expect(provider.sentencesWord, 'coach');
+    expect(provider.archiveSource?.id, 'a1');
+    expect(find.textContaining('来自归档'), findsOneWidget);
+    expect(_annotated(tester, 'The coach called the team.').textSpan, isNotNull);
+  });
+
   testWidgets('the generate button reports progress while a request runs',
       (tester) async {
     final agent = _BlockingAgent();
     final provider = AiPracticeProvider(agentBuilder: (_) => agent);
 
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => SettingsProvider()),
-          ChangeNotifierProvider<AiPracticeProvider>.value(value: provider),
-          ChangeNotifierProvider(create: (_) => EntrySpeechProvider()),
-        ],
-        child: const MaterialApp(home: AiPracticeScreen(scene: _scene)),
-      ),
-    );
+    await _mount(tester, provider);
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).first, 'coach');
@@ -93,16 +121,7 @@ void main() {
       (tester) async {
     final provider = AiPracticeProvider(agentBuilder: (_) => _BlockingAgent());
 
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => SettingsProvider()),
-          ChangeNotifierProvider<AiPracticeProvider>.value(value: provider),
-          ChangeNotifierProvider(create: (_) => EntrySpeechProvider()),
-        ],
-        child: const MaterialApp(home: AiPracticeScreen(scene: _scene)),
-      ),
-    );
+    await _mount(tester, provider);
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('生成句子'));
@@ -111,4 +130,53 @@ void main() {
     expect(find.textContaining('先输入一个要造句的单词'), findsOneWidget);
     expect(provider.isGenerating, isFalse);
   });
+}
+
+/// A model answer that uses a theme word and a collocation.
+class _MarksAgent extends _BlockingAgent {
+  _MarksAgent() : super();
+
+  @override
+  Future<({List<GeneratedSentence> items, String reasoning})> sentences({
+    required String word,
+    required int count,
+    required PracticeLevel level,
+    String? sceneLabel,
+  }) async => (
+        items: [
+          const GeneratedSentence(
+            text: 'The coach told us to take care of the ball.',
+            translation: '教练让我们看好球。',
+            phrases: ['take care of'],
+          ),
+        ],
+        reasoning: '',
+      );
+}
+
+SelectableText _annotated(WidgetTester tester, String fragment) => tester
+    .widgetList<SelectableText>(find.byType(SelectableText))
+    .firstWhere((w) => w.textSpan?.toPlainText().contains(fragment) ?? false);
+
+void _expectMarks(SelectableText widget) {
+  final spans = widget.textSpan!.children!.cast<TextSpan>();
+  final red = spans.firstWhere((s) => s.text == 'coach');
+  final phrase = spans.firstWhere((s) => s.text == 'take care of');
+  expect(red.style?.color, isNotNull,
+      reason: 'theme words carry their own colour');
+  expect(phrase.style?.decoration, TextDecoration.underline,
+      reason: 'collocations are underlined');
+}
+
+Future<void> _mount(WidgetTester tester, AiPracticeProvider provider) {
+  return tester.pumpWidget(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider<AiPracticeProvider>.value(value: provider),
+        ChangeNotifierProvider(create: (_) => EntrySpeechProvider()),
+      ],
+      child: const MaterialApp(home: AiPracticeScreen(scene: _scene)),
+    ),
+  );
 }

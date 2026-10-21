@@ -25,6 +25,8 @@ class AiArchiveItem {
     this.title = '',
     this.lines = const [],
     this.text = '',
+    this.phrases = const [],
+    this.words = const [],
     this.reasoning = '',
   });
 
@@ -48,6 +50,12 @@ class AiArchiveItem {
   /// The passage body (empty for sentences).
   final String text;
 
+  /// Collocations flagged in [text] or in [lines] when it was generated.
+  final List<String> phrases;
+
+  /// The theme words the passage was asked to use.
+  final List<String> words;
+
   /// The model's reasoning for this generation, when the endpoint exposed it.
   final String reasoning;
 
@@ -65,6 +73,9 @@ class AiArchiveItem {
     if (title.isNotEmpty) 'title': title,
     if (lines.isNotEmpty) 'lines': [for (final l in lines) l.toJson()],
     if (text.isNotEmpty) 'text': text,
+    if (phrases.isNotEmpty) 'phrases': phrases,
+    if (words.isNotEmpty) 'words': words,
+    if (reasoning.isNotEmpty) 'reasoning': reasoning,
   };
 
   static AiArchiveItem? fromJson(Map<String, dynamic> json) {
@@ -99,6 +110,8 @@ class AiArchiveItem {
               GeneratedSentence.fromJson(line.cast<String, dynamic>()),
       ],
       text: json['text']?.toString() ?? '',
+      phrases: readPhraseList(json['phrases']),
+      words: readPhraseList(json['words']),
       reasoning: json['reasoning']?.toString() ?? '',
     );
   }

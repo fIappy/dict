@@ -267,6 +267,126 @@ void main() {
     });
   });
 
+  group('restoring a saved generation', () {
+    test('the passage keeps its phrases, words and reasoning on disk', () async {
+      final agent = _FakeAgent(
+        passageReply: const GeneratedPassage(
+          title: 'Match day',
+          text: 'The coach asked us to take care of the ball.',
+          phrases: ['take care of'],
+        ),
+      )..reasoningText = 'stuck to the theme';
+      final provider = _provider(agent);
+
+      await provider.generatePassage(
+        config: _config,
+        sceneId: 'sports',
+        sceneLabel: '体育运动',
+        sceneHint: '比赛',
+        sceneWords: const ['coach', 'match', 'team'],
+        level: PracticeLevel.easy,
+      );
+
+      final reloaded = (await AiArchiveStore().load()).single;
+      expect(reloaded.title, 'Match day');
+      expect(reloaded.phrases, ['take care of']);
+      expect(reloaded.words, agent.lastWords);
+      expect(reloaded.words, isNotEmpty);
+      expect(reloaded.reasoning, 'stuck to the theme');
+    });
+
+    test('an archived passage is put back on the page as it was made', () async {
+      final agent = _FakeAgent(
+        passageReply: const GeneratedPassage(
+          title: 'Match day',
+          text: 'The coach asked us to take care of the ball.',
+          phrases: ['take care of'],
+        ),
+      )..reasoningText = 'stuck to the theme';
+      final provider = _provider(agent);
+      await provider.generatePassage(
+        config: _config,
+        sceneId: 'sports',
+        sceneLabel: '体育运动',
+        sceneHint: '比赛',
+        sceneWords: const ['coach', 'match', 'team'],
+        level: PracticeLevel.medium,
+      );
+      final item = provider.archiveFor('sports').single;
+
+      provider.openScene('other');
+      expect(provider.passage, isNull);
+
+      provider.showArchiveItem(item);
+
+      expect(provider.passage?.title, 'Match day');
+      expect(provider.passage?.phrases, ['take care of']);
+      expect(provider.passageWords, agent.lastWords);
+      expect(provider.reasoning, 'stuck to the theme');
+      expect(provider.archiveSource?.id, item.id);
+      expect(provider.sentences, isEmpty,
+          reason: 'the page shows the item, not a mix of both kinds');
+    });
+
+    test('an archived sentence set comes back with its phrases and word',
+        () async {
+      final agent = _FakeAgent(
+        sentencesReply: [
+          const GeneratedSentence(
+            text: 'The coach told us to take care of the ball.',
+            translation: '教练让我们看好球。',
+            phrases: ['take care of'],
+          ),
+        ],
+      );
+      final provider = _provider(agent);
+      await provider.generateSentences(
+        config: _config,
+        sceneId: 'sports',
+        sceneLabel: '体育运动',
+        word: 'coach',
+        count: 3,
+        level: PracticeLevel.hard,
+      );
+      final item = provider.archiveFor('sports').single;
+
+      provider.openScene('other');
+      expect(provider.sentences, isEmpty);
+
+      provider.showArchiveItem(item);
+
+      expect(provider.sentencesWord, 'coach');
+      expect(provider.sentences.single.phrases, ['take care of']);
+      expect(provider.sentences.single.translation, '教练让我们看好球。');
+      expect(provider.passage, isNull);
+    });
+
+    test('a new generation drops the archive banner', () async {
+      final provider = _provider(_FakeAgent());
+      await provider.generateSentences(
+        config: _config,
+        sceneId: 'sports',
+        sceneLabel: '体育运动',
+        word: 'coach',
+        count: 3,
+        level: PracticeLevel.easy,
+      );
+      provider.showArchiveItem(provider.archiveFor('sports').single);
+      expect(provider.archiveSource, isNotNull);
+
+      await provider.generateSentences(
+        config: _config,
+        sceneId: 'sports',
+        sceneLabel: '体育运动',
+        word: 'team',
+        count: 3,
+        level: PracticeLevel.easy,
+      );
+
+      expect(provider.archiveSource, isNull);
+    });
+  });
+
   group('client', () {
     test('reads the assistant text out of the standard envelope', () async {
       final client = OpenAiClient(

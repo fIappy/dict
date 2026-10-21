@@ -30,15 +30,23 @@ class RankedWord {
 }
 
 class GeneratedSentence {
-  const GeneratedSentence({required this.text, this.translation});
+  const GeneratedSentence({
+    required this.text,
+    this.translation,
+    this.phrases = const [],
+  });
 
   final String text;
   final String? translation;
 
+  /// Fixed collocations the model found in [text], verbatim.
+  final List<String> phrases;
+
   Map<String, dynamic> toJson() => {
-    'text': text,
-    if (translation != null) 'translation': translation,
-  };
+        'text': text,
+        if (translation != null) 'translation': translation,
+        if (phrases.isNotEmpty) 'phrases': phrases,
+      };
 
   factory GeneratedSentence.fromJson(Map<String, dynamic> json) =>
       GeneratedSentence(
@@ -46,21 +54,38 @@ class GeneratedSentence {
         translation: (json['translation'] ?? '').toString().trim().isEmpty
             ? null
             : (json['translation'] as String).trim(),
+        phrases: readPhraseList(json['phrases']),
       );
 }
 
+/// Reads a phrase list, ignoring anything that is not a non-empty string.
+List<String> readPhraseList(Object? raw) => [
+      if (raw is List)
+        for (final item in raw)
+          if (item is String && item.trim().isNotEmpty) item.trim(),
+    ];
+
 class GeneratedPassage {
-  const GeneratedPassage({required this.title, required this.text});
+  const GeneratedPassage({
+    required this.title,
+    required this.text,
+    this.phrases = const [],
+  });
 
   final String title;
   final String text;
 
-  Map<String, dynamic> toJson() => {'title': title, 'text': text};
+  /// Fixed collocations the model found in [text], verbatim.
+  final List<String> phrases;
+
+  Map<String, dynamic> toJson() =>
+      {'title': title, 'text': text, if (phrases.isNotEmpty) 'phrases': phrases};
 
   factory GeneratedPassage.fromJson(Map<String, dynamic> json) =>
       GeneratedPassage(
         title: (json['title'] ?? '').toString().trim(),
         text: (json['text'] ?? '').toString().trim(),
+        phrases: readPhraseList(json['phrases']),
       );
 }
 
@@ -319,8 +344,12 @@ class ThemeAgent {
         'Each sentence: 6-22 words, self-contained, natural collocations, and a '
         'different grammatical pattern from the others.\n'
         'No two sentences may be paraphrases of each other.\n'
+        'For each sentence list 0-3 fixed collocations or set phrases that appear '
+        'verbatim in it (e.g. "take care of", "in charge of"); use an empty list '
+        'when there is none.\n'
         'Return this JSON shape:\n'
-        '{"sentences":[{"text":"<English sentence>","translation":"<简体中文翻译>"}]}';
+        '{"sentences":[{"text":"<English sentence>","translation":"<简体中文翻译>",'
+        '"phrases":["<verbatim collocation>"]}]}';
   }
 
   static const String _passageSystem =
@@ -365,8 +394,11 @@ class ThemeAgent {
         'sense.\n'
         '- Keep exactly one topic.\n'
         '- No grammar, collocation or logic errors.\n'
+        'Also list 5-10 fixed collocations or set phrases that appear verbatim in '
+        'the passage.\n'
         'Return this JSON shape:\n'
-        '{"title":"<short English title>","text":"<the passage>"}';
+        '{"title":"<short English title>","text":"<the passage>",'
+        '"phrases":["<verbatim collocation>"]}';
   }
 
   // ------------------------------------------------------------------ parsing
@@ -499,6 +531,7 @@ class ThemeAgent {
     return GeneratedPassage(
       title: title.isEmpty ? 'Untitled' : title,
       text: text,
+      phrases: readPhraseList(json['phrases']),
     );
   }
 }

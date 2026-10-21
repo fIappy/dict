@@ -6,6 +6,7 @@ import '../../core/ai/ai_config.dart';
 import '../../core/ai/theme_agent.dart';
 import '../../core/mdx/entry_speech.dart';
 import '../../core/themes/theme_service.dart';
+import '../widgets/annotated_text.dart';
 import '../../providers/ai_practice_provider.dart';
 import '../../providers/entry_speech_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -29,6 +30,7 @@ class AiPracticeScreen extends StatefulWidget {
 class _AiPracticeScreenState extends State<AiPracticeScreen> {
   final TextEditingController _wordController = TextEditingController();
   int _sentenceCount = 5;
+  final ScrollController _scroll = ScrollController();
   PracticeLevel _sentenceLevel = PracticeLevel.easy;
   PracticeLevel _passageLevel = PracticeLevel.easy;
 
@@ -47,6 +49,7 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
 
   @override
   void dispose() {
+    _scroll.dispose();
     _wordController.dispose();
     super.dispose();
   }
@@ -129,6 +132,7 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
         ),
       ),
       body: ListView(
+        controller: _scroll,
         padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
         children: [
           if (!config.isConfigured) _buildConfigHint(context),
@@ -148,6 +152,7 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
               padding: EdgeInsets.only(bottom: 10),
               child: LinearProgressIndicator(minHeight: 2),
             ),
+          if (provider.archiveSource != null) _buildArchiveSource(context, provider),
           _buildSentenceCard(context, provider, config),
           const SizedBox(height: 14),
           _buildPassageCard(context, provider, config),
@@ -199,6 +204,7 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
     final theme = Theme.of(context);
     final speech = context.watch<EntrySpeechProvider>();
     final quickPicks = widget.scene.words.take(6).toList();
+    final sceneWords = widget.scene.words.toSet();
     final busySentences =
         provider.isGenerating && provider.running == AiRunKind.sentences;
 
@@ -297,6 +303,7 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
             ),
             if (provider.sentences.isNotEmpty) ...[
               const SizedBox(height: 12),
+              _buildMarkLegend(context),
               Row(
                 children: [
                   Text(
@@ -340,8 +347,10 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            AnnotatedText(
                               provider.sentences[i].text,
+                              themeWords: sceneWords,
+                              phrases: provider.sentences[i].phrases,
                               style: const TextStyle(
                                 fontSize: 13.5,
                                 height: 1.45,
@@ -386,6 +395,7 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
     final theme = Theme.of(context);
     final speech = context.watch<EntrySpeechProvider>();
     final passage = provider.passage;
+    final sceneWords = widget.scene.words.toSet();
     final busyPassage =
         provider.isGenerating && provider.running == AiRunKind.passage;
 
@@ -443,6 +453,7 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
             ),
             if (passage != null) ...[
               const SizedBox(height: 12),
+              _buildMarkLegend(context),
               Row(
                 children: [
                   Expanded(
@@ -468,8 +479,10 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
                 ],
               ),
               const SizedBox(height: 4),
-              SelectableText(
+              AnnotatedText(
                 passage.text,
+                themeWords: sceneWords,
+                phrases: passage.phrases,
                 style: const TextStyle(fontSize: 13.5, height: 1.6),
               ),
               if (provider.passageWords.isNotEmpty) ...[
@@ -585,23 +598,40 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
     AiArchiveItem item,
   ) {
     final theme = Theme.of(context);
-    final title = item.kind == AiItemKind.passage
-        ? item.title
-        : '${item.word ?? ''} · ${item.lines.length} 句';
-    final subtitle =
-        '${item.kind == AiItemKind.passage ? '短文' : '造句'} · ${item.level.label} · '
+    final isPassage = item.kind == AiItemKind.passage;
+    final title = isPassage ? item.title : '${item.word ?? ''} · ${item.lines.length} 句';
+    final subtitle = '${isPassage ? '短文' : '造句'} · ${item.level.label} · '
         '${_formatDate(item.created)}';
+    final selected = provider.archiveSource?.id == item.id;
 
-    return ExpansionTile(
-      tilePadding: EdgeInsets.zero,
-      childrenPadding: const EdgeInsets.only(bottom: 8),
-      shape: const Border(),
-      collapsedShape: const Border(),
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      selected: selected,
+      leading: Icon(
+        isPassage ? Icons.article_outlined : Icons.short_text_rounded,
+        size: 18,
+        color: selected ? theme.colorScheme.primary : theme.hintColor,
+      ),
       title: Text(title, style: const TextStyle(fontSize: 13)),
       subtitle: Text(
         subtitle,
         style: TextStyle(fontSize: 11.5, color: theme.hintColor),
       ),
+      onTap: () {
+        provider.showArchiveItem(item);
+        setState(() {
+          _sentenceLevel = item.level;
+          _passageLevel = item.level;
+        });
+        if (_scroll.hasClients) {
+          _scroll.animateTo(
+            0,
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOut,
+          );
+        }
+      },
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -610,7 +640,7 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
             tooltip: '朗读',
             visualDensity: VisualDensity.compact,
             onPressed: () => _speak(
-              item.kind == AiItemKind.passage
+              isPassage
                   ? item.text
                   : [for (final line in item.lines) line.text].join(' '),
             ),
@@ -623,46 +653,81 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
           ),
         ],
       ),
-      children: [
-        if (item.reasoning.isNotEmpty) ...[
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text('思考过程',
-                style: TextStyle(fontSize: 11.5, color: theme.hintColor)),
-          ),
-          const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: SelectableText(
-              item.reasoning,
-              style: TextStyle(
-                  fontSize: 12, height: 1.5, color: theme.hintColor),
+    );
+  }
+
+  /// Says where the text on the page came from, so a restored generation is
+  /// not mistaken for a fresh one.
+  Widget _buildArchiveSource(BuildContext context, AiPracticeProvider provider) {
+    final theme = Theme.of(context);
+    final item = provider.archiveSource!;
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+        child: Row(
+          children: [
+            Icon(Icons.history_rounded, size: 18, color: theme.hintColor),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '来自归档 · ${item.kind == AiItemKind.passage ? '短文' : '造句'} · '
+                '${item.level.label} · ${_formatDate(item.created)}',
+                style: TextStyle(fontSize: 12, color: theme.hintColor),
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-        ],
-        Align(
-          alignment: Alignment.centerLeft,
-          child: item.kind == AiItemKind.passage
-              ? SelectableText(
-                  item.text,
-                  style: const TextStyle(fontSize: 13, height: 1.55),
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final line in item.lines)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: SelectableText(
-                          line.text,
-                          style: const TextStyle(fontSize: 13, height: 1.45),
-                        ),
-                      ),
-                  ],
-                ),
+            IconButton(
+              icon: const Icon(Icons.close_rounded, size: 18),
+              tooltip: '收起提示',
+              visualDensity: VisualDensity.compact,
+              onPressed: provider.clearSource,
+            ),
+          ],
         ),
-      ],
+      ),
+    );
+  }
+
+  /// Explains the two marks on generated text, once per card.
+  Widget _buildMarkLegend(BuildContext context) {
+    final theme = Theme.of(context);
+    final markStyle = TextStyle(fontSize: 11.5, color: theme.hintColor);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 2,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '主题词',
+                style: markStyle.copyWith(
+                  color: theme.colorScheme.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(' = 本主题词汇', style: markStyle),
+            ],
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '短语',
+                style: markStyle.copyWith(
+                  decoration: TextDecoration.underline,
+                  decorationStyle: TextDecorationStyle.dotted,
+                  decorationColor: theme.colorScheme.error.withValues(alpha: 0.7),
+                ),
+              ),
+              Text(' = AI 标注的固定搭配', style: markStyle),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
