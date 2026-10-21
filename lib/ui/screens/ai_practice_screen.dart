@@ -842,6 +842,8 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
         .clamp(from, total);
     final required =
         wordsInBand(ranked, from: from, to: to, length: _passageLength);
+    final bandSize = to - from + 1;
+    final sampled = required.length < bandSize;
     final hasExtra = _extraController.text.trim().isNotEmpty;
 
     return ExpansionTile(
@@ -853,8 +855,8 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
       title: const Text('词汇区间与追加要求',
           style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
       subtitle: Text(
-        '排名 $from–$to / 共 $total · 将要求 ${required.length} 词'
-        '${hasExtra ? ' · 有追加要求' : ''}',
+        '排名 $from–$to / 共 $total · 区间 $bandSize 词 · '
+        '要 ${required.length} 词${hasExtra ? ' · 有追加要求' : ''}',
         style: TextStyle(fontSize: 11, color: theme.hintColor),
       ),
       children: [
@@ -878,6 +880,19 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
               Text(
                 '按词频从高到低排；只把这段区间里的词交给模型。',
                 style: TextStyle(fontSize: 11, color: theme.hintColor),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                sampled
+                    ? '区间 $bandSize 个词，但 $_passageLength 词的篇幅大约只能'
+                        '容纳 ${required.length} 个必需词（每 10 词 1 个），'
+                        '已从区间里等距抽取；想要更多就往长的方向调。'
+                    : '区间内 ${required.length} 个词全部要求出现。',
+                style: TextStyle(
+                  fontSize: 11,
+                  height: 1.4,
+                  color: theme.hintColor,
+                ),
               ),
               const SizedBox(height: 6),
             ],

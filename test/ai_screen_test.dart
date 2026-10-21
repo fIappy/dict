@@ -109,6 +109,36 @@ void main() {
     expect(find.text('Night Shift'), findsOneWidget);
   });
 
+  testWidgets('a band wider than the passage can hold says so', (tester) async {
+    final agent = _PassageAgent();
+    final provider = AiPracticeProvider(agentBuilder: (_) => agent);
+    await _mount(tester, provider);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('词汇区间与追加要求'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('词汇区间与追加要求'));
+    await tester.pumpAndSettle();
+
+    // The whole theme fits in the default 140-word passage.
+    expect(find.textContaining('区间 4 词 · 要 4 词'), findsOneWidget);
+    expect(find.textContaining('全部要求出现'), findsOneWidget);
+
+    // Twenty words can only carry three of them; the count must say why.
+    await tester.enterText(find.byType(TextField).at(1), '20');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('区间 4 词 · 要 3 词'), findsOneWidget);
+    expect(find.textContaining('已从区间里等距抽取'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('生成短文'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('生成短文'));
+    await tester.pumpAndSettle();
+    expect(agent.lastWords, hasLength(3));
+  });
+
   testWidgets('an archived generation is shown on the main page again',
       (tester) async {
     SharedPreferences.setMockInitialValues({
