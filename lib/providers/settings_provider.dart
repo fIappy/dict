@@ -5,12 +5,17 @@ class SettingsProvider extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
   double _fontSizeScale = 1.0;
   String _ttsLanguage = 'en-US';
-  double _speechRate = 0.5;
+  double _speechRate = 1.0;
+  double _sentenceGapSeconds = 1.0;
 
   ThemeMode get themeMode => _themeMode;
   double get fontSizeScale => _fontSizeScale;
   String get ttsLanguage => _ttsLanguage;
   double get speechRate => _speechRate;
+
+  /// Pause between two lines during 顺序播放 of an entry's phrases/examples.
+  Duration get sentenceGap =>
+      Duration(milliseconds: (_sentenceGapSeconds * 1000).round());
 
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
@@ -27,7 +32,8 @@ class SettingsProvider extends ChangeNotifier {
     }
     _fontSizeScale = prefs.getDouble('font_size_scale') ?? 1.0;
     _ttsLanguage = prefs.getString('tts_language') ?? 'en-US';
-    _speechRate = prefs.getDouble('speech_rate') ?? 0.5;
+    _speechRate = prefs.getDouble('speech_rate') ?? 1.0;
+    _sentenceGapSeconds = prefs.getDouble('sentence_gap_seconds') ?? 1.0;
     notifyListeners();
   }
 
@@ -57,5 +63,12 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('speech_rate', rate);
+  }
+
+  Future<void> setSentenceGapSeconds(double seconds) async {
+    _sentenceGapSeconds = seconds;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('sentence_gap_seconds', seconds);
   }
 }

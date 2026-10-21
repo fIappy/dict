@@ -11,7 +11,6 @@ import '../../providers/numbers_provider.dart';
 import '../../providers/themes_provider.dart';
 import 'alphabet_detail_view.dart';
 import 'alphabet_screen.dart';
-import 'dictionary_manager_screen.dart';
 import 'favorites_screen.dart';
 import 'frequency_screen.dart';
 import 'history_screen.dart';
@@ -21,6 +20,7 @@ import 'numbers_detail_view.dart';
 import 'numbers_screen.dart';
 import 'themes_screen.dart';
 import 'search_screen.dart';
+import 'settings_screen.dart';
 import 'word_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -69,7 +69,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final dictProvider = context.watch<DictionaryProvider>();
     final ipaProvider = context.watch<IpaProvider>();
     final alphabetProvider = context.watch<AlphabetProvider>();
-    final settings = context.watch<SettingsProvider>();
     return Scaffold(
       body: Row(
         children: [
@@ -118,13 +117,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.only(bottom: 16),
                   child: IconButton(
                     icon: Icon(
-                      isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                      Icons.settings_rounded,
                       color: theme.colorScheme.primary,
                     ),
-                    tooltip: isDark ? '切换到浅色模式' : '切换到深色模式',
-                    onPressed: () {
-                      settings.setThemeMode(isDark ? ThemeMode.light : ThemeMode.dark);
-                    },
+                    tooltip: '设置',
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (_) => Dialog(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: 460,
+                            maxHeight: 620,
+                          ),
+                          child: const SettingsScreen(isPaneView: true),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -134,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
             // numbers module was added). Showing the label of the selected item
             // only — the rest keep their tooltips — fits them all. `scrollable`
             // is not an option here: it hands the trailing widget unbounded
-            // height, and the trailing widget is an Expanded theme toggle.
+            // height, and the trailing widget is an Expanded settings button.
             labelType: NavigationRailLabelType.selected,
             destinations: const [
               NavigationRailDestination(
@@ -176,11 +184,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: Icon(Icons.history_rounded),
                 selectedIcon: Icon(Icons.history_rounded),
                 label: Text('历史'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.folder_copy_outlined),
-                selectedIcon: Icon(Icons.folder_copy_rounded),
-                label: Text('词典'),
               ),
             ],
           ),
@@ -273,8 +276,6 @@ class _HomeScreenState extends State<HomeScreen> {
         return const NumbersScreen(isPaneView: true);
       case 7:
         return const HistoryScreen(isPaneView: true);
-      case 8:
-        return const DictionaryManagerScreen();
       default:
         return const SearchScreen(isPaneView: true);
     }
@@ -293,7 +294,7 @@ class _HomeScreenState extends State<HomeScreen> {
           AlphabetScreen(isPaneView: false),
           NumbersScreen(isPaneView: false),
           HistoryScreen(isPaneView: false),
-          DictionaryManagerScreen(),
+          SettingsScreen(isPaneView: true),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -340,9 +341,9 @@ class _HomeScreenState extends State<HomeScreen> {
             label: '历史',
           ),
           NavigationDestination(
-            icon: Icon(Icons.folder_copy_outlined),
-            selectedIcon: Icon(Icons.folder_copy_rounded),
-            label: '词典',
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings_rounded),
+            label: '设置',
           ),
         ],
       ),

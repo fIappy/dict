@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/frequency/frequency_service.dart';
+import '../../core/mdx/entry_speech.dart';
 import '../../core/mdx/mdx_entry.dart';
 import '../../providers/dictionary_provider.dart';
+import '../../providers/entry_speech_provider.dart';
 import '../../providers/favorites_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../widgets/examples_card.dart';
@@ -142,6 +144,7 @@ class WordDetailScreen extends StatelessWidget {
                     soundKeys: mdxEntry.soundKeys,
                   ),
                   FrequencyBadge(info: freq),
+                  _buildSpeechControl(context, mdxEntry, settings),
                 ],
               ),
 
@@ -184,6 +187,41 @@ class WordDetailScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// One click reads every 词语搭配 / 权威例句 line in page order, waiting the
+  /// configured gap between lines. While it runs the same button stops it and
+  /// shows which line is sounding.
+  Widget _buildSpeechControl(
+    BuildContext context,
+    MdxEntry mdxEntry,
+    SettingsProvider settings,
+  ) {
+    final utterances = extractEntryUtterances(mdxEntry.rawHtml);
+    if (utterances.isEmpty) return const SizedBox.shrink();
+    final speech = context.watch<EntrySpeechProvider>();
+    final playing = speech.isPlaying;
+    final index = speech.currentIndex;
+    final progress = index == null ? '' : ' ${index + 1}/${speech.items.length}';
+    return FilledButton.tonalIcon(
+      icon: Icon(
+        playing ? Icons.stop_rounded : Icons.playlist_play_rounded,
+        size: 18,
+      ),
+      label: Text(playing ? '停止$progress' : '顺序播放 ${utterances.length} 句'),
+      onPressed: () {
+        if (playing) {
+          speech.stop();
+          return;
+        }
+        speech.playAll(
+          utterances,
+          rate: settings.speechRate,
+          gap: settings.sentenceGap,
+          accent: accentForLanguage(settings.ttsLanguage),
+        );
+      },
     );
   }
 

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
+import 'package:provider/provider.dart';
 import '../../core/audio/audio_manager.dart';
+import '../../core/mdx/entry_speech.dart';
 import '../../core/mdx/mdx_entry.dart';
+import '../../providers/entry_speech_provider.dart';
+import '../../providers/settings_provider.dart';
 
 class WordDefinitionView extends StatefulWidget {
   final MdxEntry entry;
@@ -181,6 +185,9 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
   }
 
   Widget _buildHtmlContent(String html, bool isDark) {
+    // The reader adds a speaker link to every 词语搭配 / 权威例句 line; the
+    // indices it hands back address the same list the links carry.
+    final prepared = prepareEntrySpeech(html);
     final primaryColor = Theme.of(context).colorScheme.primary;
     final primaryHex = '#${primaryColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
     final secondaryTextColor = isDark ? '#94A3B8' : '#64748B';
@@ -195,13 +202,25 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
     );
 
     return HtmlWidget(
-      html,
+      prepared.html,
       textStyle: TextStyle(
         fontSize: 15.0 * widget.fontSizeScale,
         height: 1.6,
       ),
       customStylesBuilder: entryStyles,
       onTapUrl: (url) {
+        if (url.startsWith('speech://')) {
+          final index = int.tryParse(url.substring('speech://'.length));
+          if (index != null && index < prepared.utterances.length) {
+            final settings = context.read<SettingsProvider>();
+            context.read<EntrySpeechProvider>().playOne(
+              prepared.utterances[index],
+              rate: settings.speechRate,
+              accent: accentForLanguage(settings.ttsLanguage),
+            );
+          }
+          return true;
+        }
         if (url.startsWith('sound://')) {
           final soundKey = url.substring('sound://'.length);
           _audioManager.playWord(word: widget.entry.word, soundKey: soundKey);
@@ -274,6 +293,14 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
 
       if (classes.contains('hw')) {
         styles['display'] = 'none';
+      }
+      // The speaker link the reader appends to each speakable line.
+      if (classes.contains('speech')) {
+        styles['display'] = 'inline';
+        styles['margin-left'] = '6px';
+        styles['font-size'] = '0.85em';
+        styles['text-decoration'] = 'none';
+        styles['opacity'] = '0.75';
       }
       if (classes.contains('pron')) {
         styles['color'] = primary;
