@@ -11,6 +11,9 @@ import '../core/frequency/frequency_service.dart';
 ///
 /// Every generation is archived as soon as it succeeds — asking twice for the
 /// same word and losing the first answer is the failure mode this avoids.
+/// Which generator a run belongs to.
+enum AiRunKind { sentences, passage }
+
 class AiPracticeProvider extends ChangeNotifier {
   AiPracticeProvider({
     AiArchiveStore? store,
@@ -26,6 +29,7 @@ class AiPracticeProvider extends ChangeNotifier {
 
   String? _sceneId;
   bool _isGenerating = false;
+  AiRunKind? _running;
   String? _error;
   List<GeneratedSentence> _sentences = const [];
   String? _sentencesWord;
@@ -35,6 +39,10 @@ class AiPracticeProvider extends ChangeNotifier {
   String? _reasoning;
 
   bool get isGenerating => _isGenerating;
+
+  /// Which of the two generators is running, so only its own button reports
+  /// progress and the other just goes quiet.
+  AiRunKind? get running => _running;
   String? get error => _error;
   List<GeneratedSentence> get sentences => _sentences;
   String? get sentencesWord => _sentencesWord;
@@ -84,7 +92,7 @@ class AiPracticeProvider extends ChangeNotifier {
     required String word,
     required int count,
     required PracticeLevel level,
-  }) => _run(() async {
+  }) => _run(AiRunKind.sentences, () async {
     final result = await _agent(
       config,
     ).sentences(word: word, count: count, level: level, sceneLabel: sceneLabel);
@@ -115,7 +123,7 @@ class AiPracticeProvider extends ChangeNotifier {
     required Iterable<String> sceneWords,
     required PracticeLevel level,
     int wordCount = 12,
-  }) => _run(() async {
+  }) => _run(AiRunKind.passage, () async {
     final agent = _agent(config);
     final words = agent.pickSceneWords(sceneWords, level, wordCount);
     final result = await agent.passage(
@@ -150,9 +158,10 @@ class AiPracticeProvider extends ChangeNotifier {
 
   /// One generation at a time: the button is the only way in, and two live
   /// requests would race into the same result fields.
-  Future<bool> _run(Future<void> Function() body) async {
+  Future<bool> _run(AiRunKind kind, Future<void> Function() body) async {
     if (_isGenerating) return false;
     _isGenerating = true;
+    _running = kind;
     _error = null;
     notifyListeners();
     try {
@@ -161,11 +170,15 @@ class AiPracticeProvider extends ChangeNotifier {
     } on AiException catch (e) {
       _error = e.message;
       return false;
-    } on Exception catch (e) {
+    } catch (e, stack) {
+      // `Error` subclasses (ArgumentError, StateError…) are not `Exception`s;
+      // letting one escape left the button doing visibly nothing at all.
+      debugPrint('AI generation failed: $e\n$stack');
       _error = '生成失败：$e';
       return false;
     } finally {
       _isGenerating = false;
+      _running = null;
       notifyListeners();
     }
   }

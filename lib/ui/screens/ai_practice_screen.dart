@@ -35,9 +35,13 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<AiPracticeProvider>().openScene(widget.scene.id);
+    // Both calls notify, and initState runs inside the build phase — they wait
+    // for the first frame.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<AiPracticeProvider>().loadArchive();
+      if (!mounted) return;
+      final provider = context.read<AiPracticeProvider>();
+      provider.openScene(widget.scene.id);
+      provider.loadArchive();
     });
   }
 
@@ -77,7 +81,18 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
 
   Future<void> _generateSentences(AiConfig config) async {
     final word = _wordController.text.trim();
-    if (word.isEmpty) return;
+    if (word.isEmpty) {
+      // Doing nothing at all reads as a broken button.
+      final provider = context.read<AiPracticeProvider>();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('先输入一个要造句的单词（也可以点上面的候选词）'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      provider.clearError();
+      return;
+    }
     await context.read<AiPracticeProvider>().generateSentences(
       config: config,
       sceneId: widget.scene.id,
@@ -184,6 +199,8 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
     final theme = Theme.of(context);
     final speech = context.watch<EntrySpeechProvider>();
     final quickPicks = widget.scene.words.take(6).toList();
+    final busySentences =
+        provider.isGenerating && provider.running == AiRunKind.sentences;
 
     return Card(
       elevation: 0,
@@ -268,8 +285,14 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
                 onPressed: provider.isGenerating
                     ? null
                     : () => _generateSentences(config),
-                icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                label: const Text('生成句子'),
+                icon: busySentences
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.auto_awesome_rounded, size: 18),
+                label: Text(busySentences ? '生成中…' : '生成句子'),
               ),
             ),
             if (provider.sentences.isNotEmpty) ...[
@@ -363,6 +386,8 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
     final theme = Theme.of(context);
     final speech = context.watch<EntrySpeechProvider>();
     final passage = provider.passage;
+    final busyPassage =
+        provider.isGenerating && provider.running == AiRunKind.passage;
 
     return Card(
       elevation: 0,
@@ -406,8 +431,14 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
                 onPressed: provider.isGenerating
                     ? null
                     : () => _generatePassage(config),
-                icon: const Icon(Icons.auto_stories_rounded, size: 18),
-                label: const Text('生成短文'),
+                icon: busyPassage
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.auto_stories_rounded, size: 18),
+                label: Text(busyPassage ? '生成中…' : '生成短文'),
               ),
             ),
             if (passage != null) ...[
