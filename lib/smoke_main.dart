@@ -197,9 +197,9 @@ class _RecordingAudio implements SpeechClipPlayer {
   }
 
   @override
-  Future<void> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
     buffers.add(bytes);
-    await _inner.playAudioBytes(bytes, rate: rate);
+    return await _inner.playAudioBytes(bytes, rate: rate);
   }
 
   @override
@@ -225,8 +225,9 @@ class _CapturingPlayer implements SpeechClipPlayer {
   Future<void> playSpeechClip(String assetPath, {double rate = 1.0}) async {}
 
   @override
-  Future<void> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
     buffers.add(bytes);
+    return true;
   }
 
   @override

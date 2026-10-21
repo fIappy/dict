@@ -47,9 +47,14 @@ class _RecordingPlayer implements SpeechClipPlayer {
     return supportsSentences;
   }
 
+  /// Whether the player can actually sound a byte buffer. A platform whose
+  /// backend cannot is what the fallback in the provider exists for.
+  bool bytesPlayable = true;
+
   @override
-  Future<void> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
     buffers.add(bytes);
+    return bytesPlayable;
   }
 
   @override
@@ -207,6 +212,17 @@ void main() {
       expect(player.sentences, [lines.last.text]);
       expect(player.stops, greaterThan(0));
       expect(provider.isPlaying, isFalse);
+    });
+
+    test('a clip the player cannot sound falls back to the platform voice', () async {
+      final player = _RecordingPlayer()..bytesPlayable = false;
+      final provider = EntrySpeechProvider(player: player, piper: _StubPiper(ready: true));
+
+      await provider.playOne(lines.first, rate: 1.0, accent: 'us');
+
+      expect(player.buffers, isNotEmpty, reason: 'the Piper clip was tried first');
+      expect(player.sentences, [lines.first.text],
+          reason: 'the platform voice spoke instead of leaving silence');
     });
 
     test('a selection is spoken through the same voice', () async {

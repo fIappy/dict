@@ -15,7 +15,9 @@ abstract class SpeechClipPlayer {
   /// The engines that build a sentence themselves — splicing the recorded words,
   /// or the bundled Piper voice — hand their audio over here instead of writing
   /// it to a file first, so nothing touches the filesystem on any platform.
-  Future<void> playAudioBytes(Uint8List bytes, {double rate = 1.0});
+  /// Answers whether the clip actually sounded — a silent player must let the
+  /// caller fall back to another engine instead of leaving dead air.
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0});
 
   /// Speaks a whole sentence with the prosody of connected speech.
   ///

@@ -24,7 +24,7 @@ class _RecordingPlayer implements SpeechClipPlayer {
   }
 
   @override
-  Future<void> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {}
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async => true;
 
   @override
   Future<void> playSpeechClip(String assetPath, {double rate = 1.0}) async {}
@@ -56,6 +56,36 @@ MdxEntry _entry() => MdxEntry(
     );
 
 void main() {
+  testWidgets('the speaker link in a line still plays', (tester) async {
+    final player = _RecordingPlayer();
+    final speech = EntrySpeechProvider(player: player, piper: _NoPiper());
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => SettingsProvider()),
+          ChangeNotifierProvider<EntrySpeechProvider>.value(value: speech),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: WordDefinitionView(entry: _entry()),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The speaker the reader appended to every speakable line is a link inside
+    // the rendered HTML; selection must not eat its tap.
+    await tester.tapOnText(find.textRange.ofSubstring('🔊'));
+    await tester.pumpAndSettle();
+
+    expect(player.sentences, hasLength(1),
+        reason: 'tapping the speaker link must reach the player');
+  });
+
   testWidgets('a selected line is offered 朗读所选 and is spoken', (tester) async {
     final player = _RecordingPlayer();
     final speech = EntrySpeechProvider(player: player, piper: _NoPiper());

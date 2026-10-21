@@ -149,11 +149,15 @@ class EntrySpeechProvider extends ChangeNotifier {
       final clip = await piper.synthesize(text, accent: accent, rate: rate);
       if (run != _run) return false;
       if (clip != null && clip.samples.isNotEmpty) {
-        await _player.playAudioBytes(
+        final played = await _player.playAudioBytes(
           encodeWav(clip.samples, sampleRate: clip.sampleRate),
           rate: 1.0,
         );
-        return run == _run;
+        if (played) return run == _run;
+        // The buffer never sounded — a player without byte support, or a mixer
+        // that refused it. Speak the line with the platform voice rather than
+        // leaving the reader in silence.
+        debugPrint('Piper clip did not sound; using the platform voice');
       }
     }
     return _player.speakSentence(text, accent: accent, rate: rate);

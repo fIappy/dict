@@ -99,13 +99,14 @@ class _GatedPlayer implements SpeechClipPlayer {
   }
 
   @override
-  Future<void> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
     // The spliced and Piper engines play through here, so it parks too —
     // otherwise a run that goes down that path would never be caught mid-await.
-    if (!_hold) return;
+    if (!_hold) return true;
     final gate = Completer<void>();
     _gates.add(gate);
     await gate.future;
+    return true;
   }
 
   @override
@@ -147,11 +148,12 @@ class _RecordingPlayer implements SpeechClipPlayer {
   }
 
   @override
-  Future<void> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
     onPlay?.call(played.length);
     buffers.add(bytes);
     played.add('bytes:${bytes.length}');
     rates.add(rate);
+    return true;
   }
 
 

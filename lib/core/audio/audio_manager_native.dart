@@ -229,15 +229,42 @@ class AudioManager implements SpeechClipPlayer {
   /// Plays audio the module built itself (a spliced sentence, or Piper's
   /// samples) — one buffer, so nothing is read from disk on any platform.
   @override
-  Future<void> playAudioBytes(Uint8List bytes, {double rate = 1.0}) =>
-      _playToCompletion(
-        BytesSource(bytes, mimeType: 'audio/wav'),
-        tag: 'bytes_${bytes.length}',
-        label: '${bytes.length} bytes of WAV',
-        rate: rate,
-      );
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
+    // The Windows backend of audioplayers does not play a byte buffer: the clip
+    // never starts and `_playToCompletion` just waits out its stall guard. That
+    // was the whole "the app is silent but thinks it is speaking" bug — every
+    // Piper-generated line took this path. The word recordings already avoid it
+    // by staging their bytes in a file; do the same here.
+    if (Platform.isWindows) {
+      try {
+        final dir = await getTemporaryDirectory();
+        final file = File(p.join(dir.path, 'speech_${bytes.length}.wav'));
+        await file.writeAsBytes(bytes, flush: true);
+        final played = await _playToCompletion(
+          DeviceFileSource(file.path),
+          tag: 'bytes_${bytes.length}',
+          label: '${bytes.length} bytes of WAV (staged)',
+          rate: rate,
+        );
+        try {
+          if (file.existsSync()) file.deleteSync();
+        } on FileSystemException {
+          // A leftover temp file is not worth failing playback over.
+        }
+        return played;
+      } on Exception catch (e) {
+        debugPrint('Could not stage generated audio on disk: $e');
+      }
+    }
+    return _playToCompletion(
+      BytesSource(bytes, mimeType: 'audio/wav'),
+      tag: 'bytes_${bytes.length}',
+      label: '${bytes.length} bytes of WAV',
+      rate: rate,
+    );
+  }
 
-  Future<void> _playToCompletion(
+  Future<bool> _playToCompletion(
     Source source, {
     required String tag,
     required String label,
@@ -273,8 +300,10 @@ class AudioManager implements SpeechClipPlayer {
       if (!completed) {
         debugPrint('Speech clip $label did not report completion');
       }
+      return completed;
     } catch (e) {
       debugPrint('Speech clip $label failed: $e');
+      return false;
     } finally {
       AudioBackground.end();
       if (_currentlyPlayingTag == tag) {

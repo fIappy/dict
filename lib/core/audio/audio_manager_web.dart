@@ -153,7 +153,7 @@ class AudioManager implements SpeechClipPlayer {
   /// samples). On web `BytesSource` becomes a blob URL, so nothing is written to
   /// disk.
   @override
-  Future<void> playAudioBytes(Uint8List bytes, {double rate = 1.0}) =>
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) =>
       _playToCompletion(
         BytesSource(bytes, mimeType: 'audio/wav'),
         tag: 'bytes_${bytes.length}',
@@ -161,7 +161,7 @@ class AudioManager implements SpeechClipPlayer {
         rate: rate,
       );
 
-  Future<void> _playToCompletion(
+  Future<bool> _playToCompletion(
     Source source, {
     required String tag,
     required String label,
@@ -196,8 +196,10 @@ class AudioManager implements SpeechClipPlayer {
       if (!completed) {
         debugPrint('Speech clip $label did not report completion');
       }
+      return completed;
     } catch (e) {
       debugPrint('Speech clip $label failed: $e');
+      return false;
     } finally {
       if (_currentlyPlayingTag == tag) {
         _isPlaying = false;
