@@ -100,6 +100,9 @@ class SettingsScreen extends StatelessWidget {
           divisions: 30,
           onChanged: settings.setSentenceGapSeconds,
         ),
+        const SizedBox(height: 24),
+        _SectionTitle('AI 练习'),
+        _AiSettingsCard(settings: settings),
       ],
     );
 
@@ -176,12 +179,14 @@ class _SliderTile extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
-              Text(valueLabel,
-                  style: TextStyle(
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                  )),
+              Text(
+                valueLabel,
+                style: TextStyle(
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
           Slider(
@@ -201,6 +206,110 @@ class _SliderTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Endpoint, key and model for the 主题 AI page. One card instead of three
+/// separate settings, because none of them is useful on its own.
+class _AiSettingsCard extends StatefulWidget {
+  const _AiSettingsCard({required this.settings});
+
+  final SettingsProvider settings;
+
+  @override
+  State<_AiSettingsCard> createState() => _AiSettingsCardState();
+}
+
+class _AiSettingsCardState extends State<_AiSettingsCard> {
+  late final TextEditingController _base = TextEditingController(
+    text: widget.settings.aiBaseUrl,
+  );
+  late final TextEditingController _key = TextEditingController(
+    text: widget.settings.aiApiKey,
+  );
+  late final TextEditingController _model = TextEditingController(
+    text: widget.settings.aiModel,
+  );
+
+  @override
+  void dispose() {
+    _base.dispose();
+    _key.dispose();
+    _model.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '兼容 OpenAI 格式的接口，用于生成造句与主题短文。留空 Key 也能连本地服务。',
+              style: TextStyle(
+                fontSize: 11.5,
+                height: 1.4,
+                color: theme.hintColor,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _field(
+              _base,
+              'Base URL',
+              'https://api.openai.com/v1',
+              widget.settings.setAiBaseUrl,
+            ),
+            const SizedBox(height: 10),
+            _field(
+              _key,
+              'API Key',
+              'sk-...',
+              widget.settings.setAiApiKey,
+              obscure: true,
+            ),
+            const SizedBox(height: 10),
+            _field(_model, '模型', 'gpt-4o-mini', widget.settings.setAiModel),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _field(
+    TextEditingController controller,
+    String label,
+    String hint,
+    Future<void> Function(String) save, {
+    bool obscure = false,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: obscure,
+      autocorrect: false,
+      enableSuggestions: false,
+      style: const TextStyle(fontSize: 13),
+      decoration: InputDecoration(
+        isDense: true,
+        labelText: label,
+        hintText: hint,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      // Written through on every keystroke: a field this short costs nothing to
+      // persist, and leaving the page must not lose it.
+      onChanged: (value) {
+        save(value);
+      },
     );
   }
 }

@@ -1,0 +1,179 @@
+import 'package:flutter/foundation.dart';
+
+import '../core/ai/ai_archive.dart';
+import '../core/ai/ai_config.dart';
+import '../core/ai/openai_client.dart';
+import '../core/ai/theme_agent.dart';
+import '../core/frequency/frequency_service.dart';
+
+/// State of the AI practice page: the two generators, their results, and the
+/// archive kept under the open theme.
+///
+/// Every generation is archived as soon as it succeeds — asking twice for the
+/// same word and losing the first answer is the failure mode this avoids.
+class AiPracticeProvider extends ChangeNotifier {
+  AiPracticeProvider({
+    AiArchiveStore? store,
+    FrequencyService? frequency,
+    ThemeAgent Function(OpenAiClient client)? agentBuilder,
+  }) : _store = store ?? AiArchiveStore(),
+       _frequency = frequency ?? FrequencyService(),
+       _agentBuilder = agentBuilder;
+
+  final AiArchiveStore _store;
+  final FrequencyService _frequency;
+  final ThemeAgent Function(OpenAiClient client)? _agentBuilder;
+
+  String? _sceneId;
+  bool _isGenerating = false;
+  String? _error;
+  List<GeneratedSentence> _sentences = const [];
+  String? _sentencesWord;
+  GeneratedPassage? _passage;
+  List<String> _passageWords = const [];
+  List<AiArchiveItem> _archive = const [];
+
+  bool get isGenerating => _isGenerating;
+  String? get error => _error;
+  List<GeneratedSentence> get sentences => _sentences;
+  String? get sentencesWord => _sentencesWord;
+  GeneratedPassage? get passage => _passage;
+
+  /// The words the last passage was required to use — shown so the reader can
+  /// see which band of the theme it was built from.
+  List<String> get passageWords => _passageWords;
+  List<AiArchiveItem> get archive => _archive;
+
+  List<AiArchiveItem> archiveFor(String sceneId) => [
+    for (final item in _archive)
+      if (item.sceneId == sceneId) item,
+  ];
+
+  /// Opens a theme: previous results belong to the theme they were made in.
+  void openScene(String sceneId) {
+    if (_sceneId == sceneId) return;
+    _sceneId = sceneId;
+    _sentences = const [];
+    _sentencesWord = null;
+    _passage = null;
+    _passageWords = const [];
+    _error = null;
+    notifyListeners();
+  }
+
+  Future<void> loadArchive() async {
+    _archive = await _store.load();
+    notifyListeners();
+  }
+
+  void clearError() {
+    if (_error == null) return;
+    _error = null;
+    notifyListeners();
+  }
+
+  Future<bool> generateSentences({
+    required AiConfig config,
+    required String sceneId,
+    required String sceneLabel,
+    required String word,
+    required int count,
+    required PracticeLevel level,
+  }) => _run(() async {
+    final result = await _agent(
+      config,
+    ).sentences(word: word, count: count, level: level, sceneLabel: sceneLabel);
+    _sentences = result;
+    _sentencesWord = word;
+    await _archiveItem(
+      AiArchiveItem(
+        id: _newId(),
+        sceneId: sceneId,
+        sceneLabel: sceneLabel,
+        kind: AiItemKind.sentences,
+        level: level,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+        model: config.model,
+        word: word,
+        lines: result,
+      ),
+    );
+  });
+
+  Future<bool> generatePassage({
+    required AiConfig config,
+    required String sceneId,
+    required String sceneLabel,
+    required String sceneHint,
+    required Iterable<String> sceneWords,
+    required PracticeLevel level,
+    int wordCount = 12,
+  }) => _run(() async {
+    final agent = _agent(config);
+    final words = agent.pickSceneWords(sceneWords, level, wordCount);
+    final result = await agent.passage(
+      sceneLabel: sceneLabel,
+      sceneHint: sceneHint,
+      words: words,
+      level: level,
+    );
+    _passage = result;
+    _passageWords = words;
+    await _archiveItem(
+      AiArchiveItem(
+        id: _newId(),
+        sceneId: sceneId,
+        sceneLabel: sceneLabel,
+        kind: AiItemKind.passage,
+        level: level,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+        model: config.model,
+        title: result.title,
+        text: result.text,
+      ),
+    );
+  });
+
+  Future<void> delete(String id) async {
+    _archive = await _store.remove(id);
+    notifyListeners();
+  }
+
+  /// One generation at a time: the button is the only way in, and two live
+  /// requests would race into the same result fields.
+  Future<bool> _run(Future<void> Function() body) async {
+    if (_isGenerating) return false;
+    _isGenerating = true;
+    _error = null;
+    notifyListeners();
+    try {
+      await body();
+      return true;
+    } on AiException catch (e) {
+      _error = e.message;
+      return false;
+    } on Exception catch (e) {
+      _error = '生成失败：$e';
+      return false;
+    } finally {
+      _isGenerating = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _archiveItem(AiArchiveItem item) async {
+    _archive = await _store.add(item);
+  }
+
+  ThemeAgent _agent(AiConfig config) {
+    final client = OpenAiClient(config: config);
+    final builder = _agentBuilder;
+    if (builder != null) return builder(client);
+    return ThemeAgent(client: client, frequency: _frequency);
+  }
+
+  static String _newId() =>
+      '${DateTime.now().microsecondsSinceEpoch}-${_sequence++}';
+
+  static int _sequence = 0;
+}

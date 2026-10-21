@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/dictionary_provider.dart';
+import 'providers/ai_practice_provider.dart';
 import 'providers/entry_speech_provider.dart';
 import 'providers/favorites_provider.dart';
 import 'providers/history_provider.dart';
@@ -29,6 +30,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => NumbersProvider()),
         ChangeNotifierProvider(create: (_) => ThemesProvider()),
         ChangeNotifierProvider(create: (_) => EntrySpeechProvider()),
+        ChangeNotifierProvider(create: (_) => AiPracticeProvider()),
       ],
       child: const LocalDictApp(),
     ),

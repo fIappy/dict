@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/themes/theme_service.dart';
 import '../../providers/dictionary_provider.dart';
 import '../../providers/themes_provider.dart';
+import 'ai_practice_screen.dart';
 import 'word_detail_screen.dart';
 
 /// 主题词汇: pick a situation (居家生活 / 校园学习 / 医疗健康 …), then read its
@@ -13,11 +14,7 @@ class ThemesScreen extends StatefulWidget {
   final bool isPaneView;
   final void Function(String word)? onSelectWord;
 
-  const ThemesScreen({
-    super.key,
-    this.isPaneView = false,
-    this.onSelectWord,
-  });
+  const ThemesScreen({super.key, this.isPaneView = false, this.onSelectWord});
 
   @override
   State<ThemesScreen> createState() => _ThemesScreenState();
@@ -70,6 +67,11 @@ class _ThemesScreenState extends State<ThemesScreen> {
               wordCount: provider.visibleWordCount,
               onBack: provider.backToScenes,
               isDark: isDark,
+              onAiPractice: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => AiPracticeScreen(scene: scene),
+                ),
+              ),
             ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
@@ -94,8 +96,13 @@ class _ThemesScreenState extends State<ThemesScreen> {
                           provider.setQuery('');
                         },
                       ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 10,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
           ),
@@ -103,8 +110,8 @@ class _ThemesScreenState extends State<ThemesScreen> {
             child: provider.isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : scene == null
-                    ? _buildSceneList(context, provider, isDark)
-                    : _buildSceneDetail(context, provider),
+                ? _buildSceneList(context, provider, isDark)
+                : _buildSceneDetail(context, provider),
           ),
           if (!provider.isLoading)
             Padding(
@@ -112,7 +119,11 @@ class _ThemesScreenState extends State<ThemesScreen> {
               child: Text(
                 '${provider.sceneCount} 个场景 · ${provider.totalWords} 条归属 · '
                 '词表来自 ${provider.source}（按词频排序）',
-                style: TextStyle(fontSize: 11, color: theme.hintColor, height: 1.4),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: theme.hintColor,
+                  height: 1.4,
+                ),
               ),
             ),
         ],
@@ -120,7 +131,11 @@ class _ThemesScreenState extends State<ThemesScreen> {
     );
   }
 
-  Widget _buildSceneList(BuildContext context, ThemesProvider provider, bool isDark) {
+  Widget _buildSceneList(
+    BuildContext context,
+    ThemesProvider provider,
+    bool isDark,
+  ) {
     final scenes = provider.visibleScenes;
     if (scenes.isEmpty) {
       return const Center(
@@ -151,7 +166,11 @@ class _ThemesScreenState extends State<ThemesScreen> {
             ),
             subtitle: Text(
               scene.hint,
-              style: TextStyle(fontSize: 11.5, color: theme.hintColor, height: 1.35),
+              style: TextStyle(
+                fontSize: 11.5,
+                color: theme.hintColor,
+                height: 1.35,
+              ),
             ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
@@ -165,7 +184,11 @@ class _ThemesScreenState extends State<ThemesScreen> {
                   ),
                 ),
                 const SizedBox(width: 4),
-                Icon(Icons.chevron_right_rounded, size: 18, color: theme.hintColor),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: theme.hintColor,
+                ),
               ],
             ),
             onTap: () => provider.select(scene.id),
@@ -220,7 +243,10 @@ class _ThemesScreenState extends State<ThemesScreen> {
                       const SizedBox(width: 6),
                       Text(
                         '${group.words.length}',
-                        style: TextStyle(fontSize: 11.5, color: theme.hintColor),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: theme.hintColor,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -243,7 +269,10 @@ class _ThemesScreenState extends State<ThemesScreen> {
                   children: [
                     for (final word in provider.facetWords(group))
                       ActionChip(
-                        label: Text(word, style: const TextStyle(fontSize: 12.5)),
+                        label: Text(
+                          word,
+                          style: const TextStyle(fontSize: 12.5),
+                        ),
                         visualDensity: VisualDensity.compact,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         onPressed: () => _onWordTapped(context, word),
@@ -261,7 +290,10 @@ class _ThemesScreenState extends State<ThemesScreen> {
   /// 50 words a page means a big facet runs to dozens of pages, where
   /// next-page-only navigation is useless. Tapping the label asks for a page.
   Future<void> _jumpToPage(
-      BuildContext context, ThemesProvider provider, ThemeGroup group) async {
+    BuildContext context,
+    ThemesProvider provider,
+    ThemeGroup group,
+  ) async {
     final target = await showDialog<int>(
       context: context,
       builder: (_) => _PageJumpDialog(
@@ -275,7 +307,10 @@ class _ThemesScreenState extends State<ThemesScreen> {
   /// Pager for one long facet. It sits above the chips so flipping a page never
   /// scrolls the control out of reach.
   Widget _facetPager(
-      BuildContext context, ThemesProvider provider, ThemeGroup group) {
+    BuildContext context,
+    ThemesProvider provider,
+    ThemeGroup group,
+  ) {
     final theme = Theme.of(context);
     final page = provider.facetPage(group);
     final count = provider.facetPageCount(group);
@@ -287,7 +322,9 @@ class _ThemesScreenState extends State<ThemesScreen> {
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          onPressed: page == 0 ? null : () => provider.setFacetPage(group, page - 1),
+          onPressed: page == 0
+              ? null
+              : () => provider.setFacetPage(group, page - 1),
         ),
         InkWell(
           onTap: () => _jumpToPage(context, provider, group),
@@ -306,8 +343,9 @@ class _ThemesScreenState extends State<ThemesScreen> {
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          onPressed:
-              page >= count - 1 ? null : () => provider.setFacetPage(group, page + 1),
+          onPressed: page >= count - 1
+              ? null
+              : () => provider.setFacetPage(group, page + 1),
         ),
       ],
     );
@@ -320,12 +358,14 @@ class _SceneHeader extends StatelessWidget {
     required this.wordCount,
     required this.onBack,
     required this.isDark,
+    required this.onAiPractice,
   });
 
   final ThemeScene scene;
   final int wordCount;
   final VoidCallback onBack;
   final bool isDark;
+  final VoidCallback onAiPractice;
 
   @override
   Widget build(BuildContext context) {
@@ -355,14 +395,27 @@ class _SceneHeader extends StatelessWidget {
               children: [
                 Text(
                   '${scene.label} · $wordCount 词',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 Text(
                   scene.hint,
-                  style: TextStyle(fontSize: 11, color: theme.hintColor, height: 1.3),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: theme.hintColor,
+                    height: 1.3,
+                  ),
                 ),
               ],
             ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+            tooltip: 'AI 练习：造句与主题短文',
+            visualDensity: VisualDensity.compact,
+            onPressed: onAiPractice,
           ),
         ],
       ),
@@ -383,8 +436,9 @@ class _PageJumpDialog extends StatefulWidget {
 }
 
 class _PageJumpDialogState extends State<_PageJumpDialog> {
-  late final TextEditingController _controller =
-      TextEditingController(text: '${widget.page}');
+  late final TextEditingController _controller = TextEditingController(
+    text: '${widget.page}',
+  );
 
   @override
   void dispose() {
@@ -398,8 +452,10 @@ class _PageJumpDialogState extends State<_PageJumpDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('跳到第几页（共 ${widget.count} 页）',
-          style: const TextStyle(fontSize: 15)),
+      title: Text(
+        '跳到第几页（共 ${widget.count} 页）',
+        style: const TextStyle(fontSize: 15),
+      ),
       content: TextField(
         controller: _controller,
         autofocus: true,
