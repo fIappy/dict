@@ -158,4 +158,35 @@ void main() {
       expect(provider.allTexts.single.groupId, isNull);
     });
   });
+
+  group('reading from a position', () {
+    const body = 'I put my bag down.\nI turned on the light.\n\nI sat down.';
+
+    test('a click inside a sentence starts that sentence', () {
+      // Offset 3 is inside "I put my bag down."
+      expect(sentencesFrom(body, 3).first, 'I put my bag down.');
+      // Offset just past the first sentence starts the second one.
+      final second = body.indexOf('I turned');
+      expect(sentencesFrom(body, second).first, 'I turned on the light.');
+    });
+
+    test('everything from that sentence to the end comes back in order', () {
+      final from = sentencesFrom(body, body.indexOf('I sat'));
+      expect(from, ['I sat down.']);
+      expect(sentencesFrom(body, 0), hasLength(3));
+    });
+
+    test('a position past the end still yields the last sentence', () {
+      expect(sentencesFrom(body, body.length + 50), ['I sat down.']);
+    });
+
+    test('ranges cover the text without overlapping', () {
+      final ranges = sentenceRanges(body);
+      expect(ranges.first.start, 0);
+      for (var i = 1; i < ranges.length; i++) {
+        expect(ranges[i].start, greaterThanOrEqualTo(ranges[i - 1].end));
+      }
+      expect(ranges.last.end, body.length);
+    });
+  });
 }

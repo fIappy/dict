@@ -91,15 +91,64 @@ class CustomText {
       );
 }
 
+/// Where a sentence ends: terminal punctuation plus the space after it, or a
+/// line break. Offsets are in the original text, so a click position can be
+/// mapped back to a sentence.
+final RegExp _sentenceBreak =
+    RegExp(r'[.!?。！？;；:]+[ \t\r\n]+|\r?\n+');
+
+/// The sentences of [body] as ranges over the original string.
+List<({int start, int end})> sentenceRanges(String body) {
+  final ranges = <({int start, int end})>[];
+  var start = 0;
+  for (final match in _sentenceBreak.allMatches(body)) {
+    if (match.end > start) ranges.add((start: start, end: match.end));
+    start = match.end;
+  }
+  if (start < body.length) ranges.add((start: start, end: body.length));
+
+  // Trim the edges without losing the ability to place a click: a range still
+  // covers its sentence, the whitespace just belongs to nobody.
+  final trimmed = <({int start, int end})>[];
+  for (final range in ranges) {
+    var a = range.start;
+    var b = range.end;
+    while (a < b && _isSpace(body.codeUnitAt(a))) {
+      a++;
+    }
+    while (b > a && _isSpace(body.codeUnitAt(b - 1))) {
+      b--;
+    }
+    if (b > a) trimmed.add((start: a, end: b));
+  }
+  return trimmed;
+}
+
 /// Splits a passage into the sentences playback walks one by one.
 ///
-/// A sentence ends at `.` `!` `?` (Latin or full-width) or a line break; the
-/// punctuation stays with the sentence, because the voice uses it for prosody.
-List<String> splitSentences(String body) {
-  final normalised = body.replaceAll('\r\n', '\n');
-  final parts = normalised.split(RegExp(r'(?<=[.!?。！？;；:])\s+|\n+'));
+/// A sentence ends at `.` `!` `?` (Latin or full-width), `;` `:` or a line
+/// break; the punctuation stays with the sentence, because the voice uses it
+/// for prosody.
+List<String> splitSentences(String body) => [
+      for (final range in sentenceRanges(body))
+        body.substring(range.start, range.end),
+    ];
+
+/// The sentence that contains [offset] and every sentence after it.
+///
+/// This is what "read from here" needs: a click anywhere inside a sentence
+/// starts that sentence, not the next one.
+List<String> sentencesFrom(String body, int offset) {
+  final ranges = sentenceRanges(body);
+  if (ranges.isEmpty) return const [];
+  final at = offset.clamp(0, body.length);
+  var index = ranges.indexWhere((range) => at < range.end);
+  if (index < 0) index = ranges.length - 1;
   return [
-    for (final part in parts)
-      if (part.trim().isNotEmpty) part.trim(),
+    for (var i = index; i < ranges.length; i++)
+      body.substring(ranges[i].start, ranges[i].end),
   ];
 }
+
+bool _isSpace(int code) =>
+    code == 0x20 || code == 0x09 || code == 0x0A || code == 0x0D;

@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -40,7 +41,8 @@ class _CustomDetailViewState extends State<CustomDetailView> {
     _body = TextEditingController(text: item?.body ?? '');
     // A new entry lands in the group that is open, so writing several passages
     // for one group does not need the dropdown every time.
-    _groupId = item?.groupId ??
+    _groupId =
+        item?.groupId ??
         (provider.selectedGroupId == CustomTextProvider.ungroupedId
             ? null
             : provider.selectedGroupId);
@@ -79,14 +81,19 @@ class _CustomDetailViewState extends State<CustomDetailView> {
           Row(
             children: [
               Icon(
-                isNew ? Icons.add_circle_outline_rounded : Icons.edit_note_rounded,
+                isNew
+                    ? Icons.add_circle_outline_rounded
+                    : Icons.edit_note_rounded,
                 size: 20,
                 color: theme.colorScheme.primary,
               ),
               const SizedBox(width: 8),
               Text(
                 isNew ? '新增短文' : '编辑短文',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
             ],
           ),
@@ -106,24 +113,33 @@ class _CustomDetailViewState extends State<CustomDetailView> {
             // scrollable by default (EditableText included), so the explicit
             // always-visible one replaces it instead of doubling it.
             child: ScrollConfiguration(
-              behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+              behavior: ScrollConfiguration.of(
+                context,
+              ).copyWith(scrollbars: false),
               child: Scrollbar(
                 controller: _bodyScroll,
                 thumbVisibility: true,
-                child: TextField(
-                  controller: _body,
-                  contextMenuBuilder: speakableEditableMenu,
-                  scrollController: _bodyScroll,
-                  expands: true,
-                  minLines: null,
-                  maxLines: null,
-                  textAlignVertical: TextAlignVertical.top,
-                  keyboardType: TextInputType.multiline,
-                  decoration: const InputDecoration(
-                    labelText: '短文内容',
-                    hintText: '一段文字；句号/问号/叹号或换行处会分成句子，逐句朗读',
-                    alignLabelWithHint: true,
-                    border: OutlineInputBorder(),
+                child: Listener(
+                  onPointerDown: (event) {
+                    if (event.buttons & kSecondaryMouseButton != 0) {
+                      rememberSecondaryTap(event.position);
+                    }
+                  },
+                  child: TextField(
+                    controller: _body,
+                    contextMenuBuilder: speakableEditableMenu,
+                    scrollController: _bodyScroll,
+                    expands: true,
+                    minLines: null,
+                    maxLines: null,
+                    textAlignVertical: TextAlignVertical.top,
+                    keyboardType: TextInputType.multiline,
+                    decoration: const InputDecoration(
+                      labelText: '短文内容',
+                      hintText: '一段文字；句号/问号/叹号或换行处会分成句子，逐句朗读',
+                      alignLabelWithHint: true,
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                 ),
               ),
@@ -143,7 +159,9 @@ class _CustomDetailViewState extends State<CustomDetailView> {
               Expanded(
                 child: OutlinedButton.icon(
                   icon: Icon(
-                    speech.isPlaying ? Icons.stop_rounded : Icons.volume_up_rounded,
+                    speech.isPlaying
+                        ? Icons.stop_rounded
+                        : Icons.volume_up_rounded,
                     size: 18,
                   ),
                   label: Text(speech.isPlaying ? '停止' : '播放'),
@@ -189,13 +207,20 @@ class _CustomDetailViewState extends State<CustomDetailView> {
             items: [
               const DropdownMenuItem<String?>(
                 value: null,
-                child: Text('未分组', maxLines: 1, overflow: TextOverflow.ellipsis),
+                child: Text(
+                  '未分组',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               for (final group in provider.groups)
                 DropdownMenuItem<String?>(
                   value: group.id,
-                  child: Text(group.name,
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  child: Text(
+                    group.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
             ],
             onChanged: (value) => setState(() => _groupId = value),
@@ -214,7 +239,8 @@ class _CustomDetailViewState extends State<CustomDetailView> {
                 content: TextField(
                   controller: controller,
                   autofocus: true,
-                  onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
+                  onSubmitted: (value) =>
+                      Navigator.of(dialogContext).pop(value),
                 ),
                 actions: [
                   TextButton(
@@ -222,7 +248,8 @@ class _CustomDetailViewState extends State<CustomDetailView> {
                     child: const Text('取消'),
                   ),
                   FilledButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+                    onPressed: () =>
+                        Navigator.of(dialogContext).pop(controller.text),
                     child: const Text('创建'),
                   ),
                 ],
@@ -242,7 +269,10 @@ class _CustomDetailViewState extends State<CustomDetailView> {
     final body = _body.text.trim();
     if (body.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('先写点内容再保存'), duration: Duration(seconds: 1)),
+        const SnackBar(
+          content: Text('先写点内容再保存'),
+          duration: Duration(seconds: 1),
+        ),
       );
       return;
     }
