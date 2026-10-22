@@ -110,7 +110,7 @@ class AiPracticeProvider extends ChangeNotifier {
   }
 
   Future<void> loadArchive() async {
-    _archive = await _store.load();
+    _archive = await _store.ensureSeeded();
     notifyListeners();
   }
 

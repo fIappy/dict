@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/dictionary_provider.dart';
@@ -53,7 +55,8 @@ class _HomeScreenState extends State<HomeScreen> {
       context.read<NumbersProvider>().initialize();
       context.read<ThemesProvider>().initialize();
       context.read<SettingsProvider>().initialize();
-      context.read<CustomTextProvider>().initialize();
+      final custom = context.read<CustomTextProvider>();
+      unawaited(custom.initialize().then((_) => custom.ensureSeeded()));
       context.read<IpaProvider>().restore();
       context.read<AlphabetProvider>().restore();
       await _restoreLayout();

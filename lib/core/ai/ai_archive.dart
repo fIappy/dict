@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'theme_agent.dart';
@@ -137,6 +139,8 @@ class AiArchiveItem {
 /// not a table that needs querying.
 class AiArchiveStore {
   static const String _key = 'ai_archive_v1';
+  static const String _seedKey = 'ai_seed_v1';
+  static const String _seedAsset = 'assets/seed/ai_archive.json';
 
   /// Newest first; older items fall off the end so the document cannot grow
   /// without bound.
@@ -160,6 +164,36 @@ class AiArchiveStore {
     } on FormatException {
       // A corrupted document must not take the archive UI down with it.
       return const [];
+    }
+  }
+
+  /// One-time import of the generations that ship with the app.
+  ///
+  /// Runs only when the reader's archive is still empty, and only once — a
+  /// later launch that cleared the archive on purpose must stay cleared.
+  Future<List<AiArchiveItem>> ensureSeeded() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_seedKey) ?? false) return load();
+    await prefs.setBool(_seedKey, true);
+    if ((await load()).isNotEmpty) return load();
+    try {
+      final raw = await rootBundle.loadString(_seedAsset);
+      final data = jsonDecode(raw);
+      final items = data is Map ? data['items'] : data;
+      if (items is! List) return await load();
+      final seeded = <AiArchiveItem>[];
+      for (final entry in items) {
+        if (entry is! Map) continue;
+        final item = AiArchiveItem.fromJson(entry.cast<String, dynamic>());
+        if (item != null) seeded.add(item);
+      }
+      if (seeded.isEmpty) return await load();
+      seeded.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      await _write(seeded);
+      return seeded;
+    } catch (e) {
+      debugPrint('archive seed import failed: $e');
+      return load();
     }
   }
 

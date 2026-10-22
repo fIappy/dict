@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/custom/custom_text.dart';
@@ -19,6 +20,10 @@ class CustomTextProvider extends ChangeNotifier {
   /// The id of the 未分组 bucket, which is a real top-level group like any
   /// other: the list is classified by group first.
   static const String ungroupedId = '__ungrouped__';
+
+  /// One-time import of the library that ships with the app.
+  static const String _seedKey = 'custom_seed_v1';
+  static const String _seedAsset = 'assets/seed/custom_home.json';
 
   final List<CustomText> _texts = [];
   final List<CustomTextGroup> _groups = [];
@@ -89,6 +94,49 @@ class CustomTextProvider extends ChangeNotifier {
       _selectedGroupId = remembered;
     }
     notifyListeners();
+  }
+
+  /// Imports the built-in 家庭场景 library the first time the app runs.
+  ///
+  /// Never on top of a library the reader already built: an existing entry wins.
+  /// The flag is set either way, so a later version of the seed cannot overwrite
+  /// hand-written passages.
+  Future<void> ensureSeeded() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_seedKey) ?? false) return;
+    await prefs.setBool(_seedKey, true);
+    if (_texts.isNotEmpty || _groups.isNotEmpty) return;
+    try {
+      final raw = await rootBundle.loadString(_seedAsset);
+      final data = jsonDecode(raw);
+      if (data is! Map) return;
+      final groups = data['groups'];
+      if (groups is List) {
+        for (final entry in groups) {
+          if (entry is! Map) continue;
+          final group = CustomTextGroup.fromJson(entry.cast<String, Object?>());
+          if (group.id.isNotEmpty && !_groups.any((g) => g.id == group.id)) {
+            _groups.add(group);
+          }
+        }
+      }
+      final texts = data['texts'];
+      if (texts is List) {
+        for (final entry in texts) {
+          if (entry is! Map) continue;
+          final item = CustomText.fromJson(entry.cast<String, Object?>());
+          if (item.id.isNotEmpty && !_texts.any((t) => t.id == item.id)) {
+            _texts.add(item);
+          }
+        }
+      }
+      _selectedGroupId = _groups.isEmpty ? ungroupedId : _groups.first.id;
+      notifyListeners();
+      await _persistGroups();
+      await _persistTexts();
+    } catch (e) {
+      debugPrint('custom seed import failed: $e');
+    }
   }
 
   void selectGroup(String groupId) {
