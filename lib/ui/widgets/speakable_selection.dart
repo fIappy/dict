@@ -69,6 +69,7 @@ void _playFrom(BuildContext context, List<String> sentences) {
     rate: settings.speechRate,
     gap: settings.sentenceGap,
     accent: accentForLanguage(settings.ttsLanguage),
+    loop: false,
   );
 }
 

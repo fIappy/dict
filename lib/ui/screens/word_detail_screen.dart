@@ -13,6 +13,7 @@ import '../widgets/group_selector_dialog.dart';
 import '../widgets/pronunciation_bar.dart';
 import '../widgets/word_definition_view.dart';
 import '../widgets/speakable_selection.dart';
+import '../widgets/speech_controls.dart';
 
 class WordDetailScreen extends StatelessWidget {
   final MdxEntry? entry;
@@ -202,27 +203,18 @@ class WordDetailScreen extends StatelessWidget {
     final utterances = extractEntryUtterances(mdxEntry.rawHtml);
     if (utterances.isEmpty) return const SizedBox.shrink();
     final speech = context.watch<EntrySpeechProvider>();
-    final playing = speech.isPlaying;
     final index = speech.currentIndex;
     final progress = index == null ? '' : ' ${index + 1}/${speech.items.length}';
-    return FilledButton.tonalIcon(
-      icon: Icon(
-        playing ? Icons.stop_rounded : Icons.playlist_play_rounded,
-        size: 18,
+    return SpeechControls(
+      labels: true,
+      idleLabel: '顺序播放 ${utterances.length} 句$progress',
+      onStart: () => speech.playAll(
+        utterances,
+        rate: settings.speechRate,
+        gap: settings.sentenceGap,
+        accent: accentForLanguage(settings.ttsLanguage),
+        loop: settings.speechLoop,
       ),
-      label: Text(playing ? '停止$progress' : '顺序播放 ${utterances.length} 句'),
-      onPressed: () {
-        if (playing) {
-          speech.stop();
-          return;
-        }
-        speech.playAll(
-          utterances,
-          rate: settings.speechRate,
-          gap: settings.sentenceGap,
-          accent: accentForLanguage(settings.ttsLanguage),
-        );
-      },
     );
   }
 

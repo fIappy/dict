@@ -19,6 +19,7 @@ class _RecordingSpeech extends EntrySpeechProvider {
     required double rate,
     required Duration gap,
     required String accent,
+    bool? loop,
   }) async {
     played.addAll([for (final item in items) item.text]);
   }

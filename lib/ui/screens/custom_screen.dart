@@ -7,6 +7,7 @@ import '../../providers/custom_text_provider.dart';
 import '../../providers/entry_speech_provider.dart';
 import '../../providers/settings_provider.dart';
 import 'custom_detail_view.dart';
+import '../widgets/speech_controls.dart';
 
 /// The 自定义短文 section, classified by **group**: the top of the pane lists
 /// the groups (未分组 included, because every entry belongs somewhere), and the
@@ -160,6 +161,13 @@ class CustomScreen extends StatelessWidget {
           Text('${provider.visibleTexts.length} 条',
               style: TextStyle(
                   fontSize: 11.5, color: Theme.of(context).hintColor)),
+          if (provider.visibleTexts.isNotEmpty) ...[
+            const SizedBox(width: 4),
+            SpeechControls(
+              idleLabel: '播放本组',
+              onStart: () => _play(context, provider.visibleTexts),
+            ),
+          ],
         ],
       ),
     );
@@ -307,6 +315,7 @@ class CustomScreen extends StatelessWidget {
           rate: settings.speechRate,
           gap: settings.sentenceGap,
           accent: accentForLanguage(settings.ttsLanguage),
+          loop: settings.speechLoop,
         );
   }
 

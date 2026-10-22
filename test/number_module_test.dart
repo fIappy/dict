@@ -1962,6 +1962,52 @@ void main() {
       expect(provider.isPlaying, isFalse, reason: 'stop must win over the loop');
     });
 
+    test('暂停 silences the drill and 继续 starts again from that row', () async {
+      final player = _GatedPlayer();
+      final speaker = NumberSpeaker(
+        player: player,
+        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
+      );
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final provider = NumbersProvider(speaker: speaker);
+      await provider.initialize();
+      await provider.setSpeechMode(SpeechMode.clips);
+      await provider.setDigits(1);
+      await provider.setCount(3);
+      await provider.setGapMs(NumbersLimits.minGapMs);
+      provider.generateTraining();
+
+      player.hold();
+      final run = provider.playTraining();
+      await pumpEventQueue();
+      expect(provider.isPlaying, isTrue);
+      final pausedAt = provider.playingIndex;
+      final playedBefore = player.played.length;
+
+      provider.pausePlayback();
+      expect(provider.isPaused, isTrue);
+      expect(provider.isPlaying, isFalse);
+
+      player.release();
+      await run;
+      expect(provider.isPaused, isTrue,
+          reason: 'the abandoned run must not clear the pause');
+
+      player.hold();
+      final resumed = provider.resumePlayback();
+      await pumpEventQueue();
+      expect(provider.isPlaying, isTrue);
+      expect(provider.playingIndex, pausedAt,
+          reason: 'picks up at the row that was interrupted');
+      expect(player.played.length, greaterThan(playedBefore),
+          reason: 'that row is said again');
+
+      player.release();
+      await resumed;
+      expect(provider.isPlaying, isFalse);
+      expect(provider.isPaused, isFalse);
+    });
+
     test('without the loop the drill plays one pass and ends', () async {
       final player = _RecordingPlayer(supportsSentences: false);
       final speaker = NumberSpeaker(

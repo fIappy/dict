@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -37,10 +38,16 @@ class _RecordingPlayer implements SpeechClipPlayer {
   /// Called before each sentence is spoken, so a test can stop mid-run.
   void Function(int index)? onSpeak;
 
+  /// When set, each sentence waits for it — the test's way of being inside a
+  /// line when it pauses.
+  Completer<void>? gate;
+
   @override
   Future<bool> speakSentence(String sentence,
       {String accent = 'us', double rate = 1.0}) async {
     onSpeak?.call(sentences.length);
+    final waiting = gate;
+    if (waiting != null) await waiting.future;
     sentences.add(sentence);
     accents.add(accent);
     rates.add(rate);
@@ -252,6 +259,77 @@ void main() {
       expect(accentForLanguage('en-US'), 'us');
       expect(accentForLanguage('en-GB'), 'uk');
       expect(accentForLanguage('zh-CN'), 'us');
+    });
+  });
+
+  group('pause, resume and loop', () {
+    List<EntryUtterance> lines() => const [
+          EntryUtterance(text: 'One.', isPhrase: false),
+          EntryUtterance(text: 'Two.', isPhrase: false),
+          EntryUtterance(text: 'Three.', isPhrase: false),
+        ];
+
+    test('pause silences at once and resume says that line again', () async {
+      final player = _RecordingPlayer();
+      final speech = EntrySpeechProvider(player: player, piper: null);
+      player.gate = Completer<void>();
+
+      final run = speech.playAll(
+        lines(),
+        rate: 1.0,
+        gap: Duration.zero,
+        accent: 'us',
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(speech.currentIndex, 0, reason: 'it is inside the first line');
+
+      speech.pause();
+      expect(speech.isPaused, isTrue);
+      expect(player.stops, 1, reason: 'the sound is cut, not waited out');
+
+      player.gate!.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(player.sentences, ['One.'],
+          reason: 'the cut line finished silently; nothing new starts');
+
+      speech.resume();
+      await run;
+
+      expect(player.sentences, ['One.', 'One.', 'Two.', 'Three.'],
+          reason: 'the interrupted line is said again from its start');
+      expect(speech.isPaused, isFalse);
+      expect(speech.isPlaying, isFalse);
+    });
+
+    test('循环 runs the list again until stopped', () async {
+      final player = _RecordingPlayer();
+      final speech = EntrySpeechProvider(player: player, piper: null);
+      player.onSpeak = (index) {
+        if (player.sentences.length >= 5) speech.stop();
+      };
+
+      await speech.playAll(
+        lines(),
+        rate: 1.0,
+        gap: Duration.zero,
+        accent: 'us',
+        loop: true,
+      );
+
+      expect(player.sentences.length, greaterThanOrEqualTo(5));
+      expect(player.sentences.take(3), ['One.', 'Two.', 'Three.']);
+      expect(speech.isPlaying, isFalse);
+    });
+
+    test('a one-off read never loops, even with the switch on', () async {
+      final player = _RecordingPlayer();
+      final speech = EntrySpeechProvider(player: player, piper: null);
+      speech.setLoop(true);
+
+      await speech.speakText('Hello.', rate: 1.0, accent: 'us');
+
+      expect(player.sentences, ['Hello.']);
+      expect(speech.loop, isTrue, reason: 'the switch keeps its setting');
     });
   });
 }

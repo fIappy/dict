@@ -14,6 +14,8 @@ import '../../providers/entry_speech_provider.dart';
 import '../../providers/settings_provider.dart';
 import 'settings_screen.dart';
 import '../widgets/speakable_selection.dart';
+import '../../core/custom/custom_text.dart';
+import '../widgets/speech_controls.dart';
 
 /// AI practice for one theme: example sentences for a word, a passage built
 /// from the theme's own vocabulary, and everything generated so far.
@@ -76,11 +78,15 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
   );
 
   void _speak(String text) {
+    final lines = splitSentences(text);
+    if (lines.isEmpty) return;
     final settings = context.read<SettingsProvider>();
-    context.read<EntrySpeechProvider>().speakText(
-      text,
+    context.read<EntrySpeechProvider>().playAll(
+      [for (final line in lines) EntryUtterance(text: line, isPhrase: false)],
       rate: settings.speechRate,
+      gap: settings.sentenceGap,
       accent: accentForLanguage(settings.ttsLanguage),
+      loop: settings.speechLoop,
     );
   }
 
@@ -94,6 +100,7 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
       rate: settings.speechRate,
       gap: settings.sentenceGap,
       accent: accentForLanguage(settings.ttsLanguage),
+      loop: settings.speechLoop,
     );
   }
 
@@ -257,7 +264,6 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
     AiConfig config,
   ) {
     final theme = Theme.of(context);
-    final speech = context.watch<EntrySpeechProvider>();
     final quickPicks = widget.scene.words.take(6).toList();
     final sceneWords = widget.scene.words.toSet();
     final busySentences =
@@ -372,17 +378,10 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
                     ),
                   ),
                   const Spacer(),
-                  TextButton.icon(
-                    onPressed: () => speech.isPlaying
-                        ? speech.stop()
-                        : _speakAll(provider.sentences),
-                    icon: Icon(
-                      speech.isPlaying
-                          ? Icons.stop_rounded
-                          : Icons.playlist_play_rounded,
-                      size: 18,
-                    ),
-                    label: Text(speech.isPlaying ? '停止' : '全部朗读'),
+                  SpeechControls(
+                    labels: true,
+                    idleLabel: '全部朗读',
+                    onStart: () => _speakAll(provider.sentences),
                   ),
                 ],
               ),
@@ -450,7 +449,6 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
     AiConfig config,
   ) {
     final theme = Theme.of(context);
-    final speech = context.watch<EntrySpeechProvider>();
     final passage = provider.passage;
     final sceneWords = widget.scene.words.toSet();
     final busyPassage =
@@ -542,16 +540,8 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: Icon(
-                      speech.isPlaying
-                          ? Icons.stop_rounded
-                          : Icons.volume_up_rounded,
-                      size: 20,
-                    ),
-                    tooltip: speech.isPlaying ? '停止' : '整篇朗读',
-                    onPressed: () =>
-                        speech.isPlaying ? speech.stop() : _speak(passage.text),
+                  SpeechControls(
+                    onStart: () => _speak(passage.text),
                   ),
                 ],
               ),

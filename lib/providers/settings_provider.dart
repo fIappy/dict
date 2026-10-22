@@ -14,6 +14,7 @@ class SettingsProvider extends ChangeNotifier {
   String _aiApiKey = '';
   String _aiModel = 'gpt-4o-mini';
   AiReasoningEffort _aiReasoningEffort = AiReasoningEffort.low;
+  bool _speechLoop = false;
   int _passageLength = 140;
   PassageStyle _passageStyle = PassageStyle.descriptive;
 
@@ -28,6 +29,10 @@ class SettingsProvider extends ChangeNotifier {
   String get aiApiKey => _aiApiKey;
   String get aiModel => _aiModel;
   AiReasoningEffort get aiReasoningEffort => _aiReasoningEffort;
+
+  /// 循环播放, shared by every multi-line player (dictionary order play,
+  /// AI cards, custom passages).
+  bool get speechLoop => _speechLoop;
 
   /// How long the reader wants generated passages, in words.
   int get passageLength => _passageLength;
@@ -57,6 +62,7 @@ class SettingsProvider extends ChangeNotifier {
     _aiBaseUrl = prefs.getString('ai_base_url') ?? 'https://api.openai.com/v1';
     _aiApiKey = prefs.getString('ai_api_key') ?? '';
     _aiModel = prefs.getString('ai_model') ?? 'gpt-4o-mini';
+    _speechLoop = prefs.getBool('speech_loop') ?? false;
     _passageLength = prefs.getInt('passage_length') ?? 140;
     _passageStyle = PassageStyle.byName(prefs.getString('passage_style'));
     final effortName = prefs.getString('ai_reasoning_effort');
@@ -79,6 +85,14 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('font_size_scale', scale);
+  }
+
+  Future<void> setSpeechLoop(bool value) async {
+    if (value == _speechLoop) return;
+    _speechLoop = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('speech_loop', value);
   }
 
   Future<void> setPassageLength(int words) async {

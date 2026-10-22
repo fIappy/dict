@@ -8,6 +8,7 @@ import '../../providers/custom_text_provider.dart';
 import '../../providers/entry_speech_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../widgets/speakable_selection.dart';
+import '../widgets/speech_controls.dart';
 
 /// Write or edit one 短文, and play it.
 ///
@@ -68,7 +69,6 @@ class _CustomDetailViewState extends State<CustomDetailView> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<CustomTextProvider>();
-    final speech = context.watch<EntrySpeechProvider>();
     final theme = Theme.of(context);
     final item = _storedItem;
     final isNew = item == null;
@@ -157,15 +157,13 @@ class _CustomDetailViewState extends State<CustomDetailView> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: OutlinedButton.icon(
-                  icon: Icon(
-                    speech.isPlaying
-                        ? Icons.stop_rounded
-                        : Icons.volume_up_rounded,
-                    size: 18,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: SpeechControls(
+                    labels: true,
+                    idleLabel: '播放全文',
+                    onStart: _startPlay,
                   ),
-                  label: Text(speech.isPlaying ? '停止' : '播放'),
-                  onPressed: _togglePlay,
                 ),
               ),
               if (!isNew) ...[
@@ -329,12 +327,8 @@ class _CustomDetailViewState extends State<CustomDetailView> {
     if (mounted && !widget.isPaneView) navigator.maybePop();
   }
 
-  void _togglePlay() {
+  void _startPlay() {
     final speech = context.read<EntrySpeechProvider>();
-    if (speech.isPlaying) {
-      speech.stop();
-      return;
-    }
     final lines = splitSentences(_body.text);
     if (lines.isEmpty) return;
     final settings = context.read<SettingsProvider>();
@@ -343,6 +337,7 @@ class _CustomDetailViewState extends State<CustomDetailView> {
       rate: settings.speechRate,
       gap: settings.sentenceGap,
       accent: accentForLanguage(settings.ttsLanguage),
+      loop: settings.speechLoop,
     );
   }
 }

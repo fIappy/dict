@@ -79,6 +79,8 @@ class NumbersProvider extends ChangeNotifier {
   bool _revealed = false;
   int _playingIndex = -1;
   bool _playing = false;
+  bool _paused = false;
+  int _resumeFrom = 0;
 
   NumberCategory? get category => _category;
   NumberExample? get selected => _selected;
@@ -184,6 +186,7 @@ class NumbersProvider extends ChangeNotifier {
   bool get revealed => _revealed;
   int get playingIndex => _playingIndex;
   bool get isPlaying => _playing;
+  bool get isPaused => _paused;
 
   List<NumberExample> get visibleExamples => _category == null
       ? NumberData.allExamples
@@ -272,6 +275,7 @@ class NumbersProvider extends ChangeNotifier {
     final chosen = accent ?? _accent;
     final run = ++_playRun;
     _playing = true;
+    _paused = false;
     _playingIndex = -1;
     notifyListeners();
     await _player.speak(
@@ -291,6 +295,7 @@ class NumbersProvider extends ChangeNotifier {
   Future<void> playTrainingItem(NumberTrainingItem item) async {
     final run = ++_playRun;
     _playing = true;
+    _paused = false;
     _playingIndex = -1;
     notifyListeners();
     await _player.speakRuns(
@@ -307,12 +312,16 @@ class NumbersProvider extends ChangeNotifier {
 
   /// Speaks the whole training list, pausing [gapMs] between the rows (and
   /// [runGapMs] between the numbers inside a run).
-  Future<void> playTraining() async {
+  Future<void> playTraining({int startAt = 0}) async {
     if (_training.isEmpty) return;
+    final from = startAt.clamp(0, _training.length - 1);
     final run = ++_playRun;
     _playing = true;
+    _paused = false;
     notifyListeners();
-    final rows = _training.map((item) => item.textsFor(_accent)).toList();
+    final rows = [
+      for (var i = from; i < _training.length; i++) _training[i].textsFor(_accent),
+    ];
     final gap = Duration(milliseconds: _gapMs);
     do {
       await _player.speakRuns(
@@ -323,7 +332,7 @@ class NumbersProvider extends ChangeNotifier {
         gap: gap,
         mode: _speechMode,
         onIndex: (index) {
-          _playingIndex = index;
+          _playingIndex = from + index;
           notifyListeners();
         },
       );
@@ -347,8 +356,28 @@ class NumbersProvider extends ChangeNotifier {
     _playRun++; // invalidate whatever is still in flight, so it cannot re-arm
     _speaker?.cancel();
     _playing = false;
+    _paused = false;
     _playingIndex = -1;
     notifyListeners();
+  }
+
+  /// 暂停: silence now and remember the row. A drill cannot be paused inside a
+  /// number — the speaker writes one buffer per run — so the row it was reading
+  /// is the place to come back to.
+  void pausePlayback() {
+    if (!_playing || _paused) return;
+    _paused = true;
+    _resumeFrom = _playingIndex < 0 ? 0 : _playingIndex;
+    _playRun++;
+    _speaker?.cancel();
+    _playing = false;
+    notifyListeners();
+  }
+
+  /// 继续: start again at the interrupted row.
+  Future<void> resumePlayback() async {
+    if (!_paused) return;
+    await playTraining(startAt: _resumeFrom);
   }
 
   // --------------------------------------------------------------- training

@@ -921,9 +921,23 @@ class _NumbersTrainingSectionState extends State<NumbersTrainingSection> {
                   : provider.playTraining,
             ),
             OutlinedButton.icon(
+              icon: Icon(
+                provider.isPaused
+                    ? Icons.play_arrow_rounded
+                    : Icons.pause_rounded,
+                size: 18,
+              ),
+              label: Text(provider.isPaused ? '继续' : '暂停'),
+              onPressed: provider.isPlaying
+                  ? provider.pausePlayback
+                  : (provider.isPaused ? provider.resumePlayback : null),
+            ),
+            OutlinedButton.icon(
               icon: const Icon(Icons.stop_rounded, size: 18),
               label: const Text('停止'),
-              onPressed: provider.isPlaying ? provider.stopPlayback : null,
+              onPressed: provider.isPlaying || provider.isPaused
+                  ? provider.stopPlayback
+                  : null,
             ),
             // 循环播放: the same list again and again until 停止. The hint rides on
             // a tooltip so the chip costs no vertical space — the row above it

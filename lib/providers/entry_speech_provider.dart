@@ -32,7 +32,19 @@ class EntrySpeechProvider extends ChangeNotifier {
   List<EntryUtterance> _items = const [];
   int? _currentIndex;
   bool _isPlaying = false;
+  bool _isPaused = false;
   int _run = 0;
+
+  /// 循环播放: repeat the list until stopped.
+  bool _loop = false;
+
+  /// Whether the run in flight repeats. Separate from [_loop] so a one-off
+  /// "read this selection" never loops even when the switch is on.
+  bool _loopRun = false;
+
+  double _rate = 1.0;
+  Duration _gap = Duration.zero;
+  String _accent = 'us';
 
   /// The list [playAll] is walking (or walked last), for the UI's progress.
   List<EntryUtterance> get items => _items;
@@ -42,36 +54,100 @@ class EntrySpeechProvider extends ChangeNotifier {
 
   bool get isPlaying => _isPlaying;
 
+  /// Sound is cut and the run waits; resuming replays the interrupted line.
+  bool get isPaused => _isPaused;
+
+  bool get loop => _loop;
+
   /// Speaks every line of [items], waiting [gap] between them.
+  ///
+  /// [loop] overrides the 循环 switch for this run only. Pausing cuts the sound
+  /// immediately and remembers the line; resuming says that line again from
+  /// its start, because a TTS engine cannot be paused mid-utterance.
   Future<void> playAll(
     List<EntryUtterance> items, {
     required double rate,
     required Duration gap,
     required String accent,
+    bool? loop,
   }) async {
     if (items.isEmpty) return;
     final run = ++_run;
     _items = items;
+    _rate = rate;
+    _gap = gap;
+    _accent = accent;
+    _loopRun = loop ?? _loop;
     _isPlaying = true;
+    _isPaused = false;
     _currentIndex = null;
     notifyListeners();
     try {
-      for (var index = 0; index < items.length; index++) {
+      var index = 0;
+      while (run == _run) {
+        for (; index < items.length; index++) {
+          if (run != _run) return;
+          if (_isPaused) await _waitWhilePaused(run);
+          if (run != _run) return;
+
+          _currentIndex = index;
+          notifyListeners();
+          await _speak(items[index].text, accent: _accent, rate: _rate, run: run);
+          if (run != _run) return;
+
+          // Paused mid-line: hold, then say this line again from its start.
+          if (_isPaused) {
+            index--;
+            await _waitWhilePaused(run);
+            if (run != _run) return;
+          }
+          if (index < items.length - 1) await Future<void>.delayed(_gap);
+        }
+        if (!_loopRun) break;
+        index = 0;
+        await Future<void>.delayed(_gap);
         if (run != _run) return;
-        _currentIndex = index;
-        notifyListeners();
-        await _speak(items[index].text, accent: accent, rate: rate, run: run);
-        if (run != _run) return;
-        if (index < items.length - 1) await Future.delayed(gap);
       }
     } finally {
       // Only the run that still owns the id may clear the state: a stopped run
       // wakes up here after the next one has already started.
       if (run == _run) {
         _isPlaying = false;
+        _isPaused = false;
         _currentIndex = null;
         notifyListeners();
       }
+    }
+  }
+
+  /// 暂停: silence now, keep the place.
+  void pause() {
+    if (!_isPlaying || _isPaused) return;
+    _isPaused = true;
+    _player.stop();
+    notifyListeners();
+  }
+
+  /// 继续: pick the interrupted line up again.
+  void resume() {
+    if (!_isPaused) return;
+    _isPaused = false;
+    notifyListeners();
+  }
+
+  void togglePause() => _isPaused ? resume() : pause();
+
+  /// 循环: applies to the run in flight as well as the next one.
+  void setLoop(bool value) {
+    if (_loop == value) return;
+    _loop = value;
+    _loopRun = value;
+    notifyListeners();
+  }
+
+  Future<void> _waitWhilePaused(int run) async {
+    while (_isPaused && run == _run) {
+      await Future<void>.delayed(const Duration(milliseconds: 60));
     }
   }
 
@@ -85,6 +161,7 @@ class EntrySpeechProvider extends ChangeNotifier {
     final run = ++_run;
     _items = [item];
     _isPlaying = true;
+    _isPaused = false;
     _currentIndex = 0;
     notifyListeners();
     await _speak(item.text, accent: accent, rate: rate, run: run);
@@ -107,22 +184,21 @@ class EntrySpeechProvider extends ChangeNotifier {
   }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
-    stop();
-    final run = _run;
-    _items = const [];
-    _isPlaying = true;
-    _currentIndex = null;
-    notifyListeners();
-    await _speak(trimmed, accent: accent, rate: rate, run: run);
-    if (run != _run) return;
-    _isPlaying = false;
-    notifyListeners();
+    // A one-line run, so pause/继续 work here too; it never repeats.
+    await playAll(
+      [EntryUtterance(text: trimmed, isPhrase: false)],
+      rate: rate,
+      gap: Duration.zero,
+      accent: accent,
+      loop: false,
+    );
   }
 
   /// Stops the current run: no further line, and no leftover pause.
   void stop() {
     _run++;
     _isPlaying = false;
+    _isPaused = false;
     _currentIndex = null;
     _player.stop();
     notifyListeners();
