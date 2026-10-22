@@ -100,22 +100,28 @@ class _CustomDetailViewState extends State<CustomDetailView> {
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: Scrollbar(
-              controller: _bodyScroll,
-              thumbVisibility: true,
-              child: TextField(
-                controller: _body,
-                scrollController: _bodyScroll,
-                expands: true,
-                minLines: null,
-                maxLines: null,
-                textAlignVertical: TextAlignVertical.top,
-                keyboardType: TextInputType.multiline,
-                decoration: const InputDecoration(
-                  labelText: '短文内容',
-                  hintText: '一段文字；句号/问号/叹号或换行处会分成句子，逐句朗读',
-                  alignLabelWithHint: true,
-                  border: OutlineInputBorder(),
+            // One scrollbar, not two: the framework adds its own to every
+            // scrollable by default (EditableText included), so the explicit
+            // always-visible one replaces it instead of doubling it.
+            child: ScrollConfiguration(
+              behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+              child: Scrollbar(
+                controller: _bodyScroll,
+                thumbVisibility: true,
+                child: TextField(
+                  controller: _body,
+                  scrollController: _bodyScroll,
+                  expands: true,
+                  minLines: null,
+                  maxLines: null,
+                  textAlignVertical: TextAlignVertical.top,
+                  keyboardType: TextInputType.multiline,
+                  decoration: const InputDecoration(
+                    labelText: '短文内容',
+                    hintText: '一段文字；句号/问号/叹号或换行处会分成句子，逐句朗读',
+                    alignLabelWithHint: true,
+                    border: OutlineInputBorder(),
+                  ),
                 ),
               ),
             ),
