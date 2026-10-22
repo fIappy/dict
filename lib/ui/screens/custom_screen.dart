@@ -8,10 +8,9 @@ import '../../providers/entry_speech_provider.dart';
 import '../../providers/settings_provider.dart';
 import 'custom_detail_view.dart';
 
-/// The 自定义短语 / 自定义短文 section, classified by **group** first: the top of
-/// the pane lists the groups (未分组 included, because every entry belongs
-/// somewhere), and the contents of the selected group sit below, with the kind
-/// (短语 / 短文) as the secondary filter inside it.
+/// The 自定义短文 section, classified by **group**: the top of the pane lists
+/// the groups (未分组 included, because every entry belongs somewhere), and the
+/// passages of the selected group sit below.
 class CustomScreen extends StatelessWidget {
   final bool isPaneView;
 
@@ -25,14 +24,14 @@ class CustomScreen extends StatelessWidget {
       appBar: isPaneView
           ? null
           : AppBar(
-              title: const Text('自定义短语与短文',
+              title: const Text('自定义短文',
                   style: TextStyle(fontWeight: FontWeight.bold)),
             ),
       body: Column(
         children: [
           _buildGroupSection(context, provider),
           Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant),
-          _buildKindBar(context, provider),
+          _buildGroupHeader(context, provider),
           Expanded(child: _buildList(context, provider)),
           _buildBottomBar(context, provider),
         ],
@@ -144,11 +143,10 @@ class CustomScreen extends StatelessWidget {
     );
   }
 
-  /// The secondary classifier inside the selected group.
-  Widget _buildKindBar(BuildContext context, CustomTextProvider provider) {
-    final selected = provider.kindFilter;
+  /// The open group's name, above its passages.
+  Widget _buildGroupHeader(BuildContext context, CustomTextProvider provider) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 6, 12, 2),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 2),
       child: Row(
         children: [
           Expanded(
@@ -159,30 +157,9 @@ class CustomScreen extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
             ),
           ),
-          SegmentedButton<int>(
-            segments: const [
-              ButtonSegment(value: 0, label: Text('全部', style: TextStyle(fontSize: 11))),
-              ButtonSegment(value: 1, label: Text('短语', style: TextStyle(fontSize: 11))),
-              ButtonSegment(value: 2, label: Text('短文', style: TextStyle(fontSize: 11))),
-            ],
-            selected: {
-              selected == null
-                  ? 0
-                  : (selected == CustomTextKind.phrase ? 1 : 2),
-            },
-            showSelectedIcon: false,
-            style: const ButtonStyle(
-              visualDensity: VisualDensity.compact,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            onSelectionChanged: (selection) => provider.setKindFilter(
-              switch (selection.first) {
-                1 => CustomTextKind.phrase,
-                2 => CustomTextKind.passage,
-                _ => null,
-              },
-            ),
-          ),
+          Text('${provider.visibleTexts.length} 条',
+              style: TextStyle(
+                  fontSize: 11.5, color: Theme.of(context).hintColor)),
         ],
       ),
     );
@@ -195,7 +172,7 @@ class CustomScreen extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            '「${provider.selectedGroupName}」里还没有内容，点右下角「添加」写一条',
+            '「${provider.selectedGroupName}」里还没有短文，点右下角「添加」写一段',
             textAlign: TextAlign.center,
             style: TextStyle(color: Theme.of(context).hintColor),
           ),
@@ -226,11 +203,7 @@ class CustomScreen extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
           subtitle: Text(
-            [
-              item.kind.label,
-              if (item.kind == CustomTextKind.passage)
-                '${item.utterances.length} 句',
-            ].join(' · '),
+            '${item.utterances.length} 句',
             style: const TextStyle(fontSize: 11.5),
           ),
           trailing: PopupMenuButton<String>(
@@ -323,7 +296,7 @@ class CustomScreen extends StatelessWidget {
     _playQueue(context, [
       for (final item in items)
         for (final line in item.utterances)
-          EntryUtterance(text: line, isPhrase: item.kind == CustomTextKind.phrase),
+          EntryUtterance(text: line, isPhrase: false),
     ]);
   }
 

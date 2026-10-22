@@ -7,10 +7,10 @@ import '../../providers/custom_text_provider.dart';
 import '../../providers/entry_speech_provider.dart';
 import '../../providers/settings_provider.dart';
 
-/// Write or edit one 短语 / 短文, and play it.
+/// Write or edit one 短文, and play it.
 ///
 /// On the desktop layout this is the right pane and follows the selection; on a
-/// phone it is pushed as its own page (new entry when [itemId] is null).
+/// phone it is pushed as its own page (a new entry when [itemId] is null).
 class CustomDetailView extends StatefulWidget {
   final String? itemId;
   final bool isPaneView;
@@ -24,37 +24,21 @@ class CustomDetailView extends StatefulWidget {
 class _CustomDetailViewState extends State<CustomDetailView> {
   late TextEditingController _title;
   late TextEditingController _body;
-  late CustomTextKind _kind;
   String? _groupId;
 
   @override
   void initState() {
     super.initState();
     final item = _storedItem;
+    final provider = context.read<CustomTextProvider>();
     _title = TextEditingController(text: item?.title ?? '');
     _body = TextEditingController(text: item?.body ?? '');
-    final provider = context.read<CustomTextProvider>();
-    _kind = item?.kind ?? provider.kindFilter ?? CustomTextKind.phrase;
-    // A new entry lands in the group that is open, so writing several lines for
-    // one group does not need the dropdown every time.
+    // A new entry lands in the group that is open, so writing several passages
+    // for one group does not need the dropdown every time.
     _groupId = item?.groupId ??
         (provider.selectedGroupId == CustomTextProvider.ungroupedId
             ? null
             : provider.selectedGroupId);
-  }
-
-  @override
-  void didUpdateWidget(CustomDetailView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // The desktop pane is rebuilt with a new key per selection, so this only
-    // fires when the same page is reused (it isn't); kept for safety.
-    if (oldWidget.itemId != widget.itemId) {
-      final item = _storedItem;
-      _title.text = item?.title ?? '';
-      _body.text = item?.body ?? '';
-      _kind = item?.kind ?? _kind;
-      _groupId = item?.groupId;
-    }
   }
 
   @override
@@ -81,7 +65,7 @@ class _CustomDetailViewState extends State<CustomDetailView> {
     final item = _storedItem;
     final isNew = item == null;
 
-    final content = SingleChildScrollView(
+    return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -95,48 +79,31 @@ class _CustomDetailViewState extends State<CustomDetailView> {
               ),
               const SizedBox(width: 8),
               Text(
-                isNew ? '新增${_kind.label}' : '编辑${_kind.label}',
+                isNew ? '新增短文' : '编辑短文',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const Spacer(),
-              SegmentedButton<CustomTextKind>(
-                segments: [
-                  for (final kind in CustomTextKind.values)
-                    ButtonSegment(
-                      value: kind,
-                      label: Text(kind.label,
-                          style: const TextStyle(fontSize: 11.5)),
-                    ),
-                ],
-                selected: {_kind},
-                showSelectedIcon: false,
-                onSelectionChanged: (selection) =>
-                    setState(() => _kind = selection.first),
               ),
             ],
           ),
           const SizedBox(height: 14),
           TextField(
             controller: _title,
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               labelText: '标题（可选）',
-              hintText: _kind == CustomTextKind.phrase ? '例如：on the house' : '例如：My morning routine',
-              border: const OutlineInputBorder(),
+              hintText: '例如：My morning routine',
+              border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _body,
-            minLines: _kind == CustomTextKind.passage ? 8 : 3,
+            minLines: 8,
             maxLines: null,
             keyboardType: TextInputType.multiline,
-            decoration: InputDecoration(
-              labelText: _kind == CustomTextKind.phrase ? '短语内容' : '短文内容',
-              hintText: _kind == CustomTextKind.phrase
-                  ? '要朗读的文字'
-                  : '一段文字；句号/问号/叹号或换行处会分成句子，逐句朗读',
+            decoration: const InputDecoration(
+              labelText: '短文内容',
+              hintText: '一段文字；句号/问号/叹号或换行处会分成句子，逐句朗读',
               alignLabelWithHint: true,
-              border: const OutlineInputBorder(),
+              border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 12),
@@ -147,7 +114,7 @@ class _CustomDetailViewState extends State<CustomDetailView> {
               FilledButton.icon(
                 icon: const Icon(Icons.save_rounded, size: 18),
                 label: const Text('保存'),
-                onPressed: () => _save(context, provider, item),
+                onPressed: () => _save(provider, item),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -157,7 +124,7 @@ class _CustomDetailViewState extends State<CustomDetailView> {
                     size: 18,
                   ),
                   label: Text(speech.isPlaying ? '停止' : '播放'),
-                  onPressed: () => _togglePlay(context, item),
+                  onPressed: _togglePlay,
                 ),
               ),
               if (!isNew) ...[
@@ -165,24 +132,19 @@ class _CustomDetailViewState extends State<CustomDetailView> {
                 IconButton(
                   tooltip: '删除',
                   icon: const Icon(Icons.delete_outline_rounded),
-                  onPressed: () => _delete(context, provider, item),
+                  onPressed: () => _delete(provider, item),
                 ),
               ],
             ],
           ),
           const SizedBox(height: 10),
           Text(
-            _kind == CustomTextKind.phrase
-                ? '短语整句朗读；短文在句号、问号、叹号或换行处断句，逐句朗读。'
-                : '短文在句号、问号、叹号或换行处断句，逐句朗读，句间停顿取设置里的间隔。',
+            '在句号、问号、叹号或换行处断句，逐句朗读，句间停顿取设置里的间隔。',
             style: TextStyle(fontSize: 12, color: theme.hintColor),
           ),
         ],
       ),
     );
-
-    if (widget.isPaneView || !isNew) return content;
-    return content;
   }
 
   Widget _buildGroupRow(BuildContext context, CustomTextProvider provider) {
@@ -243,11 +205,7 @@ class _CustomDetailViewState extends State<CustomDetailView> {
     );
   }
 
-  Future<void> _save(
-    BuildContext context,
-    CustomTextProvider provider,
-    CustomText? item,
-  ) async {
+  Future<void> _save(CustomTextProvider provider, CustomText? item) async {
     final body = _body.text.trim();
     if (body.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -259,7 +217,6 @@ class _CustomDetailViewState extends State<CustomDetailView> {
     final navigator = Navigator.of(context);
     if (item == null) {
       final added = await provider.add(
-        kind: _kind,
         body: body,
         title: _title.text.trim(),
         groupId: _groupId,
@@ -273,7 +230,6 @@ class _CustomDetailViewState extends State<CustomDetailView> {
     } else {
       await provider.update(
         item.copyWith(
-          kind: _kind,
           body: body,
           title: _title.text.trim(),
           groupId: _groupId,
@@ -286,11 +242,8 @@ class _CustomDetailViewState extends State<CustomDetailView> {
     }
   }
 
-  Future<void> _delete(
-    BuildContext context,
-    CustomTextProvider provider,
-    CustomText item,
-  ) async {
+  Future<void> _delete(CustomTextProvider provider, CustomText item) async {
+    final navigator = Navigator.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -310,26 +263,20 @@ class _CustomDetailViewState extends State<CustomDetailView> {
     );
     if (confirmed != true) return;
     await provider.remove(item.id);
-    if (context.mounted && !widget.isPaneView) Navigator.of(context).maybePop();
+    if (mounted && !widget.isPaneView) navigator.maybePop();
   }
 
-  void _togglePlay(BuildContext context, CustomText? item) {
+  void _togglePlay() {
     final speech = context.read<EntrySpeechProvider>();
     if (speech.isPlaying) {
       speech.stop();
       return;
     }
-    final body = _body.text.trim();
-    final lines = _kind == CustomTextKind.phrase
-        ? (body.isEmpty ? const <String>[] : [body])
-        : splitSentences(body);
+    final lines = splitSentences(_body.text);
     if (lines.isEmpty) return;
     final settings = context.read<SettingsProvider>();
     speech.playAll(
-      [
-        for (final line in lines)
-          EntryUtterance(text: line, isPhrase: _kind == CustomTextKind.phrase),
-      ],
+      [for (final line in lines) EntryUtterance(text: line, isPhrase: false)],
       rate: settings.speechRate,
       gap: settings.sentenceGap,
       accent: accentForLanguage(settings.ttsLanguage),

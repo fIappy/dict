@@ -20,28 +20,18 @@ void main() {
       ]);
     });
 
-    test('a phrase is one utterance, a passage is its sentences', () {
-      final phrase = CustomText(
+    test('a body without punctuation is a single sentence', () {
+      final oneLiner = CustomText(
         id: 'a',
-        kind: CustomTextKind.phrase,
         body: ' on the house ',
         createdAt: DateTime(2026),
       );
-      expect(phrase.utterances, ['on the house']);
-
-      final passage = CustomText(
-        id: 'b',
-        kind: CustomTextKind.passage,
-        body: 'One. Two.',
-        createdAt: DateTime(2026),
-      );
-      expect(passage.utterances, ['One.', 'Two.']);
+      expect(oneLiner.utterances, ['on the house']);
     });
 
     test('the list label falls back to the first line and is truncated', () {
       final unnamed = CustomText(
         id: 'c',
-        kind: CustomTextKind.phrase,
         body: '\n  the early bird catches the worm  ',
         createdAt: DateTime(2026),
       );
@@ -49,7 +39,6 @@ void main() {
 
       final long = CustomText(
         id: 'd',
-        kind: CustomTextKind.passage,
         body: 'x' * 80,
         createdAt: DateTime(2026),
       );
@@ -57,10 +46,9 @@ void main() {
       expect(long.label.endsWith('…'), isTrue);
     });
 
-    test('json round-trips kind, group and body', () {
+    test('json round-trips body, title and group', () {
       final item = CustomText(
         id: 'e',
-        kind: CustomTextKind.passage,
         body: 'Hello there.',
         title: 'Greeting',
         groupId: 'g1',
@@ -68,11 +56,26 @@ void main() {
       );
       final restored = CustomText.fromJson(item.toJson());
       expect(restored.id, 'e');
-      expect(restored.kind, CustomTextKind.passage);
       expect(restored.body, 'Hello there.');
       expect(restored.title, 'Greeting');
       expect(restored.groupId, 'g1');
       expect(restored.createdAt, item.createdAt);
+    });
+
+    test('an entry stored as a phrase by the old build loads as a passage', () {
+      // The old wire format carried kind: 'phrase'; it is ignored, and a body
+      // without sentence punctuation plays as its single sentence.
+      final stored = CustomText.fromJson(const {
+        'id': 'legacy',
+        'kind': 'phrase',
+        'body': 'on the house',
+        'title': '',
+        'groupId': null,
+        'createdAt': '2026-10-20T09:30:00.000',
+      });
+      expect(stored.utterances, ['on the house']);
+      expect(stored.toJson().containsKey('kind'), isFalse,
+          reason: 'the field is dropped the next time the store is written');
     });
   });
 
@@ -82,7 +85,6 @@ void main() {
       await first.initialize();
       final group = await first.addGroup('商务');
       await first.add(
-        kind: CustomTextKind.phrase,
         body: 'at your earliest convenience',
         groupId: group!.id,
       );
@@ -94,15 +96,13 @@ void main() {
       expect(second.groups.single.name, '商务');
     });
 
-    test('the group is the top level, the kind the filter inside it', () async {
+    test('the group is the top level', () async {
       final provider = CustomTextProvider();
       await provider.initialize();
       final work = await provider.addGroup('工作');
-      await provider.add(kind: CustomTextKind.phrase, body: 'a');
-      await provider.add(
-          kind: CustomTextKind.phrase, body: 'b', groupId: work!.id);
-      await provider.add(
-          kind: CustomTextKind.passage, body: 'c. d.', groupId: work.id);
+      await provider.add(body: 'a');
+      await provider.add(body: 'b', groupId: work!.id);
+      await provider.add(body: 'c. d.', groupId: work.id);
 
       // 未分组 is the default bucket and holds only the ungrouped entries.
       expect(provider.selectedGroupId, CustomTextProvider.ungroupedId);
@@ -111,20 +111,14 @@ void main() {
 
       provider.selectGroup(work.id);
       expect(provider.visibleTexts.map((e) => e.body), ['b', 'c. d.']);
-
-      provider.setKindFilter(CustomTextKind.passage);
-      expect(provider.visibleTexts.map((e) => e.body), ['c. d.']);
-
-      provider.setKindFilter(null);
-      expect(provider.visibleTexts.map((e) => e.body), ['b', 'c. d.']);
     });
 
     test('deleting a group keeps its entries, ungrouped', () async {
       final provider = CustomTextProvider();
       await provider.initialize();
       final group = await provider.addGroup('临时');
-      await provider.add(
-          kind: CustomTextKind.phrase, body: 'keep me', groupId: group!.id);
+      await provider.add(body: 'keep me', groupId: group!.id);
+      provider.selectGroup(group.id);
 
       await provider.removeGroup(group.id);
 
@@ -133,30 +127,26 @@ void main() {
       expect(provider.selectedGroupId, CustomTextProvider.ungroupedId);
     });
 
-    test('the playback queue walks the open group, passages by sentence', () async {
+    test('the playback queue walks the open group, by sentence', () async {
       final provider = CustomTextProvider();
       await provider.initialize();
       final work = await provider.addGroup('工作');
-      await provider.add(kind: CustomTextKind.phrase, body: 'in charge of');
-      await provider.add(
-          kind: CustomTextKind.passage, body: 'One. Two.', groupId: work!.id);
-      await provider.add(
-          kind: CustomTextKind.passage, body: 'Three.', groupId: work.id);
+      await provider.add(body: 'in charge of');
+      await provider.add(body: 'One. Two.', groupId: work!.id);
+      await provider.add(body: 'Three.', groupId: work.id);
 
       provider.selectGroup(work.id);
-      final queue = provider.playbackQueue;
-      expect(queue.map((e) => e.text), ['One.', 'Two.', 'Three.']);
-      expect(queue.every((e) => !e.isPhrase), isTrue);
+      expect(provider.playbackQueue.map((e) => e.text), ['One.', 'Two.', 'Three.']);
+      expect(provider.playbackQueue.every((e) => !e.isPhrase), isTrue);
 
       provider.selectGroup(CustomTextProvider.ungroupedId);
       expect(provider.playbackQueue.single.text, 'in charge of');
-      expect(provider.playbackQueue.single.isPhrase, isTrue);
     });
 
     test('updating the group moves the entry without touching the body', () async {
       final provider = CustomTextProvider();
       await provider.initialize();
-      final item = await provider.add(kind: CustomTextKind.phrase, body: 'body');
+      final item = await provider.add(body: 'body');
       final group = await provider.addGroup('归档');
 
       await provider.update(item.copyWith(groupId: group!.id));

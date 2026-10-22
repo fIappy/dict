@@ -22,7 +22,6 @@ class CustomTextProvider extends ChangeNotifier {
   final List<CustomText> _texts = [];
   final List<CustomTextGroup> _groups = [];
   String _selectedGroupId = ungroupedId;
-  CustomTextKind? _kindFilter;
   String? _selectedId;
   bool _initialized = false;
 
@@ -32,14 +31,12 @@ class CustomTextProvider extends ChangeNotifier {
   /// The group whose contents are on screen; [ungroupedId] for 未分组.
   String get selectedGroupId => _selectedGroupId;
 
-  /// The secondary filter inside the group: 短语, 短文, or null for both.
-  CustomTextKind? get kindFilter => _kindFilter;
   String? get selectedId => _selectedId;
 
   /// Which top-level bucket an entry belongs to.
   static String groupIdOf(CustomText item) => item.groupId ?? ungroupedId;
 
-  /// How many entries [groupId] holds (both kinds).
+  /// How many entries [groupId] holds.
   int countIn(String groupId) =>
       _texts.where((item) => groupIdOf(item) == groupId).length;
 
@@ -50,12 +47,11 @@ class CustomTextProvider extends ChangeNotifier {
     return '未分组';
   }
 
-  /// The entries of the selected group that the kind filter keeps, oldest first.
+  /// The entries of the selected group, oldest first.
   List<CustomText> get visibleTexts {
-    final filtered = _texts.where((item) {
-      if (groupIdOf(item) != _selectedGroupId) return false;
-      return _kindFilter == null || item.kind == _kindFilter;
-    }).toList()
+    final filtered = _texts
+        .where((item) => groupIdOf(item) == _selectedGroupId)
+        .toList()
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     return filtered;
   }
@@ -67,15 +63,12 @@ class CustomTextProvider extends ChangeNotifier {
     return null;
   }
 
-  /// Everything the 顺序播放 button reads: the visible entries in list order,
-  /// each passage already split into its sentences.
+  /// Everything the 顺序播放 button reads: the open group's entries in list
+  /// order, each already split into its sentences.
   List<EntryUtterance> get playbackQueue => [
         for (final item in visibleTexts)
           for (final line in item.utterances)
-            EntryUtterance(
-              text: line,
-              isPhrase: item.kind == CustomTextKind.phrase,
-            ),
+            EntryUtterance(text: line, isPhrase: false),
       ];
 
   Future<void> initialize() async {
@@ -98,13 +91,6 @@ class CustomTextProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setKindFilter(CustomTextKind? kind) {
-    if (_kindFilter == kind) return;
-    _kindFilter = kind;
-    _selectedId = null;
-    notifyListeners();
-  }
-
   void select(String? id) {
     _selectedId = id;
     notifyListeners();
@@ -112,14 +98,12 @@ class CustomTextProvider extends ChangeNotifier {
 
   /// Adds an entry and returns it, so the caller can select it.
   Future<CustomText> add({
-    required CustomTextKind kind,
     required String body,
     String title = '',
     String? groupId,
   }) async {
     final item = CustomText(
       id: 'ct_${DateTime.now().microsecondsSinceEpoch}',
-      kind: kind,
       body: body,
       title: title,
       groupId: groupId,

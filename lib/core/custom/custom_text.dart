@@ -1,20 +1,12 @@
-/// A user-written line the app can read back: a 短语 (one utterance) or a 短文
-/// (split into sentences, so the drill can pace them).
+/// A user-written passage the app reads back sentence by sentence.
+///
+/// Everything in this section is a 短文 now: a single line without punctuation
+/// simply yields one sentence. Entries stored by the earlier build carried a
+/// `kind` field (`phrase` / `passage`); it is ignored on read, which is exactly
+/// the requested migration — the old phrases are passages with one sentence.
 library;
 
-/// The two things this section holds.
-enum CustomTextKind {
-  phrase('短语'),
-  passage('短文');
-
-  const CustomTextKind(this.label);
-  final String label;
-
-  static CustomTextKind fromName(String? name) => CustomTextKind.values
-      .firstWhere((kind) => kind.name == name, orElse: () => CustomTextKind.phrase);
-}
-
-/// A user-defined group both kinds can be filed under.
+/// A user-defined group the passages are filed under.
 class CustomTextGroup {
   const CustomTextGroup({required this.id, required this.name});
 
@@ -29,11 +21,10 @@ class CustomTextGroup {
       );
 }
 
-/// One entry of the 自定义短语 / 自定义短文 list.
+/// One entry of the 自定义短文 list.
 class CustomText {
   const CustomText({
     required this.id,
-    required this.kind,
     required this.body,
     this.title = '',
     this.groupId,
@@ -41,7 +32,6 @@ class CustomText {
   });
 
   final String id;
-  final CustomTextKind kind;
 
   /// What gets read out, verbatim.
   final String body;
@@ -54,7 +44,6 @@ class CustomText {
   final DateTime createdAt;
 
   CustomText copyWith({
-    CustomTextKind? kind,
     String? body,
     String? title,
     String? groupId,
@@ -62,7 +51,6 @@ class CustomText {
   }) =>
       CustomText(
         id: id,
-        kind: kind ?? this.kind,
         body: body ?? this.body,
         title: title ?? this.title,
         groupId: clearGroup ? null : (groupId ?? this.groupId),
@@ -81,28 +69,20 @@ class CustomText {
     return '${firstLine.substring(0, 48)}…';
   }
 
-  /// What playback reads, in order: the whole phrase, or the passage's
-  /// sentences one after another (the gap between them comes from the settings).
-  List<String> get utterances {
-    if (kind == CustomTextKind.phrase) {
-      final text = body.trim();
-      return text.isEmpty ? const [] : [text];
-    }
-    return splitSentences(body);
-  }
+  /// What playback reads, in order: the passage's sentences.
+  List<String> get utterances => splitSentences(body);
 
   Map<String, Object?> toJson() => {
         'id': id,
-        'kind': kind.name,
         'body': body,
         'title': title,
         'groupId': groupId,
         'createdAt': createdAt.toIso8601String(),
       };
 
+  /// Reads an entry; the legacy `kind` field is deliberately not read.
   factory CustomText.fromJson(Map<String, Object?> json) => CustomText(
         id: json['id'] as String? ?? '',
-        kind: CustomTextKind.fromName(json['kind'] as String?),
         body: json['body'] as String? ?? '',
         title: json['title'] as String? ?? '',
         groupId: json['groupId'] as String?,
