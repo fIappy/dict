@@ -18,9 +18,10 @@
   「循环」开关（⏭ 图标，状态存在设置里）让整篇读完后自动从头再来，直到按「停止」。
   文本转语音做不到句内暂停，所以继续是从被打断的那一句开头接上。数字模块另有一组
   同样的「暂停/继续」，恢复时从被打断的那一组数字重新开始。
-- **内置家庭场景文库** - 仓库自带 25 篇「在家」子场景短文（`assets/seed/custom_home.json`），
-  每篇 15–30 行，同一个动作连给三种说法（`I turned the big light off. / I switched the main
-  light off.`），空行分簇；最后一篇是纯搭配清单（`put the kettle on`、`sort the recycling`）。
+- **内置家庭场景文库** - 仓库自带 36 篇「在家」子场景短文（`assets/seed/custom_home.json`），
+  原来的 16 篇**保留原样**并在后面追加同类表达，每篇 24–38 行，同一个动作连给三种说法
+  （`I turned the big light off. / I switched the main light off.`），空行分簇；
+  最后是纯搭配清单（`put the kettle on`、`sort the recycling`）。
   AI 生成过的短文/造句也存了一份在 `assets/seed/ai_archive.json`。两者都在**首次启动、
   本地为空**时导入一次，之后不再覆盖；导入标记写在设置里，读者自己建的库永远不会被种子冲掉。
 - **自定义短文** - 按**分组**组织（顶层是分组，含「未分组」，每行显示条数），

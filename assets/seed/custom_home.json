@@ -1,5 +1,5 @@
 {
- "version": 1,
+ "version": 2,
  "groups": [
   {
    "id": "grp-home",
@@ -8,179 +8,256 @@
  ],
  "texts": [
   {
-   "id": "seed-b63b38d4565c",
-   "body": "I'm home.\nI just got back.\nI'm finally back.\n\nI took the lift up.\nI took the elevator up.\nMy building has no lift, so I take the stairs.\n\nI live on the fifteenth floor, the top floor.\nThe lift was out again.\nI walked up with the shopping.\n\nI unlocked the door.\nI opened the door with my key.\nI let myself in.\n\nI stepped inside.\nI came in and shut the door.\nI closed the door behind me.\n\nI kicked my shoes off at the door.\nI slid my shoes off.\nI changed into my house shoes.\n\nI hung my coat up.\nI put my coat on the hook.\nI left my coat on the chair.\n\nI dropped my keys on the table.\nI forgot where I put my keys.\nI left the keys in the lock again.\n\nIt's good to be home.\nI can relax now.\nLet me sit down for a minute.",
+   "id": "home-b63b38d4565c",
+   "body": "I'm home.\nI just got back.\nMy building has an elevator.\nMy building has no elevator, so I take the stairs.\nI live on the fifteenth floor, the top floor.\nI unlocked the door with my key.\nI forgot my keys — what do I do now?\nI left the keys in the lock again.\nI pushed the door open and stepped inside.\nI closed the door behind me and locked it.\nI took off my shoes at the door.\nI hung my coat on the hook.\n\nI went inside and changed my shoes.\n\nI'm finally back.\n\nI took the lift up.\nI took the elevator up.\nMy building has no lift, so I take the stairs.\n\nThe lift was out again.\nI walked up with the shopping.\n\nI unlocked the door.\nI opened the door with my key.\nI let myself in.\n\nI stepped inside.\nI came in and shut the door.\nI closed the door behind me.\n\nI kicked my shoes off at the door.\nI slid my shoes off.\nI changed into my house shoes.\n\nI hung my coat up.\nI put my coat on the hook.\nI left my coat on the chair.\n\nI dropped my keys on the table.\nI forgot where I put my keys.\n\nIt's good to be home.\nI can relax now.\nLet me sit down for a minute.",
    "title": "Coming Home | 回家开门",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:00:00"
+   "createdAt": "2026-10-22T20:00:00"
   },
   {
-   "id": "seed-3707855828f6",
-   "body": "I put my bag down on the bench.\nI dropped my bag by the door.\nI hung my bag on the hook.\n\nI turned the hall light on.\nI switched the hallway light on.\nI flicked the light on.\n\nThe flat was dark when I came in.\nThe place was empty and quiet.\nNobody was home.\n\nI could smell dinner from the kitchen.\nSomething was cooking.\nIt smelled like someone had been cooking.\n\nI checked the post on the way in.\nI picked up the letters.\nThere was nothing but bills.\n\nI wiped my feet on the mat.\nI left my umbrella in the stand.\nI put my scarf on the hook.\n\nI took a deep breath.\nI breathed out.\nI let my shoulders drop.",
+   "id": "home-3707855828f6",
+   "body": "I put my bag down on the bench.\nI turned on the light in the hallway.\nThe flat was dark when I came in.\nI can smell dinner from the kitchen.\nI walked into the living room.\nI dropped my keys on the small table.\nI checked the post on the way in.\nI wiped my feet on the mat.\nI put my umbrella in the stand.\nI took a deep breath — I'm finally home.\nLet me get changed first.\n\nI dropped my bag by the door.\nI hung my bag on the hook.\n\nI turned the hall light on.\nI switched the hallway light on.\nI flicked the light on.\n\nThe place was empty and quiet.\nNobody was home.\n\nI could smell dinner from the kitchen.\nSomething was cooking.\nIt smelled like someone had been cooking.\n\nI picked up the letters.\nThere was nothing but bills.\n\nI left my umbrella in the stand.\nI put my scarf on the hook.\n\nI took a deep breath.\nI breathed out.\nI let my shoulders drop.",
    "title": "The Entryway | 进门之后",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:03:00"
+   "createdAt": "2026-10-22T20:03:00"
   },
   {
-   "id": "seed-2290c1b930a1",
-   "body": "I turned the lamp on.\nI switched the light on.\nI put the big light on.\n\nI opened the curtains.\nI drew the curtains back.\nI let some light in.\n\nI sat down on the sofa.\nI flopped onto the sofa.\nI sank into the sofa.\n\nI put my feet up.\nI stretched out.\nI lay down for a minute.\n\nI grabbed the remote.\nI reached for the remote.\nI picked up the remote.\n\nI flicked through the channels.\nI channel-hopped for ten minutes.\nThere was nothing on.\n\nI turned the TV off.\nI switched it off.\nI left the room quiet.\n\nI opened the window for some fresh air.\nI let some air in.\nIt was stuffy in here.\n\nI fluffed the cushions.\nI plumped the cushions up.\nI folded the blanket and put it back on the sofa.",
+   "id": "home-2290c1b930a1",
+   "body": "I turned on the lamp.\nI opened the curtains to let some light in.\nI sat down on the sofa.\nI put my feet up for a minute.\nI grabbed the remote and turned on the TV.\nNothing good is on.\nI turned the TV off again.\nI opened the window for some fresh air.\nIt's stuffy in here.\nI fluffed the cushions.\nI folded the blanket and put it back on the sofa.\nThe plant needs water.\n\nI turned the lamp on.\nI switched the light on.\nI put the big light on.\n\nI opened the curtains.\nI drew the curtains back.\nI let some light in.\n\nI flopped onto the sofa.\nI sank into the sofa.\n\nI put my feet up.\nI stretched out.\nI lay down for a minute.\n\nI grabbed the remote.\nI reached for the remote.\nI picked up the remote.\n\nI flicked through the channels.\nI channel-hopped for ten minutes.\nThere was nothing on.\n\nI turned the TV off.\nI switched it off.\nI left the room quiet.\n\nI let some air in.\nIt was stuffy in here.\n\nI plumped the cushions up.",
    "title": "The Living Room | 客厅",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:06:00"
+   "createdAt": "2026-10-22T20:06:00"
   },
   {
-   "id": "seed-806283e33c69",
-   "body": "I'm hungry.\nI'm starving.\nI could eat something.\n\nI had a look in the fridge.\nI checked what we had.\nI took the vegetables out.\n\nI put the pan on the hob.\nI set the pan on the stove.\nI heated the pan up.\n\nI poured some oil in.\nI added a splash of oil.\nI let the oil heat.\n\nI chopped an onion.\nI diced the onion.\nI sliced it thinly.\n\nI boiled some water.\nI put the pasta on.\nI cooked it for eight minutes.\n\nI stirred the sauce.\nI gave it a stir.\nI turned the heat down.\n\nI let it simmer.\nI left it to cook.\nI checked whether it was done.\n\nI set the table.\nI laid the table.\nI put the plates out.\n\nIt smells good.\nThat turned out well.\nI burned the toast again.",
+   "id": "home-806283e33c69",
+   "body": "I'm hungry.\nLet me see what's in the fridge.\nI took out the vegetables.\nI chopped an onion.\nI boiled some water for pasta.\nI put the pan on the stove.\nI heated up some oil.\nI stirred the soup.\nIt smells good.\nI burned the toast again.\nI set the table.\nI did the dishes after dinner.\nI wiped down the counter.\n\nI'm starving.\nI could eat something.\n\nI had a look in the fridge.\nI checked what we had.\nI took the vegetables out.\n\nI put the pan on the hob.\nI set the pan on the stove.\nI heated the pan up.\n\nI poured some oil in.\nI added a splash of oil.\nI let the oil heat.\n\nI diced the onion.\nI sliced it thinly.\n\nI boiled some water.\nI put the pasta on.\nI cooked it for eight minutes.\n\nI stirred the sauce.\nI gave it a stir.\nI turned the heat down.\n\nI let it simmer.\nI left it to cook.\nI checked whether it was done.\n\nI laid the table.\nI put the plates out.\n\nThat turned out well.",
    "title": "The Kitchen | 厨房",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:09:00"
+   "createdAt": "2026-10-22T20:09:00"
   },
   {
-   "id": "seed-bb5e15278ac3",
-   "body": "I cleared the table.\nI took the plates to the sink.\nI stacked the dishes.\n\nI ran the hot water.\nI filled the sink.\nI added some washing-up liquid.\n\nI washed the dishes.\nI did the washing-up.\nI scrubbed the pans.\n\nI rinsed the plates.\nI gave them a rinse.\nI left them to dry.\n\nI dried them with a towel.\nI put everything away.\nI wiped the counter down.",
-   "title": "Washing Up | 洗碗",
-   "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:12:00"
-  },
-  {
-   "id": "seed-41585ce20453",
-   "body": "I opened the fridge.\nI pulled the door open.\nI had a look inside.\n\nI took out a cold can of cola.\nI grabbed a cold drink.\nI reached for a bottle of water.\n\nIt's ice cold.\nIt's just what I wanted.\nThat hit the spot.\n\nI filled a glass with ice.\nI poured a drink.\nI topped my glass up.\n\nThe milk has gone off.\nIt's past its date.\nI need to throw that out.\n\nI moved the leftovers to the back.\nI put the milk back.\nI made a list of what to buy.",
+   "id": "home-41585ce20453",
+   "body": "I opened the fridge.\nI took out a cold can of cola.\nIt's ice cold — just what I wanted.\nI filled a glass with ice.\nI poured the drink and took a sip.\nThe milk has gone bad.\nI moved the leftovers to the back.\nThat needs throwing out.\nI made a list of what to buy.\nI closed the fridge door.\nI put the ice tray back.\n\nI pulled the door open.\nI had a look inside.\n\nI grabbed a cold drink.\nI reached for a bottle of water.\n\nIt's ice cold.\nIt's just what I wanted.\nThat hit the spot.\n\nI poured a drink.\nI topped my glass up.\n\nThe milk has gone off.\nIt's past its date.\nI need to throw that out.\n\nI put the milk back.",
    "title": "The Fridge | 冰箱与冷饮",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:15:00"
+   "createdAt": "2026-10-22T20:12:00"
   },
   {
-   "id": "seed-5e284be6b7ef",
-   "body": "I walked into my bedroom.\nI went into the bedroom.\nI went through to my room.\n\nI forgot to make my bed.\nI didn't make the bed this morning.\nThe bed was still unmade.\n\nMy room is a mess.\nThere are clothes everywhere.\nIt's a tip in here.\n\nI made the bed.\nI pulled the sheets tight.\nI straightened the duvet.\n\nI fluffed the pillows.\nI plumped the pillows up.\nI put them back.\n\nI folded the blanket.\nI put it at the end of the bed.\nI smoothed it flat.\n\nI folded the clean clothes.\nI put them in the drawer.\nI hung my shirt up.\n\nI opened the window to air the room.\nI let some air in.\nThe room smelled stale.\n\nI turned the bedside lamp on.\nI lay down for a minute.\nI set an alarm for tomorrow.",
+   "id": "home-5e284be6b7ef",
+   "body": "I walked into my bedroom.\nI forgot to make my bed.\nMy room is a mess.\nThe blankets are all over the floor.\nI made the bed properly.\nI opened the window to air the room.\nI folded the clean clothes.\nI put them in the drawer.\nI turned on the bedside lamp.\nI lay down for a minute.\nI set an alarm for tomorrow.\nI turned the big light off.\n\nI went into the bedroom.\nI went through to my room.\n\nI didn't make the bed this morning.\nThe bed was still unmade.\n\nThere are clothes everywhere.\nIt's a tip in here.\n\nI made the bed.\nI pulled the sheets tight.\nI straightened the duvet.\n\nI fluffed the pillows.\nI plumped the pillows up.\nI put them back.\n\nI folded the blanket.\nI put it at the end of the bed.\nI smoothed it flat.\n\nI hung my shirt up.\n\nI let some air in.\nThe room smelled stale.\n\nI turned the bedside lamp on.",
    "title": "The Bedroom | 卧室",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:18:00"
+   "createdAt": "2026-10-22T20:15:00"
   },
   {
-   "id": "seed-25d7ce63c55e",
-   "body": "I'm lazy about chores.\nI don't really like housework.\nI put it off as long as I can.\n\nBut I try to keep the place tidy.\nI like it clean.\nI do a bit every day.\n\nThere's dust on the shelf.\nThe shelf needs dusting.\nI wiped it off with a cloth.\n\nI got the vacuum out.\nI plugged it in.\nI vacuumed the floor.\n\nI swept the kitchen floor.\nI mopped the floor.\nI gave the floor a mop.\n\nI took the rubbish out.\nI tied up the bin bag.\nI put the recycling outside.\n\nI did a load of laundry.\nI hung the clothes up to dry.\nI folded everything once it was dry.\n\nThe place looks much better now.\nThat's enough for today.\nI'll do the rest tomorrow.",
+   "id": "home-25d7ce63c55e",
+   "body": "I'm lazy and I don't really like doing chores.\nBut I try to keep the place tidy.\nThere's dust on the shelf.\nI wiped it off with a cloth.\nI vacuumed the floor.\nI swept the kitchen.\nI took out the rubbish.\nI put the recycling outside the door.\nThe bin bag is full.\nI did a load of laundry.\nI hung the clothes up to dry.\nI folded everything once it was dry.\nThe room looks much better now.\n\nI'm lazy about chores.\nI don't really like housework.\nI put it off as long as I can.\n\nI like it clean.\nI do a bit every day.\n\nThe shelf needs dusting.\n\nI got the vacuum out.\nI plugged it in.\n\nI swept the kitchen floor.\nI mopped the floor.\nI gave the floor a mop.\n\nI took the rubbish out.\nI tied up the bin bag.\nI put the recycling outside.\n\nThe place looks much better now.\nThat's enough for today.\nI'll do the rest tomorrow.",
    "title": "Chores | 家务与打扫",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:21:00"
+   "createdAt": "2026-10-22T20:18:00"
   },
   {
-   "id": "seed-4752b8c2de05",
-   "body": "I put a load on.\nI started a wash.\nI threw the clothes in the machine.\n\nI set the machine to thirty degrees.\nI added some detergent.\nI pressed start.\n\nI hung the washing out.\nI pegged the clothes on the line.\nI put them on the drying rack.\n\nI brought the washing in.\nI took the clothes off the line.\nI gave them a shake.\n\nI folded the clothes.\nI paired the socks up.\nI put everything away.\n\nI put the ironing board up.\nI ironed a shirt.\nI put the iron away.",
-   "title": "Laundry | 洗衣晾衣",
-   "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:24:00"
-  },
-  {
-   "id": "seed-20d6a487917b",
-   "body": "I went into the bathroom.\nI walked in.\nI stepped in and shut the door.\n\nI turned on the tap.\nI ran the hot water.\nI let the water run.\n\nI washed my face.\nI splashed cold water on my face.\nI rinsed my face.\n\nI brushed my teeth.\nI cleaned my teeth.\nI gave my teeth a brush.\n\nI squeezed toothpaste onto my brush.\nI put some toothpaste on.\nI wet my toothbrush first.\n\nI took a shower.\nI had a quick shower.\nThe water was too hot at first.\n\nI dried myself with a towel.\nI wiped the mirror.\nI hung the towel back on the rail.",
+   "id": "home-20d6a487917b",
+   "body": "I went into the bathroom.\nI turned on the tap.\nI washed my face with cold water.\nI brushed my teeth.\nI squeezed some toothpaste onto my brush.\nI took a shower.\nThe water was too hot at first.\nI dried myself with a towel.\nI wiped the mirror.\nI hung the towel back on the rail.\nI put my toothbrush in the cup.\nI turned the light off when I left.\n\nI walked in.\nI stepped in and shut the door.\n\nI ran the hot water.\nI let the water run.\n\nI washed my face.\nI splashed cold water on my face.\nI rinsed my face.\n\nI cleaned my teeth.\nI gave my teeth a brush.\n\nI squeezed toothpaste onto my brush.\nI put some toothpaste on.\nI wet my toothbrush first.\n\nI had a quick shower.",
    "title": "The Bathroom | 洗漱",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:27:00"
+   "createdAt": "2026-10-22T20:21:00"
   },
   {
-   "id": "seed-71b93af5302e",
-   "body": "It's really hot in here.\nIt's boiling.\nThe flat is like an oven.\n\nI turned the air conditioning on.\nI put the AC on.\nI set it to twenty-five degrees.\n\nI closed the curtains to keep the sun out.\nI shut the blinds.\nI pulled the curtains across.\n\nI stood in front of the fan.\nI put the fan on.\nI let the fan run.\n\nIn winter I turn the heating on.\nI put the heater on.\nI turn the heating down before bed.\n\nThe radiator is warm now.\nIt's nice and warm in here.\nIt's freezing outside.",
+   "id": "home-71b93af5302e",
+   "body": "It's really hot in here.\nI turned on the air conditioner.\nI set it to twenty-five degrees.\nI closed the curtains to keep the sun out.\nI stood in front of the fan for a minute.\nIn winter I turn on the heater instead.\nThe radiator is warm now.\nI put on a jumper.\nI opened the window a little.\nIt's freezing outside.\nI turned the heating down before bed.\n\nIt's boiling.\nThe flat is like an oven.\n\nI turned the air conditioning on.\nI put the AC on.\n\nI shut the blinds.\nI pulled the curtains across.\n\nI stood in front of the fan.\nI put the fan on.\nI let the fan run.\n\nIn winter I turn the heating on.\nI put the heater on.\nI turn the heating down before bed.\n\nIt's nice and warm in here.",
    "title": "Temperature | 空调与天气",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:30:00"
+   "createdAt": "2026-10-22T20:24:00"
   },
   {
-   "id": "seed-57014691cd3f",
-   "body": "I sit down at my desk.\nI take my seat.\nI settle in to work.\n\nI open my laptop.\nI wake the screen up.\nI plug in the charger.\n\nI put my phone face down.\nI put my phone away.\nI turn the notifications off.\n\nI make a short list.\nI write down what needs doing.\nI start with the hardest thing.\n\nI work for about an hour.\nI do a solid block of work.\nThen I take a break.\n\nI stretch and walk around.\nI make a cup of tea.\nI get back to work.\n\nI close the tabs I don't need.\nI tidy up the desktop.\nThat's enough for today.",
+   "id": "home-57014691cd3f",
+   "body": "I sit down at my desk.\nI open my laptop.\nI plug in the charger.\nI put my phone face down.\nI make a short list of things to do.\nI start with the hardest thing.\nI work for about an hour, then I take a break.\nI stretch and walk around the room.\nI make a cup of tea.\nI get back to work.\nI close all the tabs I don't need.\nThat's enough for today.\n\nI take my seat.\nI settle in to work.\n\nI wake the screen up.\n\nI put my phone away.\nI turn the notifications off.\n\nI make a short list.\nI write down what needs doing.\n\nI work for about an hour.\nI do a solid block of work.\nThen I take a break.\n\nI stretch and walk around.\n\nI close the tabs I don't need.\nI tidy up the desktop.",
    "title": "The Desk | 书桌与专注",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:33:00"
+   "createdAt": "2026-10-22T20:27:00"
   },
   {
-   "id": "seed-5fd8e08915c3",
-   "body": "The wifi is slow again.\nThe wifi keeps dropping.\nNothing will load.\n\nI restarted the router.\nI unplugged it and plugged it back in.\nI waited for the light to come back on.\n\nIt's working again.\nIt's back on.\nThat did it.\n\nMy phone is about to die.\nThe battery is nearly flat.\nIt's at two percent.\n\nI plugged it in.\nI put it on charge.\nI left it charging on the table.\n\nMy headphones are connected.\nI turned the brightness down.\nI need to update the app.",
+   "id": "home-5fd8e08915c3",
+   "body": "The wifi is slow again.\nI restarted the router.\nI waited for the light to come back on.\nIt's working now.\nMy phone is almost dead.\nI plugged it in to charge.\nThe battery is at two percent.\nI turned the brightness down.\nMy headphones are connected.\nI left my laptop on the sofa.\nI need to update the app.\nLet me check if it's done.\n\nThe wifi keeps dropping.\nNothing will load.\n\nI unplugged it and plugged it back in.\n\nIt's working again.\nIt's back on.\nThat did it.\n\nMy phone is about to die.\nThe battery is nearly flat.\nIt's at two percent.\n\nI plugged it in.\nI put it on charge.\nI left it charging on the table.",
    "title": "Wifi and Devices | 网络与设备",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:36:00"
+   "createdAt": "2026-10-22T20:30:00"
   },
   {
-   "id": "seed-97657d66e02b",
-   "body": "My alarm went off.\nThe alarm woke me up.\nI hit the snooze button.\n\nI stayed in bed for a few more minutes.\nI lay there for a while.\nI didn't get up right away.\n\nI got out of bed.\nI threw the covers off.\nI stretched and yawned.\n\nI opened the curtains.\nI let the light in.\nIt's a sunny morning.\n\nI drank a glass of water.\nI made coffee.\nI put some music on.\n\nI had breakfast standing up.\nI got dressed.\nI checked the weather.\n\nI grabbed my keys.\nI locked the door behind me.\nI headed out.",
+   "id": "home-97657d66e02b",
+   "body": "I woke up early.\nI stayed in bed for a few more minutes.\nI got up and opened the curtains.\nIt's a sunny morning.\nI drank a glass of water first.\nI made coffee.\nI put on some music.\nI had breakfast standing up.\nI got dressed.\nI checked the weather before I left.\nI took the keys from the hook.\nI locked the door behind me.\n\nMy alarm went off.\nThe alarm woke me up.\nI hit the snooze button.\n\nI lay there for a while.\nI didn't get up right away.\n\nI got out of bed.\nI threw the covers off.\nI stretched and yawned.\n\nI opened the curtains.\nI let the light in.\n\nI drank a glass of water.\nI put some music on.\n\nI checked the weather.\n\nI grabbed my keys.\nI headed out.",
    "title": "Morning | 早晨",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:39:00"
+   "createdAt": "2026-10-22T20:33:00"
   },
   {
-   "id": "seed-ef65e56380c1",
-   "body": "It's late.\nI'm tired.\nIt's been a long day.\n\nI turned the big light off.\nI switched the main light off.\nI left the small lamp on.\n\nI drew the curtains.\nI closed the curtains.\nI checked the door was locked.\n\nI put my phone on the nightstand.\nI set my alarm.\nI plugged my phone in.\n\nI got into bed.\nI climbed into bed.\nI pulled the covers up.\n\nI read a few pages.\nMy eyes are getting heavy.\nI turned the lamp off.\n\nIt's quiet in here.\nI can hear the fridge humming.\nI drifted off.",
+   "id": "home-ef65e56380c1",
+   "body": "It's late.\nI'm tired.\nI turned off every light except the small one.\nI put my phone on the nightstand.\nI set my alarm.\nI pulled the covers up.\nI read a few pages.\nMy eyes are getting heavy.\nI turned off the lamp.\nThe room is quiet.\nI can hear the fridge humming.\nGood night.\n\nIt's been a long day.\n\nI turned the big light off.\nI switched the main light off.\nI left the small lamp on.\n\nI drew the curtains.\nI closed the curtains.\nI checked the door was locked.\n\nI plugged my phone in.\n\nI got into bed.\nI climbed into bed.\n\nI turned the lamp off.\n\nIt's quiet in here.\nI drifted off.",
    "title": "Evening | 晚上与入睡",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:42:00"
+   "createdAt": "2026-10-22T20:36:00"
   },
   {
-   "id": "seed-f4d9696e03d0",
-   "body": "The doorbell rang.\nSomeone's at the door.\nThere was a knock.\n\nI looked through the peephole.\nI checked who it was.\nI buzzed them in.\n\nI opened the door.\nIt's the delivery.\nThe parcel is for me.\n\nI signed for it.\nI said thank you.\nI took the parcel in.\n\nI cut the tape.\nI opened the box.\nI checked it was what I ordered.\n\nI flattened the box.\nI put it out for recycling.\nI kept the receipt.\n\nA friend came over.\nI made tea for both of us.\nI walked her to the door.",
+   "id": "home-f4d9696e03d0",
+   "body": "Someone is at the door.\nThe doorbell rang.\nI looked through the peephole.\nIt's the delivery man.\nI opened the door.\nThe parcel is for me.\nI signed for it and said thank you.\nI put the box on the floor.\nI cut the tape with a knife.\nI flattened the cardboard and put it outside.\nA friend came over.\nI made tea for both of us.\nI walked her to the door.\n\nSomeone's at the door.\nThere was a knock.\n\nI checked who it was.\nI buzzed them in.\n\nIt's the delivery.\n\nI signed for it.\nI said thank you.\nI took the parcel in.\n\nI cut the tape.\nI opened the box.\nI checked it was what I ordered.\n\nI flattened the box.\nI put it out for recycling.\nI kept the receipt.",
    "title": "Deliveries | 快递与访客",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:45:00"
+   "createdAt": "2026-10-22T20:39:00"
   },
   {
-   "id": "seed-f577abedf929",
-   "body": "The light bulb went out.\nThe bulb has blown.\nI need to change it.\n\nI got a new bulb from the cupboard.\nI stood on a chair.\nI screwed it in.\n\nThe tap is dripping.\nIt keeps dripping.\nI can't turn it off properly.\n\nThe sink is blocked.\nThe drain is clogged.\nThe water won't go down.\n\nThe door is squeaking.\nThe hinge is squeaking.\nI put a drop of oil on it.\n\nI called the plumber.\nHe can come tomorrow.\nI left him my number.\n\nI fixed it myself.\nThat saved a call-out fee.\nGood as new.",
+   "id": "home-f577abedf929",
+   "body": "The light bulb went out.\nI got a new bulb from the cupboard.\nI stood on a chair to reach it.\nI screwed it in.\nThe light came back on.\nThe tap is dripping.\nThe sink is blocked.\nI called the plumber.\nHe says he can come tomorrow.\nThe door is squeaking.\nI put a few drops of oil on the hinge.\nI fixed it myself.\n\nThe bulb has blown.\nI need to change it.\n\nI stood on a chair.\n\nIt keeps dripping.\nI can't turn it off properly.\n\nThe drain is clogged.\nThe water won't go down.\n\nThe hinge is squeaking.\nI put a drop of oil on it.\n\nHe can come tomorrow.\nI left him my number.\n\nThat saved a call-out fee.\nGood as new.",
    "title": "Something Broke | 东西坏了",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:48:00"
+   "createdAt": "2026-10-22T20:42:00"
   },
   {
-   "id": "seed-eb079d8ba289",
-   "body": "The neighbours are noisy again.\nNext door is having a party.\nThe music is too loud.\n\nI can hear everything through the wall.\nIt goes on until midnight.\nThe flat is noisy at night.\n\nI put my headphones on.\nI turned the volume up.\nI shut the window.\n\nI asked them to turn it down.\nI knocked on the wall.\nThey turned it down.\n\nIt finally went quiet.\nI could hear the traffic outside.\nI fell asleep in the end.",
-   "title": "Noisy Neighbours | 噪音",
-   "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:51:00"
-  },
-  {
-   "id": "seed-62878cb94d62",
-   "body": "I opened the balcony door.\nI slid the door open.\nI stepped out for some air.\n\nI watered the plants.\nI gave the plants a drink.\nI checked the soil was dry.\n\nI hung the washing out.\nI brought it in before the rain.\nI folded the rack away.\n\nI swept the balcony.\nI wiped the railing.\nI put the chair back.\n\nIt's a nice evening.\nI stood there for a minute.\nI went back inside.",
-   "title": "The Balcony | 阳台",
-   "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:54:00"
-  },
-  {
-   "id": "seed-fbe92551b0f7",
-   "body": "Where did I put my keys?\nI've lost my keys again.\nI can't find my phone anywhere.\n\nI checked my pockets.\nI looked under the cushion.\nI looked behind the sofa.\n\nI searched the whole flat.\nI turned the place upside down.\nI checked the same place twice.\n\nIt was in my hand all along.\nIt's right in front of me.\nI found it under the bed.\n\nI put it somewhere safe.\nNow I can't remember where.\nIt'll turn up.",
-   "title": "Looking for Something | 找东西",
-   "groupId": "grp-home",
-   "createdAt": "2026-10-22T09:57:00"
-  },
-  {
-   "id": "seed-161332a3fc37",
-   "body": "I'm alone at home.\nThe flat is very quiet.\nNobody else is here.\n\nI talk to myself in English.\nI say everything out loud.\nI narrate what I'm doing.\n\nI'm walking to the kitchen.\nI'm opening the cupboard.\nI'm looking for a glass.\n\nI found it.\nIt's right in front of me.\nI pour the water.\n\nI'm walking back to the sofa.\nI'm sitting down.\nI put my feet up.\n\nThis is my whole day, in English.\nEvery little thing, said out loud.\nThat's the practice.",
+   "id": "home-161332a3fc37",
+   "body": "I'm alone at home.\nThe flat is very quiet.\nI talk to myself in English.\nEverything I do, I say it out loud.\nI'm walking to the kitchen now.\nI'm opening the cupboard.\nI'm looking for a glass.\nI found it — it's right in front of me.\nI pour the water.\nI'm walking back to the sofa.\nI'm sitting down.\nThis is my whole day, in English.\n\nNobody else is here.\n\nI say everything out loud.\nI narrate what I'm doing.\n\nI'm walking to the kitchen.\n\nI found it.\nIt's right in front of me.\n\nI put my feet up.\n\nEvery little thing, said out loud.\nThat's the practice.",
    "title": "Home Alone | 一个人在家",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T10:00:00"
+   "createdAt": "2026-10-22T20:45:00"
   },
   {
-   "id": "seed-6f48e845118b",
+   "id": "home-84caea9570b0",
+   "body": "My alarm went off.\nMy alarm clock rang.\nThe alarm woke me up.\n\nI hit the snooze button.\nI silenced the alarm.\nI turned the alarm off.\n\nI stayed in bed for a few more minutes.\nI lay there for a while.\nI didn't get up right away.\n\nI threw the covers off.\nI pushed the duvet back.\nI got out of bed.\n\nI stretched my arms.\nI stretched and yawned.\nI sat on the edge of the bed.",
+   "title": "Waking Up | 起床",
+   "groupId": "grp-home",
+   "createdAt": "2026-10-22T20:48:00"
+  },
+  {
+   "id": "home-db3565f45913",
+   "body": "I went into the bathroom.\nI walked into the bathroom.\nI stepped into the bathroom.\n\nI turned on the tap.\nI ran the hot water.\nI let the water run.\n\nI washed my face with cold water.\nI splashed cold water on my face.\nI rinsed my face.\n\nI brushed my teeth.\nI cleaned my teeth.\nI gave my teeth a brush.\n\nI squeezed toothpaste onto my brush.\nI put some toothpaste on my toothbrush.\nI wet my toothbrush first.\n\nI dried my hands on the towel.\nI wiped my hands on the towel.\nI reached for the towel.",
+   "title": "Getting Washed | 洗漱",
+   "groupId": "grp-home",
+   "createdAt": "2026-10-22T20:51:00"
+  },
+  {
+   "id": "home-6f48e845118b",
    "body": "I opened the wardrobe.\nI looked through the wardrobe.\nI picked something to wear.\n\nI took out a shirt.\nI pulled on a jumper.\nI threw on a hoodie.\n\nI put on my trousers.\nI did up my buttons.\nI zipped up my jacket.\n\nI pulled my socks on.\nI put on my socks.\nI slipped my feet into my shoes.\n\nI tied my laces.\nI did my laces up.\nI checked myself in the mirror.",
    "title": "Getting Dressed | 穿衣",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T10:03:00"
+   "createdAt": "2026-10-22T20:54:00"
   },
   {
-   "id": "seed-98f920da6c8d",
+   "id": "home-98f920da6c8d",
    "body": "I put the kettle on.\nI boiled the kettle.\nI heated water for coffee.\n\nI made coffee.\nI brewed a pot of tea.\nI poured myself a cup.\n\nI got a bowl out of the cupboard.\nI took a bowl from the cupboard.\nI reached for a bowl.\n\nI made some toast.\nI put bread in the toaster.\nI buttered the toast.\n\nI had breakfast standing up.\nI ate breakfast in a hurry.\nI wolfed down my breakfast.",
    "title": "Breakfast | 早餐",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T10:06:00"
+   "createdAt": "2026-10-22T20:57:00"
   },
   {
-   "id": "seed-ad2cf7e077ad",
+   "id": "home-ad2cf7e077ad",
    "body": "I grabbed my keys.\nI took my keys off the hook.\nI checked I had my keys.\n\nI checked the lights.\nI made sure the lights were off.\nI switched everything off.\n\nI turned off the fans.\nI unplugged the iron.\nI pulled the plug out.\n\nI locked the door.\nI turned the key in the lock.\nI made sure the door was locked.\n\nI set the alarm.\nI armed the alarm.\nI headed out the door.",
    "title": "Leaving the Flat | 出门前",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T10:09:00"
+   "createdAt": "2026-10-22T21:00:00"
   },
   {
-   "id": "seed-d2222ed89ddc",
+   "id": "home-d4957ec175c2",
+   "body": "I unlocked the door.\nI opened the door with my key.\nI let myself in.\n\nI stepped inside.\nI came in and shut the door.\nI closed the door behind me.\n\nI kicked my shoes off at the door.\nI slid my shoes off.\nI left my shoes by the door.\n\nI hung my coat up.\nI put my coat on the hook.\nI swapped my shoes for slippers.\n\nI had a look round.\nI checked the flat was as I left it.\nI put my bag down and breathed out.",
+   "title": "Coming Back | 回家",
+   "groupId": "grp-home",
+   "createdAt": "2026-10-22T21:03:00"
+  },
+  {
+   "id": "home-e049b5b6e8d3",
+   "body": "I flopped onto the sofa.\nI sank into the sofa.\nI sat down on the sofa.\n\nI put my feet up.\nI stretched out on the sofa.\nI lay down for a minute.\n\nI grabbed the remote.\nI reached for the remote.\nI picked up the remote.\n\nI flicked through the channels.\nI channel-hopped for ten minutes.\nI couldn't find anything to watch.\n\nI turned the TV off.\nI switched the TV off.\nI left the room quiet.",
+   "title": "The Sofa | 沙发上放松",
+   "groupId": "grp-home",
+   "createdAt": "2026-10-22T21:06:00"
+  },
+  {
+   "id": "home-aa4973a3a462",
+   "body": "I turned the light on.\nI switched the light on.\nI flicked the switch.\n\nI turned the lamp on.\nI hit the light switch.\nI put the hall light on.\n\nI turned the lights off.\nI switched everything off.\nI left one light on for the hall.\n\nThe bulb went out.\nThe bulb has blown.\nI need to change the bulb.\n\nI screwed a new bulb in.\nI fitted a new bulb.\nThe light came back on.",
+   "title": "Lights | 开关灯",
+   "groupId": "grp-home",
+   "createdAt": "2026-10-22T21:09:00"
+  },
+  {
+   "id": "home-899aee512ddf",
+   "body": "I put the pan on the hob.\nI set the pan on the stove.\nI heated the pan up.\n\nI poured some oil in.\nI added a splash of oil.\nI let the oil heat.\n\nI chopped an onion.\nI diced the onion.\nI sliced the onion thinly.\n\nI stirred the sauce.\nI gave it a stir.\nI turned the heat down.\n\nI left it to simmer.\nI let it cook for ten minutes.\nI checked whether it was done.",
+   "title": "Cooking | 下厨",
+   "groupId": "grp-home",
+   "createdAt": "2026-10-22T21:12:00"
+  },
+  {
+   "id": "home-bb5e15278ac3",
+   "body": "I cleared the table.\nI took the plates to the sink.\nI stacked the dishes.\n\nI ran the hot water.\nI filled the sink.\nI added some washing-up liquid.\n\nI washed the dishes.\nI did the washing-up.\nI scrubbed the pans.\n\nI rinsed the plates.\nI left them to dry.\nI dried them with a towel.\n\nI put everything away.\nI wiped the counter down.\nI wrung the cloth out.",
+   "title": "Washing Up | 洗碗",
+   "groupId": "grp-home",
+   "createdAt": "2026-10-22T21:15:00"
+  },
+  {
+   "id": "home-1a37cbb19cab",
+   "body": "I got the vacuum out.\nI plugged the vacuum in.\nI vacuumed the floor.\n\nI hoovered the carpet.\nI ran the vacuum round.\nI did the whole flat.\n\nI swept the kitchen floor.\nI mopped the floor.\nI gave the floor a mop.\n\nI wiped the surfaces.\nI dusted the shelves.\nI gave the shelf a wipe.\n\nI cleaned the windows.\nI took the rubbish out.\nI did a quick tidy-up.",
+   "title": "A Clean Round | 打扫",
+   "groupId": "grp-home",
+   "createdAt": "2026-10-22T21:18:00"
+  },
+  {
+   "id": "home-4752b8c2de05",
+   "body": "I put a load on.\nI started a wash.\nI threw the clothes in the machine.\n\nI put the washing in.\nI set the machine to thirty degrees.\nI added some detergent.\n\nI hung the washing out.\nI pegged the clothes on the line.\nI put them on the drying rack.\n\nI brought the washing in.\nI took the clothes off the line.\nI gave them a shake.\n\nI folded the clothes.\nI put them away in the drawer.\nI paired the socks up.",
+   "title": "Laundry | 洗衣晾衣",
+   "groupId": "grp-home",
+   "createdAt": "2026-10-22T21:21:00"
+  },
+  {
+   "id": "home-69db64d1a83f",
+   "body": "I made the bed.\nI pulled the sheets tight.\nI straightened the duvet.\n\nI fluffed the pillows.\nI plumped the pillows up.\nI put the pillows back.\n\nI folded the blanket.\nI put the blanket at the end of the bed.\nI smoothed it flat.\n\nI tidied the bedside table.\nI cleared the clutter.\nI threw the rubbish away.\n\nI put my clothes in the drawer.\nI hung my shirt up.\nI opened the window to air the room.",
+   "title": "Tidying the Bedroom | 卧室整理",
+   "groupId": "grp-home",
+   "createdAt": "2026-10-22T21:24:00"
+  },
+  {
+   "id": "home-fbe92551b0f7",
+   "body": "Where did I put my keys?\nI've lost my keys again.\nI can't find my phone anywhere.\n\nI checked my pockets.\nI looked under the cushion.\nI looked behind the sofa.\n\nI searched the whole flat.\nI turned the place upside down.\nI checked the same place twice.\n\nIt was in my hand all along.\nIt's right in front of me.\nI found it under the bed.\n\nIt was on the kitchen table.\nIt had slipped down the side of the sofa.\nI put it somewhere safe, apparently.",
+   "title": "Looking for Something | 找东西",
+   "groupId": "grp-home",
+   "createdAt": "2026-10-22T21:27:00"
+  },
+  {
+   "id": "home-9ba9509c74ef",
+   "body": "My phone is about to die.\nMy battery is nearly flat.\nI need to charge my phone.\n\nI plugged it into the charger.\nI put it on charge.\nI left it charging on the table.\n\nThe wifi keeps dropping.\nThe wifi is playing up.\nNothing will load.\n\nI restarted the router.\nI unplugged the router and plugged it back in.\nI waited for the light to come back on.\n\nIt's working again.\nThe connection is slow.\nI'll try again in a minute.",
+   "title": "Charging and Wifi | 电与网",
+   "groupId": "grp-home",
+   "createdAt": "2026-10-22T21:30:00"
+  },
+  {
+   "id": "home-d44dabf8df5c",
+   "body": "I turned the big light off.\nI switched the main light off.\nI left the small lamp on.\n\nI drew the curtains.\nI closed the curtains.\nI checked the door was locked.\n\nI put my phone on the nightstand.\nI set my alarm for the morning.\nI plugged my phone in.\n\nI got into bed.\nI climbed into bed.\nI pulled the covers up.\n\nI turned over.\nI couldn't get to sleep.\nI drifted off eventually.",
+   "title": "Wind-down | 睡前",
+   "groupId": "grp-home",
+   "createdAt": "2026-10-22T21:33:00"
+  },
+  {
+   "id": "home-0adecfd832c7",
+   "body": "The doorbell rang.\nSomeone's at the door.\nI buzzed them in.\n\nI opened the door.\nIt's the delivery.\nI signed for the parcel.\n\nI took the parcel in.\nI cut the tape.\nI opened the box.\n\nI took everything out.\nI checked it was what I ordered.\nI flattened the box.\n\nI put the cardboard outside.\nI kept the receipt.\nI tied up the bin bag.",
+   "title": "Deliveries | 快递",
+   "groupId": "grp-home",
+   "createdAt": "2026-10-22T21:36:00"
+  },
+  {
+   "id": "home-eb079d8ba289",
+   "body": "The neighbours are noisy again.\nNext door is having a party.\nThe music is too loud.\n\nI can hear everything through the wall.\nThe flat is noisy at night.\nIt goes on until midnight.\n\nI put my headphones on.\nI turned the volume up.\nI closed the window.\n\nI asked them to turn it down.\nI knocked on the wall.\nIt finally went quiet.\n\nI could hear the traffic outside.\nI got used to it after a while.\nI fell asleep in the end.",
+   "title": "Noisy Neighbours | 噪音",
+   "groupId": "grp-home",
+   "createdAt": "2026-10-22T21:39:00"
+  },
+  {
+   "id": "home-62878cb94d62",
+   "body": "I opened the balcony door.\nI slid the door open.\nI stepped outside for some air.\n\nI watered the plants.\nI gave the plants a drink.\nI checked the soil was dry.\n\nI hung the washing out.\nI brought it in before the rain.\nI folded the drying rack away.\n\nI swept the balcony.\nI wiped the railing.\nI put the chair back.\n\nIt's a nice evening.\nI stood there for a minute.\nI went back inside.",
+   "title": "The Balcony | 阳台",
+   "groupId": "grp-home",
+   "createdAt": "2026-10-22T21:42:00"
+  },
+  {
+   "id": "home-d2222ed89ddc",
    "body": "put the kettle on.\nbrew a pot of tea.\nmake a cup of coffee.\n\ndo the washing-up.\nload the dishwasher.\nput a load on.\n\nmake the bed.\nchange the sheets.\nair the room.\n\ntake the rubbish out.\nsort the recycling.\ntie up the bin bag.\n\nwipe the surfaces.\ngive the floor a mop.\ndust the shelves.\n\nturn the heating up.\nput the air conditioning on.\nopen a window.\n\nplug the charger in.\ntop up my phone.\nleave it on charge.\n\nlock up before bed.\nswitch the lights off.\nset the alarm.",
    "title": "Home Collocations | 家里常用搭配",
    "groupId": "grp-home",
-   "createdAt": "2026-10-22T10:12:00"
+   "createdAt": "2026-10-22T21:45:00"
   }
  ]
 }
