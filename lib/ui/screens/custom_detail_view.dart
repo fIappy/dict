@@ -169,15 +169,25 @@ class _CustomDetailViewState extends State<CustomDetailView> {
         Expanded(
           child: DropdownButtonFormField<String?>(
             initialValue: _groupId,
+            // A long group name must not widen the field or overlap the plus
+            // button next to it.
+            isExpanded: true,
             decoration: const InputDecoration(
               labelText: '分组',
               border: OutlineInputBorder(),
               isDense: true,
             ),
             items: [
-              const DropdownMenuItem<String?>(value: null, child: Text('未分组')),
+              const DropdownMenuItem<String?>(
+                value: null,
+                child: Text('未分组', maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
               for (final group in provider.groups)
-                DropdownMenuItem<String?>(value: group.id, child: Text(group.name)),
+                DropdownMenuItem<String?>(
+                  value: group.id,
+                  child: Text(group.name,
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
             ],
             onChanged: (value) => setState(() => _groupId = value),
           ),
