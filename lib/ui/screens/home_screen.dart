@@ -260,7 +260,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         ? const NumbersDetailView(isPaneView: true)
                         : (_selectedIndex == 8
                             ? CustomDetailView(
-                                key: ValueKey(customProvider.selectedId),
+                                // Re-seeded per group as well: a new entry
+                                // lands in the group that is open.
+                                key: ValueKey('${customProvider.selectedId}|'
+                                    '${customProvider.selectedGroupId}'),
                                 itemId: customProvider.selectedId,
                                 isPaneView: true,
                               )

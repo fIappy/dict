@@ -94,26 +94,29 @@ void main() {
       expect(second.groups.single.name, '商务');
     });
 
-    test('the tab and the group filter pick the list', () async {
+    test('the group is the top level, the kind the filter inside it', () async {
       final provider = CustomTextProvider();
       await provider.initialize();
       final work = await provider.addGroup('工作');
       await provider.add(kind: CustomTextKind.phrase, body: 'a');
       await provider.add(
           kind: CustomTextKind.phrase, body: 'b', groupId: work!.id);
-      await provider.add(kind: CustomTextKind.passage, body: 'c. d.');
+      await provider.add(
+          kind: CustomTextKind.passage, body: 'c. d.', groupId: work.id);
 
-      expect(provider.visibleTexts.map((e) => e.body), ['a', 'b']);
+      // 未分组 is the default bucket and holds only the ungrouped entries.
+      expect(provider.selectedGroupId, CustomTextProvider.ungroupedId);
+      expect(provider.visibleTexts.map((e) => e.body), ['a']);
+      expect(provider.countIn(work.id), 2);
 
-      provider.selectKind(CustomTextKind.passage);
+      provider.selectGroup(work.id);
+      expect(provider.visibleTexts.map((e) => e.body), ['b', 'c. d.']);
+
+      provider.setKindFilter(CustomTextKind.passage);
       expect(provider.visibleTexts.map((e) => e.body), ['c. d.']);
 
-      provider.selectKind(CustomTextKind.phrase);
-      provider.setGroupFilter(work.id);
-      expect(provider.visibleTexts.map((e) => e.body), ['b']);
-
-      provider.setGroupFilter(CustomTextProvider.ungroupedFilter);
-      expect(provider.visibleTexts.map((e) => e.body), ['a']);
+      provider.setKindFilter(null);
+      expect(provider.visibleTexts.map((e) => e.body), ['b', 'c. d.']);
     });
 
     test('deleting a group keeps its entries, ungrouped', () async {
@@ -127,22 +130,26 @@ void main() {
 
       expect(provider.groups, isEmpty);
       expect(provider.allTexts.single.groupId, isNull);
-      expect(provider.groupFilter, isNull);
+      expect(provider.selectedGroupId, CustomTextProvider.ungroupedId);
     });
 
-    test('the playback queue walks the visible list, passages by sentence', () async {
+    test('the playback queue walks the open group, passages by sentence', () async {
       final provider = CustomTextProvider();
       await provider.initialize();
+      final work = await provider.addGroup('工作');
       await provider.add(kind: CustomTextKind.phrase, body: 'in charge of');
-      await provider.add(kind: CustomTextKind.passage, body: 'One. Two.');
-      await provider.add(kind: CustomTextKind.passage, body: 'Three.');
+      await provider.add(
+          kind: CustomTextKind.passage, body: 'One. Two.', groupId: work!.id);
+      await provider.add(
+          kind: CustomTextKind.passage, body: 'Three.', groupId: work.id);
 
-      provider.selectKind(CustomTextKind.passage);
+      provider.selectGroup(work.id);
       final queue = provider.playbackQueue;
       expect(queue.map((e) => e.text), ['One.', 'Two.', 'Three.']);
       expect(queue.every((e) => !e.isPhrase), isTrue);
 
-      provider.selectKind(CustomTextKind.phrase);
+      provider.selectGroup(CustomTextProvider.ungroupedId);
+      expect(provider.playbackQueue.single.text, 'in charge of');
       expect(provider.playbackQueue.single.isPhrase, isTrue);
     });
 

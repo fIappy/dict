@@ -15,31 +15,46 @@ class CustomTextProvider extends ChangeNotifier {
   static const String _textsKey = 'custom_texts';
   static const String _groupsKey = 'custom_groups';
 
-  /// The group filter meaning "entries with no group".
-  static const String ungroupedFilter = '__ungrouped__';
+  /// The id of the 未分组 bucket, which is a real top-level group like any
+  /// other: the list is classified by group first.
+  static const String ungroupedId = '__ungrouped__';
 
   final List<CustomText> _texts = [];
   final List<CustomTextGroup> _groups = [];
-  CustomTextKind _kind = CustomTextKind.phrase;
-  String? _groupFilter;
+  String _selectedGroupId = ungroupedId;
+  CustomTextKind? _kindFilter;
   String? _selectedId;
   bool _initialized = false;
 
   List<CustomText> get allTexts => List.unmodifiable(_texts);
   List<CustomTextGroup> get groups => List.unmodifiable(_groups);
-  CustomTextKind get kind => _kind;
 
-  /// Null = 全部, [ungroupedFilter] = 未分组, anything else = that group's id.
-  String? get groupFilter => _groupFilter;
+  /// The group whose contents are on screen; [ungroupedId] for 未分组.
+  String get selectedGroupId => _selectedGroupId;
+
+  /// The secondary filter inside the group: 短语, 短文, or null for both.
+  CustomTextKind? get kindFilter => _kindFilter;
   String? get selectedId => _selectedId;
 
-  /// The list the current tab and filter show, oldest first.
+  /// Which top-level bucket an entry belongs to.
+  static String groupIdOf(CustomText item) => item.groupId ?? ungroupedId;
+
+  /// How many entries [groupId] holds (both kinds).
+  int countIn(String groupId) =>
+      _texts.where((item) => groupIdOf(item) == groupId).length;
+
+  String get selectedGroupName {
+    for (final group in _groups) {
+      if (group.id == _selectedGroupId) return group.name;
+    }
+    return '未分组';
+  }
+
+  /// The entries of the selected group that the kind filter keeps, oldest first.
   List<CustomText> get visibleTexts {
     final filtered = _texts.where((item) {
-      if (item.kind != _kind) return false;
-      if (_groupFilter == null) return true;
-      if (_groupFilter == ungroupedFilter) return item.groupId == null;
-      return item.groupId == _groupFilter;
+      if (groupIdOf(item) != _selectedGroupId) return false;
+      return _kindFilter == null || item.kind == _kindFilter;
     }).toList()
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     return filtered;
@@ -76,15 +91,16 @@ class CustomTextProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void selectKind(CustomTextKind kind) {
-    if (_kind == kind) return;
-    _kind = kind;
+  void selectGroup(String groupId) {
+    if (_selectedGroupId == groupId) return;
+    _selectedGroupId = groupId;
     _selectedId = null;
     notifyListeners();
   }
 
-  void setGroupFilter(String? filter) {
-    _groupFilter = filter;
+  void setKindFilter(CustomTextKind? kind) {
+    if (_kindFilter == kind) return;
+    _kindFilter = kind;
     _selectedId = null;
     notifyListeners();
   }
@@ -163,7 +179,7 @@ class CustomTextProvider extends ChangeNotifier {
         changed = true;
       }
     }
-    if (_groupFilter == id) _groupFilter = null;
+    if (_selectedGroupId == id) _selectedGroupId = ungroupedId;
     notifyListeners();
     await _persistGroups();
     if (changed) await _persistTexts();

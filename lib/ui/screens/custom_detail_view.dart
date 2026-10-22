@@ -33,8 +33,14 @@ class _CustomDetailViewState extends State<CustomDetailView> {
     final item = _storedItem;
     _title = TextEditingController(text: item?.title ?? '');
     _body = TextEditingController(text: item?.body ?? '');
-    _kind = item?.kind ?? context.read<CustomTextProvider>().kind;
-    _groupId = item?.groupId;
+    final provider = context.read<CustomTextProvider>();
+    _kind = item?.kind ?? provider.kindFilter ?? CustomTextKind.phrase;
+    // A new entry lands in the group that is open, so writing several lines for
+    // one group does not need the dropdown every time.
+    _groupId = item?.groupId ??
+        (provider.selectedGroupId == CustomTextProvider.ungroupedId
+            ? null
+            : provider.selectedGroupId);
   }
 
   @override
