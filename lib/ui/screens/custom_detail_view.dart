@@ -24,6 +24,10 @@ class CustomDetailView extends StatefulWidget {
 class _CustomDetailViewState extends State<CustomDetailView> {
   late TextEditingController _title;
   late TextEditingController _body;
+
+  /// Owns the body field's internal scrollbar: the passage scrolls, the
+  /// controls below it do not move.
+  final ScrollController _bodyScroll = ScrollController();
   String? _groupId;
 
   @override
@@ -45,6 +49,7 @@ class _CustomDetailViewState extends State<CustomDetailView> {
   void dispose() {
     _title.dispose();
     _body.dispose();
+    _bodyScroll.dispose();
     super.dispose();
   }
 
@@ -65,8 +70,8 @@ class _CustomDetailViewState extends State<CustomDetailView> {
     final item = _storedItem;
     final isNew = item == null;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -94,16 +99,25 @@ class _CustomDetailViewState extends State<CustomDetailView> {
             ),
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _body,
-            minLines: 8,
-            maxLines: null,
-            keyboardType: TextInputType.multiline,
-            decoration: const InputDecoration(
-              labelText: '短文内容',
-              hintText: '一段文字；句号/问号/叹号或换行处会分成句子，逐句朗读',
-              alignLabelWithHint: true,
-              border: OutlineInputBorder(),
+          Expanded(
+            child: Scrollbar(
+              controller: _bodyScroll,
+              thumbVisibility: true,
+              child: TextField(
+                controller: _body,
+                scrollController: _bodyScroll,
+                expands: true,
+                minLines: null,
+                maxLines: null,
+                textAlignVertical: TextAlignVertical.top,
+                keyboardType: TextInputType.multiline,
+                decoration: const InputDecoration(
+                  labelText: '短文内容',
+                  hintText: '一段文字；句号/问号/叹号或换行处会分成句子，逐句朗读',
+                  alignLabelWithHint: true,
+                  border: OutlineInputBorder(),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 12),
