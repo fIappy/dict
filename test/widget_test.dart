@@ -16,6 +16,8 @@ import 'package:local_dict/providers/dictionary_provider.dart';
 import 'package:local_dict/providers/favorites_provider.dart';
 import 'package:local_dict/providers/history_provider.dart';
 import 'package:local_dict/providers/frequency_provider.dart';
+import 'package:local_dict/providers/custom_text_provider.dart';
+import 'package:local_dict/providers/entry_speech_provider.dart';
 import 'package:local_dict/providers/settings_provider.dart';
 import 'package:local_dict/core/services/dictionary_service_native.dart';
 import 'package:local_dict/providers/ipa_provider.dart';
@@ -172,6 +174,8 @@ void main() {
             ChangeNotifierProvider(create: (_) => AlphabetProvider()),
             ChangeNotifierProvider(create: (_) => NumbersProvider()),
             ChangeNotifierProvider(create: (_) => ThemesProvider()),
+            ChangeNotifierProvider(create: (_) => EntrySpeechProvider()),
+            ChangeNotifierProvider(create: (_) => CustomTextProvider()),
           ],
           child: const MaterialApp(
             home: HomeScreen(),

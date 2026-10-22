@@ -9,6 +9,7 @@ import '../../providers/ipa_provider.dart';
 import '../../providers/alphabet_provider.dart';
 import '../../providers/numbers_provider.dart';
 import '../../providers/themes_provider.dart';
+import '../../providers/custom_text_provider.dart';
 import 'alphabet_detail_view.dart';
 import 'alphabet_screen.dart';
 import 'favorites_screen.dart';
@@ -19,6 +20,8 @@ import 'ipa_screen.dart';
 import 'numbers_detail_view.dart';
 import 'numbers_screen.dart';
 import 'themes_screen.dart';
+import 'custom_detail_view.dart';
+import 'custom_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
 import 'word_detail_screen.dart';
@@ -46,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context.read<NumbersProvider>().initialize();
       context.read<ThemesProvider>().initialize();
       context.read<SettingsProvider>().initialize();
+      context.read<CustomTextProvider>().initialize();
     });
   }
 
@@ -69,6 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final dictProvider = context.watch<DictionaryProvider>();
     final ipaProvider = context.watch<IpaProvider>();
     final alphabetProvider = context.watch<AlphabetProvider>();
+    final customProvider = context.watch<CustomTextProvider>();
     return Scaffold(
       body: Row(
         children: [
@@ -185,6 +190,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 selectedIcon: Icon(Icons.history_rounded),
                 label: Text('历史'),
               ),
+              NavigationRailDestination(
+                icon: Icon(Icons.edit_note_outlined),
+                selectedIcon: Icon(Icons.edit_note_rounded),
+                label: Text('自定义'),
+              ),
             ],
           ),
 
@@ -248,10 +258,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       )
                     : (_selectedIndex == 6
                         ? const NumbersDetailView(isPaneView: true)
-                        : WordDetailScreen(
-                            isPaneView: true,
-                            word: dictProvider.currentWord ?? 'hello',
-                          ))),
+                        : (_selectedIndex == 8
+                            ? CustomDetailView(
+                                key: ValueKey(customProvider.selectedId),
+                                itemId: customProvider.selectedId,
+                                isPaneView: true,
+                              )
+                            : WordDetailScreen(
+                                isPaneView: true,
+                                word: dictProvider.currentWord ?? 'hello',
+                              )))),
           ),
         ],
       ),
@@ -276,6 +292,8 @@ class _HomeScreenState extends State<HomeScreen> {
         return const NumbersScreen(isPaneView: true);
       case 7:
         return const HistoryScreen(isPaneView: true);
+      case 8:
+        return const CustomScreen(isPaneView: true);
       default:
         return const SearchScreen(isPaneView: true);
     }
@@ -294,10 +312,14 @@ class _HomeScreenState extends State<HomeScreen> {
           AlphabetScreen(isPaneView: false),
           NumbersScreen(isPaneView: false),
           HistoryScreen(isPaneView: false),
+          CustomScreen(isPaneView: false),
           SettingsScreen(isPaneView: true),
         ],
       ),
       bottomNavigationBar: NavigationBar(
+        // Ten destinations do not fit with a label under each; show the
+        // selected one only, the same way the desktop rail does.
+        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
           setState(() => _selectedIndex = index);
@@ -339,6 +361,11 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(
             icon: Icon(Icons.history_rounded),
             label: '历史',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.edit_note_outlined),
+            selectedIcon: Icon(Icons.edit_note_rounded),
+            label: '自定义',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),

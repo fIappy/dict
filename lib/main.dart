@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/platform/ai_window_launcher.dart';
+import 'providers/custom_text_provider.dart';
 import 'providers/dictionary_provider.dart';
 import 'providers/ai_practice_provider.dart';
 import 'providers/entry_speech_provider.dart';
@@ -41,6 +42,7 @@ void main(List<String> args) async {
         ChangeNotifierProvider(create: (_) => NumbersProvider()),
         ChangeNotifierProvider(create: (_) => ThemesProvider()),
         ChangeNotifierProvider(create: (_) => EntrySpeechProvider()),
+        ChangeNotifierProvider(create: (_) => CustomTextProvider()),
         ChangeNotifierProvider(create: (_) => AiPracticeProvider()),
       ],
       child: const LocalDictApp(),
