@@ -13,6 +13,7 @@ import '../../providers/ai_practice_provider.dart';
 import '../../providers/entry_speech_provider.dart';
 import '../../providers/settings_provider.dart';
 import 'settings_screen.dart';
+import '../widgets/speakable_selection.dart';
 
 /// AI practice for one theme: example sentences for a word, a passage built
 /// from the theme's own vocabulary, and everything generated so far.
@@ -611,7 +612,7 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
         children: [
           Align(
             alignment: Alignment.centerLeft,
-            child: SelectableText(
+            child: SpeakableText(
               text,
               style: TextStyle(
                   fontSize: 12.5, height: 1.55, color: theme.hintColor),

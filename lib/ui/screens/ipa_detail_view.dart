@@ -6,6 +6,7 @@ import '../../core/ipa/ipa_data.dart';
 import '../../core/ipa/ipa_model.dart';
 import '../../providers/dictionary_provider.dart';
 import 'word_detail_screen.dart';
+import '../widgets/speakable_selection.dart';
 
 class IpaDetailView extends StatelessWidget {
   final IpaPhoneme phoneme;
@@ -22,7 +23,7 @@ class IpaDetailView extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final content = SelectionArea(
+    final content = SpeakableSelectionArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
         child: Column(

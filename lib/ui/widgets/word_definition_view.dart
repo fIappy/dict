@@ -7,6 +7,7 @@ import '../../core/mdx/entry_speech.dart';
 import '../../core/mdx/mdx_entry.dart';
 import '../../providers/entry_speech_provider.dart';
 import '../../providers/settings_provider.dart';
+import 'speakable_selection.dart';
 
 class WordDefinitionView extends StatefulWidget {
   final MdxEntry entry;
@@ -48,7 +49,7 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
     final panels = widget.entry.panels;
 
     if (tabs.isEmpty || panels.isEmpty) {
-      return SelectionArea(
+      return SpeakableSelectionArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: _buildHtmlContent(widget.entry.rawHtml, isDark),
@@ -133,7 +134,7 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
 
         // Active Panel HTML Content
         Expanded(
-          child: SelectionArea(
+          child: SpeakableSelectionArea(
             child: SingleChildScrollView(
               key: ValueKey('${widget.entry.word}_$_selectedTabIndex'),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -267,7 +268,7 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
     if (selected.isNotEmpty) {
       items.add(
         ContextMenuButtonItem(
-          label: '朗读所选',
+          label: '朗读',
           onPressed: () {
             ContextMenuController.removeAny();
             _speakSelected(selected);

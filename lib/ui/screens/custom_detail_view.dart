@@ -6,6 +6,7 @@ import '../../core/mdx/entry_speech.dart';
 import '../../providers/custom_text_provider.dart';
 import '../../providers/entry_speech_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../widgets/speakable_selection.dart';
 
 /// Write or edit one 短文, and play it.
 ///
@@ -92,6 +93,7 @@ class _CustomDetailViewState extends State<CustomDetailView> {
           const SizedBox(height: 14),
           TextField(
             controller: _title,
+            contextMenuBuilder: speakableEditableMenu,
             decoration: const InputDecoration(
               labelText: '标题（可选）',
               hintText: '例如：My morning routine',
@@ -110,6 +112,7 @@ class _CustomDetailViewState extends State<CustomDetailView> {
                 thumbVisibility: true,
                 child: TextField(
                   controller: _body,
+                  contextMenuBuilder: speakableEditableMenu,
                   scrollController: _bodyScroll,
                   expands: true,
                   minLines: null,

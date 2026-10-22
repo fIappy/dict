@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/audio/audio_manager.dart';
+import 'speakable_selection.dart';
 
 class PronunciationBar extends StatefulWidget {
   final String word;
@@ -99,7 +100,7 @@ class _PronunciationBarState extends State<PronunciationBar> {
                     ),
                   );
                 },
-                child: SelectableText(
+                child: SpeakableText(
                   widget.phonetic,
                   style: TextStyle(
                     fontSize: 14.5,

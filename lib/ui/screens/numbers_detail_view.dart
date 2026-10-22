@@ -5,6 +5,7 @@ import '../../core/numbers/number_model.dart';
 import '../../providers/numbers_provider.dart';
 import '../widgets/numbers_sections.dart';
 import 'numbers_screen.dart';
+import '../widgets/speakable_selection.dart';
 
 /// The number module's wide side: the current sentence at the top, then the free
 /// input box and the training drill.
@@ -23,7 +24,7 @@ class NumbersDetailView extends StatelessWidget {
     final selected = provider.selected;
     final reading = provider.currentReading;
 
-    final content = SelectionArea(
+    final content = SpeakableSelectionArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
         child: Column(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/ai/annotation.dart';
+import 'speakable_selection.dart';
 
 /// Generated English with two marks on it: theme vocabulary in red, and the
 /// collocations the model flagged underlined.
@@ -22,7 +23,7 @@ class AnnotatedText extends StatelessWidget {
   Widget build(BuildContext context) {
     final error = Theme.of(context).colorScheme.error;
     final spans = annotateText(text, themeWords: themeWords, phrases: phrases);
-    return SelectableText.rich(
+    return SpeakableText.rich(
       TextSpan(
         children: [
           for (final span in spans)

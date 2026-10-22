@@ -5,6 +5,7 @@ import '../../core/audio/audio_manager.dart';
 import '../../core/alphabet/alphabet_model.dart';
 import '../../providers/dictionary_provider.dart';
 import 'word_detail_screen.dart';
+import '../widgets/speakable_selection.dart';
 
 class AlphabetDetailView extends StatelessWidget {
   final AlphabetLetter letter;
@@ -22,7 +23,7 @@ class AlphabetDetailView extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final audio = AudioManager();
 
-    final content = SelectionArea(
+    final content = SpeakableSelectionArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
         child: Column(

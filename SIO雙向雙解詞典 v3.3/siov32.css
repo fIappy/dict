@@ -1,0 +1,529 @@
+@charset "UTF-8";
+
+/* ==========================================================================
+	SIO雙向雙解詞典 - FORUM.FREEMDICT.COM 原創發佈
+	總共集合了17部權威詞典的海量短語、例句
+	10萬英文單詞+9萬英文詞組+40萬中文反查+80萬簡明釋義+800萬雙解短語、例句
+	原始網址: https://forum.freemdict.com/t/topic/8973
+   ========================================================================== */
+
+/* 字型設定 */
+/* 若顯示異常請直接刪除 font-family 以使用預設字型 */
+* {
+	font-family: Arial, Helvetica, "Noto Sans SC", "Noto Sans TC", "PingFang SC", "PingFang TC", sans-serif;
+	font-size: 14px;
+	line-height: 135%;
+}
+
+/* ==========================================================================
+   Forvo 總容器（左右佈局）
+   ========================================================================== */
+
+.tio_forvo {
+    display: flex;
+    flex-direction: row;     /* 左右橫向排列 */
+    align-items: center;     /* 讓左右兩區塊垂直居中對齊 */
+    gap: 16px;               /* 左右兩欄的間距 */
+    padding: 0 8px;
+    border-radius: 12px;
+    /* font-family: system-ui, -apple-system, sans-serif; */
+}
+
+/* ==========================================================================
+   Forvo 發音區塊左側欄
+   ========================================================================== */
+
+/* 頂部標題列 */
+.forvo-header {
+    display: flex;
+    flex-direction: column;  /* 讓 SVG 跟文字上下排列 */
+    align-items: center;     /* 水平居中 */
+    justify-content: center;
+    gap: 8px;                /* SVG 跟文字的間距 */
+    padding-right: 16px;     /* 與右側分隔線的距離 */
+    border-right: 1px solid #eaeaea; /* 在右側加上分隔線 */
+    flex-shrink: 0;          /* 防止左側欄被擠壓 */
+}
+  
+/* Forvo 圖示 */
+.forvo-icon-svg {
+    display: inline-block;
+    width: 110px;
+    height: 30px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    flex-shrink: 0; /* 防止被 Flex 容器擠壓變形 */
+	background-image: url("data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB3aWR0aD0iMTcxcHgiIGhlaWdodD0iNDdweCIgdmlld0JveD0iMCAwIDE3MSA0NyIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIj4KICAgIDx0aXRsZT5HcnVwbyA1PC90aXRsZT4KICAgIDxnIGlkPSJNZW51LU1vYmlsZSIgc3Ryb2tlPSJub25lIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9Im5vbmUiIGZpbGwtcnVsZT0iZXZlbm9kZCI+CiAgICAgICAgPGcgaWQ9IkdydXBvLTUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAuMTM2NTA0LCAwLjAwMDAwMCkiPgogICAgICAgICAgICA8cGF0aCBkPSJNMTAzLjI5MjMyOCw0NS44MDk2Mjc4IEwxMDMuMjkyMzI4LDIyLjk2MDY5NiBMMTA5LjQ2MDAzMSwyMi45NjA2OTYgQzEwOS40NjAwMzEsMjUuNTUwNzUwMyAxMDkuNDYwMDMxLDI2Ljg0NTc3NzUgMTA5LjQ2MDAzMSwyNi44NDU3Nzc1IEMxMTAuNjQ5NDIxLDIzLjk2NTI3OTggMTEyLjg4NzM3NiwyMi4yNzU2Njg2IDExNS44NTcwODgsMjIuMjc1NjY4NiBDMTE5LjY5MjkyNywyMi4yNzU2Njg2IDEyMi4xNjA3NjEsMjUuMTA4MDg2OCAxMjIuMTYwNzYxLDI5LjM1OTE3NjkgQzEyMi4xNjA3NjEsMzEuMTg1OTA2OSAxMjEuNzA0MjMxLDMzLjA2MDE2NDQgMTIwLjkyODcyNiwzNC42MTQ4NjU0IEMxMjAuOTI4NzI2LDM0LjYxNDg2NTQgMTE0LjQ4NDczNywzNC42MTQ4NjU0IDExNC40ODQ3MzcsMzQuNjE0ODY1NCBDMTE1LjM1MzU4MywzMy4xNTE5NDk4IDExNS44MTA2NjUsMzEuODI1NjAxIDExNS44MTA2NjUsMzAuNTkzMjAyNiBDMTE1LjgxMDY2NSwyOC44MDk2MjY0IDExNC44NTA2LDI3LjY2NzkyMzcgMTEzLjM0MjgxNywyNy42Njc5MjM3IEMxMTEuMTA1OTgsMjcuNjY3OTIzNyAxMDkuNDYwMDMxLDMwLjM2NDMyNzQgMTA5LjQ2MDAzMSwzNC41Njg0Mjc3IEMxMDkuNDYwMDMxLDM0LjU2ODQyNzcgMTA5LjQ2MDAzMSwzOC4zMTU0OTQ0IDEwOS40NjAwMzEsNDUuODA5NjI3OCBMMTAzLjI5MjMyOCw0NS44MDk2Mjc4IFogTTEzMC43MTY1NzEsNDUuODA5NjI3OCBMMTIyLjc2NzQ4NywyMi45NjA2OTYgTDEyOS4zNDQ3NzMsMjIuOTYwNjk2IEwxMzQuNTA4MTY3LDQwLjE0MzE0OTYgTDEzOS43NjA2MDEsMjIuOTYwNjk2IEwxNDYuMjkzNjQzLDIyLjk2MDY5NiBMMTM4LjI5OTIyNSw0NS44MDk2Mjc4IEwxMzAuNzE2NTcxLDQ1LjgwOTYyNzggWiBNNjIuNDA5MzQ0Nyw0NS44MTE3OTI4IEw2Mi40MDkzNDQ3LDI4LjI2MTE2NTcgTDU3Ljg0MTE4MjcsMjguMjYxMTY1NyBMNTcuODQxMTgyNywyMi45NjA2ODE0IEw2Mi40MDkzNDQ3LDIyLjk2MDY4MTQgQzYyLjQwOTM0NDcsMjEuNDk4ODU1NyA2Mi40MDkzNDQ3LDIwLjc2Nzk0MjggNjIuNDA5MzQ0NywyMC43Njc5NDI4IEM2Mi40MDkzNDQ3LDE1Ljk2ODM5MiA2NS4yODczMTQxLDEzLjEzNDMzMTkgNzAuMzEyMDIwNSwxMy4xMzQzMzE5IEM3NS42MTE5NTI2LDEzLjEzNDMzMTkgNzcuNjY5MTI3MiwxNi4yNDI2MTUxIDc2LjYxNzg4NzcsMjAuNzY3OTQyOCBDNzYuNjE3ODg3NywyMC43Njc5NDI4IDcxLjIyNzMwMzUsMjAuNzY3OTQyOCA3MS4yMjczMDM1LDIwLjc2Nzk0MjggQzcxLjcyOTE2NjgsMTkuMTIwOTMzMyA3MS4zMTc0MDM1LDE4LjE2Mjc3MjUgNzAuMjIwODMwOCwxOC4xNjI3NzI1IEM2OS4xMjUzNDc4LDE4LjE2Mjc3MjUgNjguNjIxODQyNiwxOS4xMjA5MzMzIDY4LjYyMTg0MjYsMjAuNzY3OTQyOCBDNjguNjIxODQyNiwyMC43Njc5NDI4IDY4LjYyMTg0MjYsMjEuNDk4ODU1NyA2OC42MjE4NDI2LDIyLjk2MDY4MTQgTDc2LjU3MTQ3OTIsMjIuOTYwNjgxNCBMNzYuNTcxNDc5MiwyOC4yNjExNjU3IEw2OC42MjE4NDI2LDI4LjI2MTE2NTcgTDY4LjYyMTg0MjYsNDUuODExNzkyOCBMNjIuNDA5MzQ0Nyw0NS44MTE3OTI4IFogTTgzLjg5NTI1NDIsMzQuMzg1OTc1NiBDODMuODk1MjU0MiwzOC40NTI0MTk1IDg2LjEzMzcxODUsNDEuMTQ4NzIxNSA4OS40Njg3OTkxLDQxLjE0ODcyMTUgQzkyLjgwMzI5ODUsNDEuMTQ4NzIxNSA5NS4wNDE3OTE5LDM4LjQ1MjQzNDEgOTUuMDQxNzkxOSwzNC4zODU5NzU2IEM5NS4wNDE3OTE5LDMwLjI3MjU0MTkgOTIuODAzMjk4NSwyNy42MjEzNjk5IDg5LjQ2ODc5OTEsMjcuNjIxMzY5OSBDODYuMTMzNzMzLDI3LjYyMTM2OTkgODMuODk1MjU0MiwzMC4yNzI1NDE5IDgzLjg5NTI1NDIsMzQuMzg1OTc1NiBaIE03Ny40NTM5NjgyLDM0LjM4NTk3NTYgQzc3LjQ1Mzk2ODIsMjcuMTIwMDE1MSA4Mi4yNTA5MzI3LDIyLjI3NTY2ODYgODkuNDY4Nzk5MSwyMi4yNzU2Njg2IEM5Ni42ODcyMDMxLDIyLjI3NTY2ODYgMTAxLjQ4MzYzLDI3LjEyMDAxNTEgMTAxLjQ4MzYzLDM0LjM4NTk3NTYgQzEwMS40ODM2Myw0MS42NTEzOTg0IDk2LjY4NzIwMzEsNDYuNDk1NzMwNSA4OS40Njg3OTkxLDQ2LjQ5NTczMDUgQzgyLjI1MDkzMjcsNDYuNDk1NzMwNSA3Ny40NTM5NjgyLDQxLjY1MTM4MzkgNzcuNDUzOTY4MiwzNC4zODU5NzU2IFogTTE1Mi40MTIxNzYsMzQuMzg1OTc1NiBDMTUyLjQxMjE3NiwzOC40NTI0MTk1IDE1NC42NDkwNTcsNDEuMTQ4NzIxNSAxNTcuOTg1MTY5LDQxLjE0ODcyMTUgQzE2MS4zMTk2OTgsNDEuMTQ4NzIxNSAxNjMuNTU4NzE0LDM4LjQ1MjQzNDEgMTYzLjU1ODcxNCwzNC4zODU5NzU2IEMxNjMuNTU4NzE0LDMwLjI3MjU0MTkgMTYxLjMxOTcxMiwyNy42MjEzNjk5IDE1Ny45ODUxNjksMjcuNjIxMzY5OSBDMTU0LjY0OTA1NywyNy42MjEzNjk5IDE1Mi40MTIxNzYsMzAuMjcyNTQxOSAxNTIuNDEyMTc2LDM0LjM4NTk3NTYgWiBNMTQ1Ljk2OTI0OCwzNC4zODU5NzU2IEMxNDUuOTY5MjQ4LDI3LjEyMDAxNTEgMTUwLjc2NjIxMywyMi4yNzU2Njg2IDE1Ny45ODUxNTUsMjIuMjc1NjY4NiBDMTY1LjIwMjQ4MywyMi4yNzU2Njg2IDE3MCwyNy4xMjAwMTUxIDE3MCwzNC4zODU5NzU2IEMxNzAsNDEuNjUxMzk4NCAxNjUuMjAyNDY5LDQ2LjQ5NTczMDUgMTU3Ljk4NTE1NSw0Ni40OTU3MzA1IEMxNTAuNzY2MjEzLDQ2LjQ5NTczMDUgMTQ1Ljk2OTI0OCw0MS42NTEzODM5IDE0NS45NjkyNDgsMzQuMzg1OTc1NiBaIiBpZD0iVW5pw7NuLTIiIGZpbGw9IiMxRjFGMUYiLz4KICAgICAgICAgICAgPHBhdGggZD0iTTQ1Ljc1ODU4NDMsNS43Mzg1MDAxMSBDNDUuNzU4NTg0MywyLjQ0NjY3NDE0IDQ1Ljc1ODU4NDMsMC44MDA3NjExNTcgNDUuNzU4NTg0MywwLjgwMDc2MTE1NyBDNDUuNzU4NTg0MywwLjM1ODQzODI5OSA0NS40MDAyNjE0LDAgNDQuOTU4NDAyNCwwIEM0NC45NTg0MDI0LDAgMC44MDAxOTY1MTEsMCAwLjgwMDE5NjUxMSwwIEMwLjM1ODMzNzUwMSwwIDAsMC4zNTg0MzgyOTkgMCwwLjgwMDc2MTE1NyBDMCwwLjgwMDc2MTE1NyAwLDQ0Ljk3MjEyMDYgMCw0NC45NzIxMjA2IEMwLDQ1LjQxNDQ0MzUgMC4zNTgzMzc1MDEsNDUuNzcyODk2MyAwLjgwMDE5NjUxMSw0NS43NzI4OTYzIEMwLjgwMDE5NjUxMSw0NS43NzI4OTYzIDUuNzU1Njg5ODUsNDUuNzcyODk2MyA1Ljc1NTY4OTg1LDQ1Ljc3Mjg5NjMgQzYuMTk3ODgzMDYsNDUuNzcyODk2MyA2LjU1NjIwNjAzLDQ1LjQxNDQ1OCA2LjU1NjIwNjAzLDQ0Ljk3MjEyMDYgQzYuNTU2MjA2MDMsNDQuOTcyMTIwNiA2LjU1NjIwNjAzLDQ0LjEzMzgyNzIgNi41NTYyMDYwMyw0NC4xMzM4MjcyIEM2LjU1NjIwNjAzLDM3LjgzOTcyNDUgMTAuMzcwNDg1OCwzMS44Mjc5OTI5IDE3LjI5NjEwMTYsMjcuMjA1NTgwMiBDMjQuNjI4OTkzNywyMi4zMTE5MTIzIDM0LjQ0MDExMiwxOS42MTY4MTAyIDQ0LjkyMjUyNjUsMTkuNjE2ODEwMiBDNDQuOTIyNTI2NSwxOS42MTY4MTAyIDQ0Ljk1ODQzMTQsMTkuNjE2ODEwMiA0NC45NTg0MzE0LDE5LjYxNjgxMDIgQzQ1LjQwMDI5MDQsMTkuNjE2ODEwMiA0NS43NTg2MTM0LDE5LjI1ODM3MiA0NS43NTg2MTM0LDE4LjgxNjM4MzMgQzQ1Ljc1ODYxMzQsMTguODE2MzgzMyA0NS43NTg2MTM0LDEzLjg3ODYyOTggNDUuNzU4NjEzNCwxMy44Nzg2Mjk4IEM0NS43NTg2MTM0LDEzLjQzNjMwNyA0NS40MDAyOTA0LDEzLjA3Nzg2ODcgNDQuOTU4NDMxNCwxMy4wNzc4Njg3IEM0NC45NTg0MzE0LDEzLjA3Nzg2ODcgNDQuOTIyNTI2NSwxMy4wNzc4Njg3IDQ0LjkyMjUyNjUsMTMuMDc3ODY4NyBDMzMuMTYzMTU0MSwxMy4wNzc4Njg3IDIyLjA2MzMwODIsMTYuMTYzNzEwMyAxMy42NjgxNzU5LDIxLjc2NjA4ODcgQzExLjUwNjQ5NzQsMjMuMjA4OTY3MSA5LjU4MDA5NzM1LDI0Ljc4MjA2NzcgNy44OTk0Mzc2NiwyNi40NzIwNjYyIEM3LjM5ODE3NzgzLDI2Ljk3NjA4NTYgNi41MzY5Njc2LDI2LjYxNDA1ODIgNi41MzY5Njc2LDI1LjkwMzA4MSBDNi41MzY5Njc2LDI1LjkwMzA4MSA2LjUzNjk2NzYsNy4zMzk3MDI3NSA2LjUzNjk2NzYsNy4zMzk3MDI3NSBDNi41MzY5Njc2LDYuODk3Mzc5ODkgNi44OTUyOTA1Nyw2LjUzODk0MTU5IDcuMzM3MTQ5NTksNi41Mzg5NDE1OSBDNy4zMzcxNDk1OSw2LjUzODk0MTU5IDQ0Ljk1ODQxNjksNi41Mzg5NDE1OSA0NC45NTg0MTY5LDYuNTM4OTQxNTkgQzQ1LjQwMDI3NTksNi41Mzg5NDE1OSA0NS43NTg1OTg5LDYuMTgwNTAzMjkgNDUuNzU4NTk4OSw1LjczODUxNDY0IiBpZD0iVHJhemFkby0xNiIgZmlsbD0iIzAwMDBGRiIvPgogICAgICAgIDwvZz4KICAgIDwvZz4KPC9zdmc+");
+}
+  
+/* 標題文字 */
+.forvo-title {
+	font-size: 12px;
+	font-weight: bold;
+	color: #86868b;
+	letter-spacing: 0.5px;
+	line-height: 1.2;
+    align-self: flex-end; /* 靠底部對齊容器 */
+}
+
+/* ==========================================================================
+   Forvo 發音區塊右側欄
+   ========================================================================== */
+
+/* 右側欄容器 */
+.forvo-groups-wrapper {
+    display: flex;
+    flex-direction: column;  /* 國家清單由上往下排 */
+    gap: 8px;                /* 各個國家群組之間的間距 */
+    flex-grow: 1;            /* 填滿剩餘的空間 */
+}
+
+/* 國家分組區塊 */
+.forvo-group {
+    display: flex;
+    align-items: center;     
+    gap: 12px; 
+}
+
+/* 國家分組文字 */
+.group-label {
+    font-size: 11px;
+    font-weight: bold;
+    color: #86868b;
+    width: 26px;
+    text-align: right; 
+    letter-spacing: 0.5px;
+    flex-shrink: 0; 
+}
+
+/* 發音按鈕容器 */
+.sound-links {
+    display: flex;
+    flex-wrap: wrap; 
+    gap: 4px; 
+}
+
+/* 發音按鈕基本樣式 */
+.sound-links a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 5px;
+    background-color: #eee8ed; 
+    border-radius: 6px;
+    text-decoration: none;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease; 
+}
+
+.sound-links a:hover {
+    background-color: #e8e8ed;
+    transform: translateY(-1px); 
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+/* ==========================================================================
+   Forvo 國旗圖示
+   ========================================================================== */
+
+/* 使用 flag-icons 項目的定義  */
+.fi {
+	background-size: contain;
+	background-position: 50%;
+	background-repeat: no-repeat;
+	position: relative;
+	display: inline-block;
+	width: 1.333333em;
+	line-height: 1em;
+	text-decoration: none;
+}
+
+.fi:before {
+	content: " ";
+}
+
+.fi-us {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGlkPSJmbGFnLWljb25zLXVzIiB2aWV3Qm94PSIwIDAgNjQwIDQ4MCI+CiAgPHBhdGggZmlsbD0iI2JkM2Q0NCIgZD0iTTAgMGg2NDB2NDgwSDAiLz4KICA8cGF0aCBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMzciIGQ9Ik0wIDU1LjNoNjQwTTAgMTI5aDY0ME0wIDIwM2g2NDBNMCAyNzdoNjQwTTAgMzUxaDY0ME0wIDQyNWg2NDAiLz4KICA8cGF0aCBmaWxsPSIjMTkyZjVkIiBkPSJNMCAwaDM2NC44djI1OC41SDAiLz4KICA8bWFya2VyIGlkPSJ1cy1hIiBtYXJrZXJIZWlnaHQ9IjMwIiBtYXJrZXJXaWR0aD0iMzAiPgogICAgPHBhdGggZmlsbD0iI2ZmZiIgZD0ibTE0IDAgOSAyN0wwIDEwaDI4TDUgMjd6Ii8+CiAgPC9tYXJrZXI+CiAgPHBhdGggZmlsbD0ibm9uZSIgbWFya2VyLW1pZD0idXJsKCN1cy1hKSIgZD0ibTAgMCAxNiAxMWg2MSA2MSA2MSA2MSA2MEw0NyAzN2g2MSA2MSA2MCA2MUwxNiA2M2g2MSA2MSA2MSA2MSA2MEw0NyA4OWg2MSA2MSA2MCA2MUwxNiAxMTVoNjEgNjEgNjEgNjEgNjBMNDcgMTQxaDYxIDYxIDYwIDYxTDE2IDE2Nmg2MSA2MSA2MSA2MSA2MEw0NyAxOTJoNjEgNjEgNjAgNjFMMTYgMjE4aDYxIDYxIDYxIDYxIDYweiIvPgo8L3N2Zz4K");
+}
+
+.fi-gb {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGlkPSJmbGFnLWljb25zLWdiIiB2aWV3Qm94PSIwIDAgNjQwIDQ4MCI+CiAgPHBhdGggZmlsbD0iIzAxMjE2OSIgZD0iTTAgMGg2NDB2NDgwSDB6Ii8+CiAgPHBhdGggZmlsbD0iI0ZGRiIgZD0ibTc1IDAgMjQ0IDE4MUw1NjIgMGg3OHY2Mkw0MDAgMjQxbDI0MCAxNzh2NjFoLTgwTDMyMCAzMDEgODEgNDgwSDB2LTYwbDIzOS0xNzhMMCA2NFYweiIvPgogIDxwYXRoIGZpbGw9IiNDODEwMkUiIGQ9Im00MjQgMjgxIDIxNiAxNTl2NDBMMzY5IDI4MXptLTE4NCAyMCA2IDM1TDU0IDQ4MEgwek02NDAgMHYzTDM5MSAxOTFsMi00NEw1OTAgMHpNMCAwbDIzOSAxNzZoLTYwTDAgNDJ6Ii8+CiAgPHBhdGggZmlsbD0iI0ZGRiIgZD0iTTI0MSAwdjQ4MGgxNjBWMHpNMCAxNjB2MTYwaDY0MFYxNjB6Ii8+CiAgPHBhdGggZmlsbD0iI0M4MTAyRSIgZD0iTTAgMTkzdjk2aDY0MHYtOTZ6TTI3MyAwdjQ4MGg5NlYweiIvPgo8L3N2Zz4K");
+}
+
+.fi-ca {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGlkPSJmbGFnLWljb25zLWNhIiB2aWV3Qm94PSIwIDAgNjQwIDQ4MCI+CiAgPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTE1MC4xIDBoMzM5Ljd2NDgwSDE1MHoiLz4KICA8cGF0aCBmaWxsPSIjZDUyYjFlIiBkPSJNLTE5LjcgMGgxNjkuOHY0ODBILTE5Ljd6bTUwOS41IDBoMTY5Ljh2NDgwSDQ4OS45ek0yMDEgMjMybC0xMy4zIDQuNCA2MS40IDU0YzQuNyAxMy43LTEuNiAxNy44LTUuNiAyNWw2Ni42LTguNC0xLjYgNjcgMTMuOS0uMy0zLjEtNjYuNiA2Ni43IDhjLTQuMS04LjctNy44LTEzLjMtNC0yNy4ybDYxLjMtNTEtMTAuNy00Yy04LjgtNi44IDMuOC0zMi42IDUuNi00OC45IDAgMC0zNS43IDEyLjMtMzggNS44bC05LjItMTcuNS0zMi42IDM1LjhjLTMuNS45LTUtLjUtNS45LTMuNWwxNS03NC44LTIzLjggMTMuNHEtMy4yIDEuMy01LjItMi4ybC0yMy00Ni0yMy42IDQ3LjhxLTIuOCAyLjUtNSAuN0wyNjQgMTMwLjhsMTMuNyA3NC4xYy0xLjEgMy0zLjcgMy44LTYuNyAyLjJsLTMxLjItMzUuM2MtNCA2LjUtNi44IDE3LjEtMTIuMiAxOS41cy0yMy41LTQuNS0zNS42LTdjNC4yIDE0LjggMTcgMzkuNiA5IDQ3LjciLz4KPC9zdmc+Cg==");
+}
+
+.fi-au {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGlkPSJmbGFnLWljb25zLWF1IiB2aWV3Qm94PSIwIDAgNjQwIDQ4MCI+CiAgPHBhdGggZmlsbD0iIzAwMDA4QiIgZD0iTTAgMGg2NDB2NDgwSDB6Ii8+CiAgPHBhdGggZmlsbD0iI2ZmZiIgZD0ibTM3LjUgMCAxMjIgOTAuNUwyODEgMGgzOXYzMWwtMTIwIDg5LjUgMTIwIDg5VjI0MGgtNDBsLTEyMC04OS41TDQwLjUgMjQwSDB2LTMwbDExOS41LTg5TDAgMzJWMHoiLz4KICA8cGF0aCBmaWxsPSJyZWQiIGQ9Ik0yMTIgMTQwLjUgMzIwIDIyMHYyMGwtMTM1LjUtOTkuNXptLTkyIDEwIDMgMTcuNS05NiA3Mkgwek0zMjAgMHYxLjVsLTEyNC41IDk0IDEtMjJMMjk1IDB6TTAgMGwxMTkuNSA4OGgtMzBMMCAyMXoiLz4KICA8cGF0aCBmaWxsPSIjZmZmIiBkPSJNMTIwLjUgMHYyNDBoODBWMHpNMCA4MHY4MGgzMjBWODB6Ii8+CiAgPHBhdGggZmlsbD0icmVkIiBkPSJNMCA5Ni41djQ4aDMyMHYtNDh6TTEzNi41IDB2MjQwaDQ4VjB6Ii8+CiAgPHBhdGggZmlsbD0iI2ZmZiIgZD0ibTUyNyAzOTYuNy0yMC41IDIuNiAyLjIgMjAuNS0xNC44LTE0LjQtMTQuNyAxNC41IDItMjAuNS0yMC41LTIuNCAxNy4zLTExLjItMTAuOS0xNy41IDE5LjYgNi41IDYuOS0xOS41IDcuMSAxOS40IDE5LjUtNi43LTEwLjcgMTcuNnptLTMuNy0xMTcuMiAyLjctMTMtOS44LTkgMTMuMi0xLjUgNS41LTEyLjEgNS41IDEyLjEgMTMuMiAxLjUtOS44IDkgMi43IDEzLTExLjYtNi42em0tMTA0LjEtNjAtMjAuMyAyLjIgMS44IDIwLjMtMTQuNC0xNC41LTE0LjggMTQuMSAyLjQtMjAuMy0yMC4yLTIuNyAxNy4zLTEwLjgtMTAuNS0xNy41IDE5LjMgNi44TDM4NyAxNzhsNi43IDE5LjMgMTkuNC02LjMtMTAuOSAxNy4zIDE3LjEgMTEuMlpNNjIzIDE4Ni43bC0yMC45IDIuNyAyLjMgMjAuOS0xNS4xLTE0LjctMTUgMTQuOCAyLjEtMjEtMjAuOS0yLjQgMTcuNy0xMS41LTExLjEtMTcuOSAyMCA2LjcgNy0xOS44IDcuMiAxOS44IDE5LjktNi45LTExIDE4em0tOTYuMS04My41LTIwLjcgMi4zIDEuOSAyMC44LTE0LjctMTQuOC0xNS4xIDE0LjQgMi40LTIwLjctMjAuNy0yLjggMTcuNy0xMUw0NjcgNzMuNWwxOS43IDYuOSA3LjMtMTkuNSA2LjggMTkuNyAxOS44LTYuNS0xMS4xIDE3LjZ6TTIzNCAzODUuN2wtNDUuOCA1LjQgNC42IDQ1LjktMzIuOC0zMi40LTMzIDMyLjIgNC45LTQ1LjktNDUuOC01LjggMzguOS0yNC44LTI0LTM5LjQgNDMuNiAxNSAxNS44LTQzLjQgMTUuNSA0My41IDQzLjctMTQuNy0yNC4zIDM5LjIgMzguOCAyNS4xWiIvPgo8L3N2Zz4K");
+}
+
+.fi-ae {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGlkPSJmbGFnLWljb25zLWFlIiB2aWV3Qm94PSIwIDAgNjQwIDQ4MCI+CiAgPHBhdGggZmlsbD0iIzAwNzMyZiIgZD0iTTAgMGg2NDB2MTYwSDB6Ii8+CiAgPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMTYwaDY0MHYxNjBIMHoiLz4KICA8cGF0aCBmaWxsPSIjMDAwMDAxIiBkPSJNMCAzMjBoNjQwdjE2MEgweiIvPgogIDxwYXRoIGZpbGw9InJlZCIgZD0iTTAgMGgyMjB2NDgwSDB6Ii8+Cjwvc3ZnPgo=");
+}
+
+/* ==========================================================================
+   TTS 發音區塊
+   ========================================================================== */
+
+/* 例句 TTS 按鈕基礎樣式 */
+.sio-tts {
+    display: inline-flex;
+    margin-right: 4px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    vertical-align: middle;
+    text-decoration: none;
+	color: #469bf3; /* 預設顏色 */
+}
+
+/* 例句 TTS 發音圖示 */
+.sio-tts:before {
+	content: "" !important;
+	display: inline-block;
+	width: 1em;
+	height: 1em;
+	vertical-align: middle;
+	-webkit-mask: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48ZGVmcz48c3R5bGU+LmZhLXNlY29uZGFyeXtvcGFjaXR5Oi40fTwvc3R5bGU+PC9kZWZzPjxwYXRoIGNsYXNzPSJmYS1wcmltYXJ5IiBkPSJNMzA4LjUgNDQwLjZjLTkuNSA3LjktMjIuOCA5LjctMzQuMSA0LjRzLTE4LjQtMTYuNi0xOC40LTI5Vjk2YzAtMTIuNCA3LjItMjMuNyAxOC40LTI5czI0LjUtMy42IDM0LjEgNC40bDE5MiAxNjBjNy4zIDYuMSAxMS41IDE1LjEgMTEuNSAyNC42cy00LjIgMTguNS0xMS41IDI0LjZsLTE5MiAxNjB6Ii8+PHBhdGggY2xhc3M9ImZhLXNlY29uZGFyeSIgZD0iTTE4LjQgNDQ1YzExLjIgNS4zIDI0LjUgMy42IDM0LjEtNC40TDI1NiAyNzFWMjQxTDUyLjUgNzEuNGMtOS41LTcuOS0yMi44LTkuNy0zNC4xLTQuNFMwIDgzLjYgMCA5NlY0MTZjMCAxMi40IDcuMiAyMy43IDE4LjQgMjl6Ii8+PC9zdmc+") no-repeat center / contain;
+	mask: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48ZGVmcz48c3R5bGU+LmZhLXNlY29uZGFyeXtvcGFjaXR5Oi40fTwvc3R5bGU+PC9kZWZzPjxwYXRoIGNsYXNzPSJmYS1wcmltYXJ5IiBkPSJNMzA4LjUgNDQwLjZjLTkuNSA3LjktMjIuOCA5LjctMzQuMSA0LjRzLTE4LjQtMTYuNi0xOC40LTI5Vjk2YzAtMTIuNCA3LjItMjMuNyAxOC40LTI5czI0LjUtMy42IDM0LjEgNC40bDE5MiAxNjBjNy4zIDYuMSAxMS41IDE1LjEgMTEuNSAyNC42cy00LjIgMTguNS0xMS41IDI0LjZsLTE5MiAxNjB6Ii8+PHBhdGggY2xhc3M9ImZhLXNlY29uZGFyeSIgZD0iTTE4LjQgNDQ1YzExLjIgNS4zIDI0LjUgMy42IDM0LjEtNC40TDI1NiAyNzFWMjQxTDUyLjUgNzEuNGMtOS41LTcuOS0yMi44LTkuNy0zNC4xLTQuNFMwIDgzLjYgMCA5NlY0MTZjMCAxMi40IDcuMiAyMy43IDE4LjQgMjl6Ii8+PC9zdmc+") no-repeat center / contain;
+	background-color: currentColor;
+	transition: 
+		transform 0.2s ease,
+		color 0.4s ease;
+}
+
+/* 例句 TTS 播放中 */
+.sio-tts.is-active {
+	color: #c91352;
+}
+
+/* 例句 TTS 播放中圖示 */
+.sio-tts.is-active:before {
+    /* -webkit-mask-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBkPSJNMzg2LjMgMTYwSDMzNmMtMTcuNyAwLTMyIDE0LjMtMzIgMzJzMTQuMyAzMiAzMiAzMkg0NjRjMTcuNyAwIDMyLTE0LjMgMzItMzJWNjRjMC0xNy43LTE0LjMtMzItMzItMzJzLTMyIDE0LjMtMzIgMzJ2NTEuMkw0MTQuNCA5Ny42Yy04Ny41LTg3LjUtMjI5LjMtODcuNS0zMTYuOCAwcy04Ny41IDIyOS4zIDAgMzE2LjhzMjI5LjMgODcuNSAzMTYuOCAwYzEyLjUtMTIuNSAxMi41LTMyLjggMC00NS4zcy0zMi44LTEyLjUtNDUuMyAwYy02Mi41IDYyLjUtMTYzLjggNjIuNS0yMjYuMyAwcy02Mi41LTE2My44IDAtMjI2LjNzMTYzLjgtNjIuNSAyMjYuMyAwTDM4Ni4zIDE2MHoiLz48L3N2Zz4="); */
+	/* 動畫效果-跑馬燈 */
+	-webkit-mask-repeat: repeat-x;
+    mask-repeat: repeat-x;
+	animation-name: mask-slide-right;
+	animation-duration: 1s;
+	animation-iteration-count: 2;
+	animation-timing-function: linear;
+}
+
+/* 動畫效果-淡出 */
+.fa-fade {
+    animation-name: fa-fade;
+    animation-duration: 1s; /* 每秒 1 次 */
+    animation-iteration-count: 2; /* 連續 2 次 */
+    animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+/* 動畫效果-翻轉 */
+.fa-flip {
+	animation-name: fa-flip;
+	animation-duration: 1s;
+	animation-iteration-count: 2;
+	animation-timing-function: ease-in-out;
+}
+
+/* 動畫效果-旋轉 */
+.fa-spin {
+	animation-name: fa-spin;
+	animation-duration: 2s;
+	animation-iteration-count: 1;
+	animation-timing-function: linear;
+}
+
+/* 動畫效果-搖晃 */
+.fa-shake {
+	animation-name: fa-shake;
+	animation-duration: 1s;
+	animation-iteration-count: 2;
+	animation-timing-function: linear;
+}
+
+@keyframes fa-fade {
+	50% { opacity: 0.1; }
+}
+
+@keyframes fa-flip {
+	50% { transform: rotate3d(0, 1, 0, -180deg); }
+}
+
+@keyframes fa-spin {
+	100% { transform: rotate(360deg); }
+}
+
+@keyframes fa-shake {
+	0% { transform: rotate(-15deg); }
+	4% { transform: rotate(15deg); }
+	8% { transform: rotate(-18deg); }
+	12% { transform: rotate(18deg); }
+	16% { transform: rotate(-22deg); }
+	20% { transform: rotate(22deg); }
+	24% { transform: rotate(-18deg); }
+	28% { transform: rotate(18deg); }
+	32% { transform: rotate(-12deg); }
+	36% { transform: rotate(12deg); }
+	40% { transform: rotate(0deg); }
+	100% { transform: rotate(0deg); }
+}
+
+@keyframes mask-slide-right {
+    100% { 
+		-webkit-mask-position: 1em 0; /* 必須等於容器寬度 */
+		mask-position: 1em 0; 
+	}
+}
+
+/* ==========================================================================
+   中文顯隱開關
+   ========================================================================== */
+
+/* 開關容器 */
+.comment {
+	/* 位置固定在右方且重疊 */
+	margin-top: -34px; /* 配合 .pg_phrase 及 .pg_sentence 的 margin-bottom 調整 */
+	margin-right: 10px;
+	float: right;
+	/* 定義開關 */
+    position: relative;
+    width: 40px;
+    height: 20px;
+    cursor: pointer;
+	/* 文字隱藏 */
+    user-select: none;
+    font-size: 0 !important;
+    color: transparent !important;
+}
+
+/* 開關背景軌道 */
+.comment::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #d1d1d6;
+    border-radius: 6px;
+    box-shadow: 
+	-1px -1px 5px rgba(0, 0, 0, 0.4),
+	1px 1px 5px rgba(0, 0, 0, 0.4);
+    transition: background-color 0.25s ease; /* 變色時的平滑過渡 */
+}
+
+/* 開關圓形滑塊 */
+.comment::after {
+    content: "";
+    position: absolute;
+    height: 16px;
+    width: 16px;
+    left: 2px;
+    bottom: 2px;
+    background-color: #ffffff;
+    border-radius: 25%;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    transition: transform 0.25s ease; /* 滑動時的平滑過渡 */
+}
+
+/* 開關觸發效果 */
+.comment.is-active::after {
+    transform: translateX(20px); 
+}
+
+/* 開關觸發效果 */
+.comment.is-active::before {
+    background-color: lightgreen;
+}
+
+/* ==========================================================================
+   其他設定
+   ========================================================================== */
+
+/* 簡明釋義 */
+.pg_simple {
+	display: block;
+    padding: 0 8px;
+	font-family: "Noto Sans SC", "Noto Sans TC", "PingFang SC", "PingFang TC",  sans-serif !important;
+}
+
+/* 簡明釋義詞頭 */
+.pg_hw {
+	margin-right: 6px;
+	color: #0000af;
+	font-size: 20px;
+	font-family: "Noto Sans SC", "Noto Sans TC", "PingFang SC", "PingFang TC",  sans-serif;
+	font-weight: bold;
+	line-height: 150%;
+}
+
+/* 簡明釋義內音標 */
+.sio-ipa {
+	display: inline-block;
+	margin-right: 6px;
+	color: #666;
+	font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+	margin-bottom: 5px;
+}
+
+/* 簡明釋義內詞性 */
+.sio-pos {
+	display: inline-block;
+	padding: 1px 6px;
+	margin-right: 2px;
+	color: #c91352;
+	font-size: 1.00em;
+	font-weight: bold;
+	font-style: italic;
+	font-family: Georgia, Times, 'Times New Roman', serif;
+	vertical-align: baseline;
+}
+
+/* 簡明釋義內縮略語 */
+.sio-abbr {
+	font-style: italic;
+	font-weight: bold;
+	font-family: Georgia, Times, 'Times New Roman', serif;
+}
+
+/* 簡明釋義內詞義分類 */
+.sio-cat {
+    display: inline-block;
+	padding: 1px 3px;
+	margin-left: 4px;
+	margin-right: 2px;
+	border-radius: 4px;
+	border: 1px solid;
+	background-color: #e3f2fd; /* 淺藍色背景 */
+	color: #1976d2;
+	font-size: 13px;
+	font-weight: bold;
+}
+
+/* 簡明釋義內剩餘括號 */
+.sio-bracket {
+    display: inline-flex; /* 基礎佈局與垂直居中 */
+    align-items: center;
+    justify-content: center;
+	vertical-align: baseline;
+    transform: translateY(-0.1em); /* 調整微小偏移：有些字體需要這行來達到視覺居中 */
+	font-family: "Noto Serif SC", "Noto Serif TC", "Yu Mincho", "YuMincho", "HiraMinProN-W6", serif;
+	font-weight: bold;
+    font-size: 0.85em;
+    border-radius: 4px;
+    background-color: #f4f4f4;
+    color: dimgray;
+    padding: 1px 2px;
+    position: relative;
+    /* 手寫筆觸效果 */
+    background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgLTQgMTAwIDEwJyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSdub25lJz48cGF0aCBkPSdNMyA3IEMgMjAgMywgMzUgOCwgNTAgNSBDIDcwIDIsIDg1IDcsIDk3IDQnIHN0cm9rZT0ncmdiYSgxMDUsIDEwNSwgMTA1LCAwLjMpJyBzdHJva2Utd2lkdGg9JzInIGZpbGw9J3RyYW5zcGFyZW50JyBzdHJva2UtbGluZWNhcD0ncm91bmQnLz48L3N2Zz4=");
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+}
+
+/* 大標題-詞語搭配 */
+.pg_phrase {
+	display: block;
+	padding: 6px 60px 6px 12px;
+	margin: 12px 0 8px 0;
+	border-radius: 8px;
+	background-color: #647FB8;
+	color: white;
+	font-size: 15px;
+	font-family: "Noto Sans SC", "Noto Sans TC", "PingFang SC", "PingFang TC", sans-serif;
+	font-weight: bold;
+}
+
+/* 大標題-權威例句 */
+.pg_sentence {
+	display: block;
+	padding: 6px 60px 6px 12px;
+	margin: 12px 0 8px 0;
+	border-radius: 8px;
+	background-color: #647FB8;
+	color: white;
+	font-size: 15px;
+	font-family: "Noto Sans SC", "Noto Sans TC", "PingFang SC", "PingFang TC", sans-serif;
+	font-weight: bold;
+}
+
+/* 中文例句 */
+zh_cn {
+    display: none;
+    opacity: 1;
+    transition: 
+        transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+        opacity 0.3s ease;
+}
+
+/* 中文例句隱藏狀態 */
+zh_cn.is-hidden {
+    opacity: 0;
+	font-size: 0;
+    padding: 0;
+    margin: 0;
+}
+
+/* 英文例句 */
+.pg_exam {
+	display: block;
+	color: #606060;
+	margin: 4px 6px;
+	padding: 2px 6px;
+	border-radius: 6px;
+	font-family: Arial, Helvetica, "Noto Sans SC", "Noto Sans TC", "PingFang SC", "PingFang TC", sans-serif;
+	font-weight: bold;
+    transition: transform 0.2s ease; 
+}
+
+/* 滑鼠停留時，顯示高亮 */
+.pg_exam:hover {
+	background-color: #f3f2fd;
+    transform: translateX(3px); 
+    box-shadow: 
+	-1px -1px 3px rgba(0, 0, 0, 0.3),
+	1px 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* 例句來源詞典 */
+.pg_book {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+	vertical-align: middle;
+    transform: translateY(-0.15em);
+	font-size: 0.7em;
+	word-break: keep-all;
+	border: 1px solid lightgray;
+	border-radius: 2px;
+	margin-left: 0.25em;
+	margin-right: 0.25em;
+	padding: 0.1em;
+	background-color: lightgoldenrodyellow;
+	line-height: 100%;
+}
+
+/* 例句核心詞 如〔assembly〕 */
+.pg_key {
+	display: inline-block;
+	padding: 0 4px;
+	margin-right: 4px;
+	border: 1px lightgray;
+	border-radius: 4px;
+	border-style: dotted;
+	background-color: #eaeaea;
+	color: #004D99;
+	font-size: 0.8em;
+	font-style: italic;
+	font-family: Georgia, Times, 'Times New Roman', serif;
+}
+
+/* 單詞高亮 */
+.pg_ht {
+	color: #c91352;
+	font-family: Georgia, Times, 'Times New Roman', serif;
+}
+
+/* 請勿修改 */
+.downloaded_from_freemdict {
+	display: none;
+}

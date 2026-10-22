@@ -86,7 +86,7 @@ void main() {
         reason: 'tapping the speaker link must reach the player');
   });
 
-  testWidgets('a selected line is offered 朗读所选 and is spoken', (tester) async {
+  testWidgets('a selected line is offered 朗读 and is spoken', (tester) async {
     final player = _RecordingPlayer();
     final speech = EntrySpeechProvider(player: player, piper: _NoPiper());
 
@@ -112,10 +112,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('朗读所选'), findsOneWidget,
+    expect(find.text('朗读'), findsOneWidget,
         reason: 'the selection menu gains a reading action');
 
-    await tester.tap(find.text('朗读所选'));
+    await tester.tap(find.text('朗读'));
     await tester.pumpAndSettle();
 
     // A long press selects the word under the finger; the reader drags the

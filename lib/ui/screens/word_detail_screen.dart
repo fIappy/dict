@@ -12,6 +12,7 @@ import '../widgets/frequency_badge.dart';
 import '../widgets/group_selector_dialog.dart';
 import '../widgets/pronunciation_bar.dart';
 import '../widgets/word_definition_view.dart';
+import '../widgets/speakable_selection.dart';
 
 class WordDetailScreen extends StatelessWidget {
   final MdxEntry? entry;
@@ -94,7 +95,7 @@ class WordDetailScreen extends StatelessWidget {
     SettingsProvider settings,
     bool isDark,
   ) {
-    return SelectionArea(
+    return SpeakableSelectionArea(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -116,7 +117,7 @@ class WordDetailScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
-                    child: SelectableText(
+                    child: SpeakableText(
                       mdxEntry.word,
                       style: const TextStyle(
                         fontSize: 28,
@@ -151,7 +152,7 @@ class WordDetailScreen extends StatelessWidget {
               // Chinese brief gloss if available
               if (freq?.briefZh != null) ...[
                 const SizedBox(height: 8),
-                SelectableText(
+                SpeakableText(
                   freq!.briefZh!,
                   style: TextStyle(
                     fontSize: 14,
