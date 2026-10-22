@@ -10,6 +10,7 @@ import '../../providers/alphabet_provider.dart';
 import '../../providers/numbers_provider.dart';
 import '../../providers/themes_provider.dart';
 import '../../providers/custom_text_provider.dart';
+import '../../core/ui/ui_memory.dart';
 import 'alphabet_detail_view.dart';
 import 'alphabet_screen.dart';
 import 'favorites_screen.dart';
@@ -34,6 +35,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  /// Keep in step with the destinations list below.
+  static const int _destinationCount = 9;
+
   int _selectedIndex = 0;
   double _middlePaneWidth = 360.0;
   bool _isDividerHovered = false;
@@ -41,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       context.read<DictionaryProvider>().initialize();
       context.read<FavoritesProvider>().initialize();
       context.read<HistoryProvider>().initialize();
@@ -50,8 +54,35 @@ class _HomeScreenState extends State<HomeScreen> {
       context.read<ThemesProvider>().initialize();
       context.read<SettingsProvider>().initialize();
       context.read<CustomTextProvider>().initialize();
+      context.read<IpaProvider>().restore();
+      context.read<AlphabetProvider>().restore();
+      await _restoreLayout();
     });
   }
+
+  /// Puts the shell back the way it was closed: same section, same split.
+  Future<void> _restoreLayout() async {
+    final section = await UiMemory.readInt(UiMemory.section);
+    final paneWidth = await UiMemory.readDouble(UiMemory.paneWidth);
+    if (!mounted) return;
+    setState(() {
+      if (section != null) {
+        _selectedIndex = section.clamp(0, _destinationCount - 1);
+      }
+      if (paneWidth != null) {
+        _middlePaneWidth = paneWidth.clamp(220.0, 900.0);
+      }
+    });
+  }
+
+  void _selectSection(int index) {
+    if (_selectedIndex == index) return;
+    setState(() => _selectedIndex = index);
+    UiMemory.writeInt(UiMemory.section, index);
+  }
+
+  void _rememberPaneWidth() =>
+      UiMemory.writeDouble(UiMemory.paneWidth, _middlePaneWidth);
 
   @override
   Widget build(BuildContext context) {
@@ -80,9 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // 1. Navigation Rail
           NavigationRail(
             selectedIndex: _selectedIndex,
-            onDestinationSelected: (index) {
-              setState(() => _selectedIndex = index);
-            },
+            onDestinationSelected: _selectSection,
             leading: Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Column(
@@ -214,7 +243,10 @@ class _HomeScreenState extends State<HomeScreen> {
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onHorizontalDragStart: (_) => setState(() => _isDividerDragging = true),
-              onHorizontalDragEnd: (_) => setState(() => _isDividerDragging = false),
+              onHorizontalDragEnd: (_) {
+                setState(() => _isDividerDragging = false);
+                _rememberPaneWidth();
+              },
               onHorizontalDragCancel: () => setState(() => _isDividerDragging = false),
               onHorizontalDragUpdate: (details) {
                 setState(() {
@@ -228,6 +260,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 setState(() {
                   _middlePaneWidth = 360.0;
                 });
+                _rememberPaneWidth();
               },
               child: Container(
                 width: 12,
@@ -324,9 +357,7 @@ class _HomeScreenState extends State<HomeScreen> {
         // selected one only, the same way the desktop rail does.
         labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
         selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() => _selectedIndex = index);
-        },
+        onDestinationSelected: _selectSection,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.search_rounded),

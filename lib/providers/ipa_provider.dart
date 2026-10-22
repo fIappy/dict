@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/ipa/ipa_data.dart';
 import '../core/ipa/ipa_model.dart';
+import '../core/ui/ui_memory.dart';
 
 class IpaProvider extends ChangeNotifier {
   IpaCategory? _selectedCategory;
@@ -42,6 +43,7 @@ class IpaProvider extends ChangeNotifier {
 
   void selectAccent(IpaAccent? accent) {
     _selectedAccent = accent;
+    UiMemory.writeString(UiMemory.ipaAccent, accent?.name ?? '');
     if (accent == IpaAccent.usOnly) {
       _preferredPlaybackAccent = 'us';
     } else if (accent == IpaAccent.ukOnly) {
@@ -63,10 +65,28 @@ class IpaProvider extends ChangeNotifier {
 
   void toggleIncludeVariants(bool value) {
     _includeVariants = value;
+    UiMemory.writeBool(UiMemory.ipaVariants, value);
+    notifyListeners();
+  }
+
+  /// Puts the phoneme list back where it was left.
+  Future<void> restore() async {
+    final symbol = await UiMemory.readString(UiMemory.ipaSymbol);
+    final accent = await UiMemory.readString(UiMemory.ipaAccent);
+    final variants = await UiMemory.readBool(UiMemory.ipaVariants);
+    if (symbol != null && symbol.isNotEmpty) _selectedSymbol = symbol;
+    _selectedAccent = switch (accent) {
+      'ukOnly' => IpaAccent.ukOnly,
+      'usOnly' => IpaAccent.usOnly,
+      'both' => IpaAccent.both,
+      _ => null,
+    };
+    if (variants != null) _includeVariants = variants;
     notifyListeners();
   }
 
   void selectPhoneme(String symbol) {
+    UiMemory.writeString(UiMemory.ipaSymbol, symbol);
     if (_selectedSymbol != symbol) {
       _selectedSymbol = symbol;
       notifyListeners();

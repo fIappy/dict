@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/alphabet/alphabet_data.dart';
 import '../core/alphabet/alphabet_model.dart';
+import '../core/ui/ui_memory.dart';
 
 class AlphabetProvider extends ChangeNotifier {
   String _selectedChar = 'A';
@@ -22,11 +23,27 @@ class AlphabetProvider extends ChangeNotifier {
     }
   }
 
+  /// Puts the letter list back where it was left.
+  Future<void> restore() async {
+    final letter = await UiMemory.readString(UiMemory.letter);
+    final category = await UiMemory.readString('ui_alphabet_category');
+    if (letter != null && letter.isNotEmpty) _selectedChar = letter;
+    if (category != null) {
+      _selectedCategory = LetterCategory.values.firstWhere(
+        (value) => value.name == category,
+        orElse: () => LetterCategory.all,
+      );
+    }
+    notifyListeners();
+  }
+
   void selectCategory(LetterCategory category) {
     _selectedCategory = category;
+    UiMemory.writeString('ui_alphabet_category', category.name);
     final filtered = filteredLetters;
     if (filtered.isNotEmpty && !filtered.any((l) => l.upper == _selectedChar)) {
       _selectedChar = filtered.first.upper;
+      UiMemory.writeString(UiMemory.letter, _selectedChar);
     }
     notifyListeners();
   }
@@ -35,6 +52,7 @@ class AlphabetProvider extends ChangeNotifier {
     final upper = char.toUpperCase();
     if (_selectedChar != upper) {
       _selectedChar = upper;
+      UiMemory.writeString(UiMemory.letter, upper);
       notifyListeners();
     }
   }

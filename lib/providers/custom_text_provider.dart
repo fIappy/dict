@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/custom/custom_text.dart';
 import '../core/mdx/entry_speech.dart';
+import '../core/ui/ui_memory.dart';
 
 /// Holds the user's 自定义短语 / 自定义短文 and their groups.
 ///
@@ -81,6 +82,12 @@ class CustomTextProvider extends ChangeNotifier {
     _texts
       ..clear()
       ..addAll(_decodeList(prefs.getString(_textsKey), CustomText.fromJson));
+    // Reopen the group that was on screen, unless it was deleted meanwhile.
+    final remembered = prefs.getString(UiMemory.customGroup);
+    if (remembered != null &&
+        (remembered == ungroupedId || _groups.any((g) => g.id == remembered))) {
+      _selectedGroupId = remembered;
+    }
     notifyListeners();
   }
 
@@ -88,6 +95,7 @@ class CustomTextProvider extends ChangeNotifier {
     if (_selectedGroupId == groupId) return;
     _selectedGroupId = groupId;
     _selectedId = null;
+    UiMemory.writeString(UiMemory.customGroup, groupId);
     notifyListeners();
   }
 
@@ -163,7 +171,10 @@ class CustomTextProvider extends ChangeNotifier {
         changed = true;
       }
     }
-    if (_selectedGroupId == id) _selectedGroupId = ungroupedId;
+    if (_selectedGroupId == id) {
+      _selectedGroupId = ungroupedId;
+      UiMemory.writeString(UiMemory.customGroup, ungroupedId);
+    }
     notifyListeners();
     await _persistGroups();
     if (changed) await _persistTexts();

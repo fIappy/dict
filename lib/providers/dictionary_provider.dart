@@ -4,6 +4,7 @@ import '../core/mdx/mdx_entry.dart';
 import '../core/models/dictionary_info.dart';
 import '../core/models/search_result.dart';
 import '../core/services/dictionary_service.dart';
+import '../core/ui/ui_memory.dart';
 
 class DictionaryProvider extends ChangeNotifier {
   final DictionaryService _service = DictionaryService();
@@ -40,9 +41,16 @@ class DictionaryProvider extends ChangeNotifier {
       await _service.initialize();
       _allDictionaries = await _dao.getAll();
       
-      // Auto-lookup default word on first launch if available
+      // Reopen the word the reader was on; 'hello' only when there is nothing
+      // remembered (first run) or the remembered word is gone with its
+      // dictionary.
       if (_service.hasDictionaries && _currentWord == null) {
-        await lookupWord('hello', addToHistory: false);
+        final remembered = (await UiMemory.readString(UiMemory.word))?.trim();
+        final first = remembered == null || remembered.isEmpty ? 'hello' : remembered;
+        await lookupWord(first, addToHistory: false);
+        if (_currentEntry == null && first != 'hello') {
+          await lookupWord('hello', addToHistory: false);
+        }
       }
     } catch (e) {
       _initError = e.toString();
@@ -87,6 +95,7 @@ class DictionaryProvider extends ChangeNotifier {
     _isLoadingEntry = true;
     notifyListeners();
 
+    await _rememberWord();
     try {
       final entry = await _service.lookup(_currentWord!, preferDictId: preferDictId);
       if (lookupSeq != _lookupSeq) return;
@@ -100,6 +109,13 @@ class DictionaryProvider extends ChangeNotifier {
         notifyListeners();
       }
     }
+  }
+
+  /// Remembers the word on screen so the next launch opens the same entry.
+  Future<void> _rememberWord() async {
+    final word = _currentWord;
+    if (word == null || word.isEmpty) return;
+    await UiMemory.writeString(UiMemory.word, word);
   }
 
   /// Imports a dictionary and returns it, so the caller can report whether a
