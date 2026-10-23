@@ -113,4 +113,37 @@ void main() {
     final again = await AiArchiveStore().ensureSeeded();
     expect(again, hasLength(seeded.length));
   });
+
+  test('a seed group with the same name joins the local one', () async {
+    // The store here predates the seed: same group, different id.
+    SharedPreferences.setMockInitialValues({
+      'flutter.custom_groups': '[{"id":"local-home","name":"家庭场景"}]',
+      'flutter.custom_texts':
+          '[{"id":"mine","body":"My own line.","title":"Mine",'
+              '"groupId":"local-home","createdAt":"2026-01-01T00:00:00"}]',
+    });
+    final provider = CustomTextProvider();
+    await provider.initialize();
+    await provider.ensureSeeded();
+
+    expect(provider.groups.where((g) => g.name == '家庭场景'), hasLength(1),
+        reason: 'never two groups with the same name');
+    expect(provider.countIn('local-home'), greaterThan(1),
+        reason: 'imported passages land in the group the reader already had');
+    expect(provider.allTexts.first.title, 'Mine');
+  });
+
+  test('an empty duplicate group is cleaned up on launch', () async {
+    SharedPreferences.setMockInitialValues({
+      'flutter.custom_groups':
+          '[{"id":"local-home","name":"家庭场景"},{"id":"stray","name":"家庭场景"}]',
+      'flutter.custom_texts':
+          '[{"id":"a","body":"Line.","title":"A","groupId":"local-home",'
+              '"createdAt":"2026-01-01T00:00:00"}]',
+    });
+    final provider = CustomTextProvider();
+    await provider.initialize();
+
+    expect(provider.groups.map((g) => g.id), ['local-home']);
+  });
 }

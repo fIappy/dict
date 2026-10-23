@@ -99,6 +99,7 @@ class CustomTextProvider extends ChangeNotifier {
     }
     // The library merges into groups; landing on an empty 未分组 made it look
     // like nothing had been imported.
+    if (_dropEmptyDuplicateGroups() > 0) await _persistGroups();
     _selectFirstWithContent();
     notifyListeners();
   }
@@ -133,16 +134,30 @@ class CustomTextProvider extends ChangeNotifier {
 
   /// Adds the groups and entries of [data] whose ids are not here yet; returns
   /// how many were added. Existing ids are left alone.
+  ///
+  /// A group is matched by id first and then by **name**: the store on this
+  /// machine was built before the seed existed, so its 家庭场景 has a different
+  /// id — matching on id alone grew a second, empty 家庭场景 beside the real one.
+  /// Entries inherit that mapping, so imported passages land in the group the
+  /// reader already has.
   int _mergeLibrary(Map<dynamic, dynamic> data) {
     var added = 0;
+    final groupIds = <String, String>{};
     final groups = data['groups'];
     if (groups is List) {
       for (final entry in groups) {
         if (entry is! Map) continue;
         final group = CustomTextGroup.fromJson(entry.cast<String, Object?>());
         if (group.id.isEmpty) continue;
-        if (_groups.any((existing) => existing.id == group.id)) continue;
+        final existing = _groups.where(
+          (local) => local.id == group.id || local.name == group.name,
+        );
+        if (existing.isNotEmpty) {
+          groupIds[group.id] = existing.first.id;
+          continue;
+        }
         _groups.add(group);
+        groupIds[group.id] = group.id;
         added++;
       }
     }
@@ -153,11 +168,35 @@ class CustomTextProvider extends ChangeNotifier {
         final item = CustomText.fromJson(entry.cast<String, Object?>());
         if (item.id.isEmpty) continue;
         if (_texts.any((existing) => existing.id == item.id)) continue;
-        _texts.add(item);
+        final target = item.groupId == null ? null : groupIds[item.groupId];
+        _texts.add(
+          target == null || target == item.groupId
+              ? item
+              : item.copyWith(groupId: target),
+        );
         added++;
       }
     }
     return added;
+  }
+
+  /// Drops an empty group whose name another group already uses.
+  ///
+  /// Only reachable through the id-mismatch above, but the stray group is
+  /// visible in the sidebar, so it is cleaned up on the next launch instead of
+  /// asking the reader to delete it by hand.
+  int _dropEmptyDuplicateGroups() {
+    final before = _groups.length;
+    final byName = <String, int>{};
+    for (final group in _groups) {
+      byName[group.name] = (byName[group.name] ?? 0) + 1;
+    }
+    _groups.removeWhere((group) {
+      if (byName[group.name] == 1) return false;
+      if (countIn(group.id) > 0) return false;
+      return true;
+    });
+    return before - _groups.length;
   }
 
   /// Opens a group that actually holds something.
