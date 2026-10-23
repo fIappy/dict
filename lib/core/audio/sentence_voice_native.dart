@@ -24,10 +24,11 @@ Future<bool> speakWithSystemVoice(
   String text,
   SentenceVoice voice, {
   double rate = 1.0,
+  double volume = 1.0,
 }) =>
     Platform.isAndroid
-        ? android.speakWithSystemVoice(text, voice, rate: rate)
-        : windows.speakWithSystemVoice(text, voice, rate: rate);
+        ? android.speakWithSystemVoice(text, voice, rate: rate, volume: volume)
+        : windows.speakWithSystemVoice(text, voice, rate: rate, volume: volume);
 
 /// Renders [text] to a wav file, for the engines that cannot speak on demand.
 /// Android's engine speaks directly, so it has nothing to render here.

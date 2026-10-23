@@ -121,9 +121,11 @@ class EntrySpeechProvider extends ChangeNotifier {
     required String accent,
     bool? loop,
     SpeechEngine engine = SpeechEngine.kokoro,
+    double volume = 1.0,
   }) async {
     if (items.isEmpty) return;
     _engine = engine;
+    await _player.setVolume(volume);
     final run = ++_run;
     _items = items;
     _rate = rate;
@@ -241,9 +243,11 @@ class EntrySpeechProvider extends ChangeNotifier {
     required double rate,
     required String accent,
     SpeechEngine engine = SpeechEngine.kokoro,
+    double volume = 1.0,
   }) async {
     stop();
     _engine = engine;
+    await _player.setVolume(volume);
     final run = ++_run;
     _items = [item];
     _kokoroReady = engine == SpeechEngine.system ? false : await _kokoroUsable();
@@ -271,6 +275,7 @@ class EntrySpeechProvider extends ChangeNotifier {
     required double rate,
     required String accent,
     SpeechEngine engine = SpeechEngine.kokoro,
+    double volume = 1.0,
   }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
@@ -282,6 +287,7 @@ class EntrySpeechProvider extends ChangeNotifier {
       accent: accent,
       loop: false,
       engine: engine,
+      volume: volume,
     );
   }
 

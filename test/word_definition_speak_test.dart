@@ -19,6 +19,9 @@ class _RecordingPlayer implements SpeechClipPlayer {
   int buffers = 0;
 
   @override
+  Future<void> setVolume(double volume) async {}
+
+  @override
   Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
     buffers++;
     return true;

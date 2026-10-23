@@ -71,6 +71,7 @@ void _playFrom(BuildContext context, List<String> sentences) {
     accent: accentForLanguage(settings.ttsLanguage),
     loop: false,
     engine: settings.speechEngine,
+    volume: settings.speechVolume,
   );
 }
 

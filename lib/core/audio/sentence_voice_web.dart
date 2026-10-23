@@ -78,13 +78,15 @@ Future<bool> speakWithSystemVoice(
   String text,
   SentenceVoice voice, {
   double rate = 1.0,
+  double volume = 1.0,
 }) async {
   final synth = web.window.speechSynthesis;
   try {
     synth.cancel();
     final utterance = web.SpeechSynthesisUtterance(text)
       ..lang = voice.language
-      ..rate = rate;
+      ..rate = rate
+      ..volume = volume.clamp(0.0, 1.0);
 
     for (final candidate in synth.getVoices().toDart) {
       if (candidate.name == voice.name) {

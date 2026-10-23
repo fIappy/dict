@@ -316,6 +316,18 @@ class AudioManager implements SpeechClipPlayer {
     }
   }
 
+  double _volume = 1.0;
+
+  @override
+  Future<void> setVolume(double volume) async {
+    _volume = volume.clamp(0.0, 1.0);
+    try {
+      await _player.setVolume(_volume);
+    } catch (e) {
+      debugPrint('Setting the volume failed: $e');
+    }
+  }
+
   // ------------------------------------------------------------ sentence speech
   //
   // A number sentence ("one thousand two hundred and thirty-four") is spoken by
@@ -362,9 +374,9 @@ class AudioManager implements SpeechClipPlayer {
           accent,
         );
         if (sapi == null) return false;
-        return await speakWithSystemVoice(text, sapi, rate: rate);
+        return await speakWithSystemVoice(text, sapi, rate: rate, volume: _volume);
       }
-      return await speakWithSystemVoice(text, voice, rate: rate);
+      return await speakWithSystemVoice(text, voice, rate: rate, volume: _volume);
     } finally {
       AudioBackground.end();
       _isPlaying = false;

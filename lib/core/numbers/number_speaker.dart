@@ -44,8 +44,10 @@ class NumberSpeaker {
     String accent = 'uk',
     double rate = 1.0,
     SpeechEngine engine = SpeechEngine.kokoro,
+    double volume = 1.0,
   }) async {
     final run = ++_runId;
+    await _player.setVolume(volume);
     final clip = engine == SpeechEngine.system
         ? null
         : await _render(sentence, accent: accent, rate: rate);
@@ -63,6 +65,7 @@ class NumberSpeaker {
     Duration gap = const Duration(seconds: 1),
     void Function(int index)? onIndex,
     SpeechEngine engine = SpeechEngine.kokoro,
+    double volume = 1.0,
   }) =>
       speakRuns(
         [for (final sentence in sentences) <String>[sentence]],
@@ -71,6 +74,7 @@ class NumberSpeaker {
         gap: gap,
         onIndex: onIndex,
         engine: engine,
+        volume: volume,
       );
 
   /// Speaks [rows] one after another, where each row is a short run of sentences
@@ -91,8 +95,10 @@ class NumberSpeaker {
     Duration gap = const Duration(seconds: 1),
     void Function(int index)? onIndex,
     SpeechEngine engine = SpeechEngine.kokoro,
+    double volume = 1.0,
   }) async {
     final run = ++_runId;
+    await _player.setVolume(volume);
     final joinRow = innerGap == Duration.zero;
 
     for (var i = 0; i < rows.length; i++) {

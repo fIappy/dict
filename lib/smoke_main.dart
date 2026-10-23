@@ -166,6 +166,9 @@ class _RecordingAudio implements SpeechClipPlayer {
   }
 
   @override
+  Future<void> setVolume(double volume) async {}
+
+  @override
   Future<bool> speakSentence(String sentence,
           {String accent = 'us', double rate = 1.0}) async =>
       false;

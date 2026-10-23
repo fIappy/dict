@@ -70,12 +70,14 @@ Future<File> _helperScript() async {
 param(
   [string]$Action = 'list', [string]$Voice = '', [string]$Engine = 'sapi',
   [int]$RatePercent = 100, [int]$SapiRate = 0, [int]$WordGapMs = 0,
+  [int]$Volume = 100,
   [string]$Text = '', [string]$Out = ''
 )
 # SAPI: `$voice` would BE the -Voice parameter (names are case-insensitive), so
 # the COM object needs a name of its own.
 function List-Sapi {
   $sapi = New-Object -ComObject SAPI.SpVoice
+  $sapi.Volume = $Volume
   foreach ($candidate in $sapi.GetVoices()) {
     "$($candidate.GetDescription())|$([int]$candidate.GetAttribute('Language'))|sapi"
   }
@@ -155,13 +157,15 @@ Process? _speaking;
 ///
 /// [rate] is the slider value; `windowsEngineRateFor` turns it into the engine
 /// rate this voice's -10…10 scale is looked up on.
-Future<bool> speakWithSystemVoice(String text, SentenceVoice voice, {double rate = 1.0}) async {
+Future<bool> speakWithSystemVoice(String text, SentenceVoice voice,
+    {double rate = 1.0, double volume = 1.0}) async {
   try {
     final script = await _helperScript();
     _speaking = await Process.start('powershell', [
       '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script.path,
       '-Action', 'speak', '-Engine', 'sapi', '-Voice', voice.name,
-      '-SapiRate', '${sapiRate(windowsEngineRateFor(rate))}', '-Text', text,
+      '-SapiRate', '${sapiRate(windowsEngineRateFor(rate))}',
+      '-Volume', '${(volume.clamp(0.0, 1.0) * 100).round()}', '-Text', text,
     ]);
     final exitCode = await _speaking!.exitCode;
     _speaking = null;

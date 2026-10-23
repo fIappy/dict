@@ -88,6 +88,7 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
       accent: accentForLanguage(settings.ttsLanguage),
       loop: settings.speechLoop,
       engine: settings.speechEngine,
+      volume: settings.speechVolume,
     );
   }
 
@@ -111,6 +112,7 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
       accent: accentForLanguage(settings.ttsLanguage),
       loop: settings.speechLoop,
       engine: settings.speechEngine,
+      volume: settings.speechVolume,
     );
   }
 

@@ -62,6 +62,11 @@ class _RecordingPlayer implements SpeechClipPlayer {
 
 
   @override
+  Future<void> setVolume(double volume) async => this.volume = volume;
+
+  double volume = 1.0;
+
+  @override
   Future<bool> speakSentence(String sentence,
       {String accent = 'us', double rate = 1.0}) async {
     sentences.add(sentence);
@@ -520,6 +525,21 @@ void main() {
       expect(accentForLanguage('en-GB'), 'uk');
       expect(accentForLanguage('zh-CN'), 'us');
     });
+  });
+
+  test('the volume from the settings panel reaches the player', () async {
+    final player = _RecordingPlayer();
+    final provider = EntrySpeechProvider(player: player, kokoro: _StubKokoro());
+
+    await provider.playAll(
+      const [EntryUtterance(text: 'One.', isPhrase: false)],
+      rate: 1.0,
+      gap: Duration.zero,
+      accent: 'us',
+      volume: 0.35,
+    );
+
+    expect(player.volume, closeTo(0.35, 1e-9));
   });
 
   test('the system engine reads the lines and Kokoro stays idle', () async {

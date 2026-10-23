@@ -215,6 +215,7 @@ class WordDetailScreen extends StatelessWidget {
         accent: accentForLanguage(settings.ttsLanguage),
         loop: settings.speechLoop,
         engine: settings.speechEngine,
+        volume: settings.speechVolume,
       ),
     );
   }

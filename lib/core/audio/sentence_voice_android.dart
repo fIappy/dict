@@ -63,6 +63,7 @@ Future<bool> speakWithSystemVoice(
   String text,
   SentenceVoice voice, {
   double rate = 1.0,
+  double volume = 1.0,
 }) async {
   try {
     final spoken = await _channel
@@ -71,6 +72,7 @@ Future<bool> speakWithSystemVoice(
           'voice': voice.name,
           'language': voice.language,
           'rate': rate,
+          'volume': volume.clamp(0.0, 1.0),
         })
         .timeout(_completionTimeout, onTimeout: () => true);
     return spoken ?? false;

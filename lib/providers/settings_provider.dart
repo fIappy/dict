@@ -17,6 +17,7 @@ class SettingsProvider extends ChangeNotifier {
   AiReasoningEffort _aiReasoningEffort = AiReasoningEffort.low;
   bool _speechLoop = false;
   SpeechEngine _speechEngine = SpeechEngine.kokoro;
+  double _speechVolume = 1.0;
   int _passageLength = 140;
   PassageStyle _passageStyle = PassageStyle.descriptive;
 
@@ -31,6 +32,9 @@ class SettingsProvider extends ChangeNotifier {
   String get aiApiKey => _aiApiKey;
   String get aiModel => _aiModel;
   AiReasoningEffort get aiReasoningEffort => _aiReasoningEffort;
+
+  /// Playback level, 0–1, for every screen that speaks.
+  double get speechVolume => _speechVolume;
 
   /// Which engine reads aloud, for every screen that speaks.
   SpeechEngine get speechEngine => _speechEngine;
@@ -69,6 +73,7 @@ class SettingsProvider extends ChangeNotifier {
     _aiModel = prefs.getString('ai_model') ?? 'gpt-4o-mini';
     _speechLoop = prefs.getBool('speech_loop') ?? false;
     _speechEngine = SpeechEngine.byName(prefs.getString('speech_engine'));
+    _speechVolume = (prefs.getDouble('speech_volume') ?? 1.0).clamp(0.0, 1.0);
     _passageLength = prefs.getInt('passage_length') ?? 140;
     _passageStyle = PassageStyle.byName(prefs.getString('passage_style'));
     final effortName = prefs.getString('ai_reasoning_effort');
@@ -91,6 +96,15 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('font_size_scale', scale);
+  }
+
+  Future<void> setSpeechVolume(double volume) async {
+    final value = volume.clamp(0.0, 1.0);
+    if (value == _speechVolume) return;
+    _speechVolume = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('speech_volume', value);
   }
 
   Future<void> setSpeechEngine(SpeechEngine engine) async {

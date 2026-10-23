@@ -36,6 +36,12 @@ abstract class SpeechClipPlayer {
   /// platform has none (the recorded-word path is in use).
   Future<String?> sentenceVoiceLabel(String accent);
 
+  /// Sets the output level (0–1) for everything this player sounds from now on.
+  ///
+  /// Sticky rather than per-clip: the reader sets it once in the settings panel,
+  /// and every line after that is read at that level.
+  Future<void> setVolume(double volume);
+
   /// Silences whatever is playing.
   Future<void> stop();
 }

@@ -95,6 +95,11 @@ class _GatedPlayer implements SpeechClipPlayer {
 
 
   @override
+  Future<void> setVolume(double volume) async => this.volume = volume;
+
+  double volume = 1.0;
+
+  @override
   Future<bool> speakSentence(String sentence,
           {String accent = 'us', double rate = 1.0}) async =>
       false;
@@ -107,6 +112,9 @@ class _GatedPlayer implements SpeechClipPlayer {
 
 class _RecordingPlayer implements SpeechClipPlayer {
   _RecordingPlayer({this.supportsSentences = false});
+
+  @override
+  Future<void> setVolume(double volume) async {}
 
   /// Whether the platform claims to have a speech voice. False (the default)
   /// makes the speaker fall back to the recorded words, which is what the web

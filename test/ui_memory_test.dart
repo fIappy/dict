@@ -66,4 +66,16 @@ void main() {
     await second.initialize();
     expect(second.speechEngine, SpeechEngine.system);
   });
+
+  test('the volume is remembered', () async {
+    final first = SettingsProvider();
+    await first.initialize();
+    expect(first.speechVolume, 1.0);
+
+    await first.setSpeechVolume(0.4);
+
+    final second = SettingsProvider();
+    await second.initialize();
+    expect(second.speechVolume, closeTo(0.4, 1e-9));
+  });
 }

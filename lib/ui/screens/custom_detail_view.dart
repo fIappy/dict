@@ -389,6 +389,7 @@ class _CustomDetailViewState extends State<CustomDetailView> {
       accent: accentForLanguage(settings.ttsLanguage),
       loop: settings.speechLoop,
       engine: settings.speechEngine,
+      volume: settings.speechVolume,
     );
   }
 }

@@ -104,6 +104,17 @@ class SettingsScreen extends StatelessWidget {
           ),
         ),
         _EngineStatus(engine: settings.speechEngine),
+        _SliderTile(
+          icon: Icons.volume_up_rounded,
+          title: '音量',
+          valueLabel: '${(settings.speechVolume * 100).round()}%',
+          hint: '所有朗读（词典、AI、自定义短文、数字训练）的音量',
+          value: settings.speechVolume,
+          min: 0,
+          max: 1,
+          divisions: 20,
+          onChanged: settings.setSpeechVolume,
+        ),
         const SizedBox(height: 24),
         _SectionTitle('朗读短语与例句'),
         _SliderTile(

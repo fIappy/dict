@@ -211,6 +211,18 @@ class AudioManager implements SpeechClipPlayer {
     }
   }
 
+  double _volume = 1.0;
+
+  @override
+  Future<void> setVolume(double volume) async {
+    _volume = volume.clamp(0.0, 1.0);
+    try {
+      await _player.setVolume(_volume);
+    } catch (e) {
+      debugPrint('Setting the volume failed: $e');
+    }
+  }
+
   /// Speaks the whole sentence with the browser's own voice, so "twenty-four" is
   /// read as one number instead of the module playing the `twenty` and `four`
   /// recordings back to back. Returns false when the browser has no voice (or
@@ -232,6 +244,7 @@ class AudioManager implements SpeechClipPlayer {
         sentenceForSpeech(sentence),
         voice,
         rate: rate,
+        volume: _volume,
       );
     } finally {
       _isPlaying = false;

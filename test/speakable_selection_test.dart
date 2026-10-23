@@ -22,6 +22,7 @@ class _RecordingSpeech extends EntrySpeechProvider {
     required String accent,
     bool? loop,
     SpeechEngine engine = SpeechEngine.kokoro,
+    double volume = 1.0,
   }) async {
     played.addAll([for (final item in items) item.text]);
   }
@@ -32,6 +33,7 @@ class _RecordingSpeech extends EntrySpeechProvider {
     required double rate,
     required String accent,
     SpeechEngine engine = SpeechEngine.kokoro,
+    double volume = 1.0,
   }) async {
     spoken.add(text);
   }
