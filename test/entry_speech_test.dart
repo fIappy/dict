@@ -77,6 +77,57 @@ class _RecordingPlayer implements SpeechClipPlayer {
   }
 }
 
+/// A Piper that renders everything except [bad], which it cannot.
+class _PartialPiper extends _StubPiper {
+  _PartialPiper(this.bad);
+
+  final String bad;
+
+  @override
+  Future<PcmClip?> synthesize(String text,
+      {required String accent, required double rate}) async {
+    rendered.add(text);
+    rates.add(rate);
+    if (text == bad) return null;
+    return PcmClip(Int16List.fromList(List.filled(2205, 3)), 22050);
+  }
+}
+
+/// A player whose byte playback can be held, and which reports the clip as
+/// never having sounded when it is released after a stop (what a real player
+/// does).
+class _GatedPlayer extends _RecordingPlayer {
+  Completer<void>? _gate;
+  bool _stopped = false;
+
+  void hold() {
+    _gate = Completer<void>();
+    _stopped = false;
+  }
+
+  void release() {
+    _gate?.complete();
+    _gate = null;
+  }
+
+  @override
+  Future<void> stop() async {
+    _stopped = true;
+    await super.stop();
+  }
+
+  @override
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
+    buffers.add(bytes);
+    final gate = _gate;
+    if (gate != null) await gate.future;
+    // A clip cut short by a stop never sounded; the next one plays normally.
+    final sounded = !_stopped;
+    _stopped = false;
+    return sounded;
+  }
+}
+
 class _StubPiper extends PiperVoice {
   _StubPiper({this.ready = true}) : super(finder: (accent) async => null);
 
@@ -192,6 +243,51 @@ void main() {
       expect(piper.rates, [1.0], reason: 'the slider value, not halved');
       expect(player.buffers, hasLength(1));
       expect(player.sentences, isEmpty, reason: 'the platform voice is not used');
+    });
+
+    test('a line Piper cannot render is skipped, not read by another voice',
+        () async {
+      final player = _RecordingPlayer();
+      final piper = _PartialPiper('Two.');
+      final provider = EntrySpeechProvider(player: player, piper: piper);
+
+      await provider.playAll(const [
+        EntryUtterance(text: 'One.', isPhrase: false),
+        EntryUtterance(text: 'Two.', isPhrase: false),
+        EntryUtterance(text: 'Three.', isPhrase: false),
+      ], rate: 1.0, gap: Duration.zero, accent: 'us');
+
+      // Two buffers, one per renderable line; the platform voice never speaks.
+      expect(player.buffers, hasLength(2));
+      expect(player.sentences, isEmpty,
+          reason: 'switching voices mid-run is the male-voice bug');
+    });
+
+    test('pausing mid-line never hands the line to the platform voice',
+        () async {
+      final player = _GatedPlayer();
+      final piper = _StubPiper();
+      final provider = EntrySpeechProvider(player: player, piper: piper);
+
+      player.hold();
+      final run = provider.playAll(const [
+        EntryUtterance(text: 'One.', isPhrase: false),
+        EntryUtterance(text: 'Two.', isPhrase: false),
+      ], rate: 1.0, gap: Duration.zero, accent: 'us');
+      await pumpEventQueue();
+      expect(provider.isPlaying, isTrue);
+
+      provider.pause();
+      player.release();
+      await pumpEventQueue();
+      expect(player.sentences, isEmpty,
+          reason: 'a stopped line must not be re-read by the system voice');
+
+      provider.resume();
+      await run;
+      expect(piper.rendered, ['One.', 'One.', 'Two.'],
+          reason: 'the interrupted line is said again by Piper after 继续');
+      expect(player.sentences, isEmpty);
     });
 
     test('stop drops the pending lines of a run in flight', () async {

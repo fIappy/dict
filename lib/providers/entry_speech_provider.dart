@@ -46,6 +46,13 @@ class EntrySpeechProvider extends ChangeNotifier {
   Duration _gap = Duration.zero;
   String _accent = 'us';
 
+  /// Which engine this run speaks with, decided once in [playAll].
+  ///
+  /// Deciding per line is what made the voice change mid-list: one line Piper
+  /// could not render fell through to the platform voice — a male SAPI voice on
+  /// Windows — and the next line was Piper again.
+  bool _usePiper = false;
+
   /// The list [playAll] is walking (or walked last), for the UI's progress.
   List<EntryUtterance> get items => _items;
 
@@ -78,6 +85,8 @@ class EntrySpeechProvider extends ChangeNotifier {
     _gap = gap;
     _accent = accent;
     _loopRun = loop ?? _loop;
+    _usePiper = await _piperUsable(accent);
+    if (run != _run) return;
     _isPlaying = true;
     _isPaused = false;
     _currentIndex = null;
@@ -160,6 +169,8 @@ class EntrySpeechProvider extends ChangeNotifier {
     stop();
     final run = ++_run;
     _items = [item];
+    _usePiper = await _piperUsable(accent);
+    if (run != _run) return;
     _isPlaying = true;
     _isPaused = false;
     _currentIndex = 0;
@@ -212,30 +223,57 @@ class EntrySpeechProvider extends ChangeNotifier {
     super.dispose();
   }
 
-  /// One line: Piper when this machine has the model, the platform voice
-  /// otherwise.
+  /// Whether this machine can speak with the Piper model.
+  Future<bool> _piperUsable(String accent) async {
+    final piper = _piper;
+    if (piper == null) return false;
+    try {
+      return await piper.isReady(accent);
+    } catch (e) {
+      debugPrint('Piper probe failed: $e');
+      return false;
+    }
+  }
+
+  /// One line, with the engine this run settled on.
+  ///
+  /// Never switches voice: a line Piper cannot render is skipped (and logged),
+  /// because reading it with the platform voice is what made a female run turn
+  /// into a male one halfway through. A paused or superseded run returns false
+  /// before anything starts sounding — [playAll] then re-says the line after
+  /// 继续.
   Future<bool> _speak(
     String text, {
     required String accent,
     required double rate,
     required int run,
   }) async {
-    final piper = _piper;
-    if (piper != null && await piper.isReady(accent)) {
-      final clip = await piper.synthesize(text, accent: accent, rate: rate);
-      if (run != _run) return false;
-      if (clip != null && clip.samples.isNotEmpty) {
-        final played = await _player.playAudioBytes(
-          encodeWav(clip.samples, sampleRate: clip.sampleRate),
-          rate: 1.0,
-        );
-        if (played) return run == _run;
-        // The buffer never sounded — a player without byte support, or a mixer
-        // that refused it. Speak the line with the platform voice rather than
-        // leaving the reader in silence.
-        debugPrint('Piper clip did not sound; using the platform voice');
-      }
+    if (run != _run || _isPaused) return false;
+
+    if (!_usePiper) {
+      return _player.speakSentence(text, accent: accent, rate: rate);
     }
-    return _player.speakSentence(text, accent: accent, rate: rate);
+
+    final clip = await _piper!.synthesize(text, accent: accent, rate: rate);
+    if (run != _run || _isPaused) return false;
+    if (clip == null || clip.samples.isEmpty) {
+      debugPrint('Piper could not render a line; skipping it instead of '
+          'switching to another voice');
+      return false;
+    }
+    final played = await _player.playAudioBytes(
+      encodeWav(clip.samples, sampleRate: clip.sampleRate),
+      rate: 1.0,
+    );
+    if (!played && run == _run && !_isPaused) {
+      // This platform cannot sound a byte buffer (or the mixer refused it).
+      // Fall back for the rest of the run as well, so the voice changes once
+      // instead of flipping back to Piper on the next line.
+      _usePiper = false;
+      debugPrint('Piper clip did not sound; the rest of this run uses the '
+          'platform voice');
+      return _player.speakSentence(text, accent: accent, rate: rate);
+    }
+    return played;
   }
 }
