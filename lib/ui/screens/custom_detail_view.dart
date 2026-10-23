@@ -388,6 +388,7 @@ class _CustomDetailViewState extends State<CustomDetailView> {
       gap: settings.sentenceGap,
       accent: accentForLanguage(settings.ttsLanguage),
       loop: settings.speechLoop,
+      engine: settings.speechEngine,
     );
   }
 }

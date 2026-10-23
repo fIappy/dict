@@ -371,11 +371,17 @@ python tool/generate_ipa_audio.py                        # 需要 espeak-ng + ff
 > 也别用按文件名从第三方仓库挑的录音：那类多是**基本元音（cardinal vowel）**，cardinal [ʌ]
 > 是后半开元音，英语 /ʌ/（cup）是央化的 [ɐ]；cardinal [e] 是次闭前元音，英语 /e/（bed）实际是 [ɛ]。
 
-### 发音引擎：Kokoro
+### 发音引擎：设置里二选一
 
-整句朗读只有一个引擎：**[Kokoro](https://github.com/hexgrad/kokoro)**（82M 参数的 TTS 模型，int8 量化，
-24 kHz），由 sherpa-onnx 在本机推理。系统语音（Windows OneCore/SAPI、Android `TextToSpeech`、浏览器
-`speechSynthesis`）与内置的单词录音拼接都已移除 —— 一次连播里换音色正是它们造成的问题，现在没有第二个引擎可换。
+整句朗读的引擎在**设置 → 发音引擎**里选，一处设置，词典、AI 卡片、自定义短文、数字训练全跟着走：
+
+| 引擎 | 特点 |
+|---|---|
+| **[Kokoro](https://github.com/hexgrad/kokoro)**（默认） | 82M 参数的 TTS 模型在本机推理（int8 / 24 kHz），三端同一音色、完全离线；每句要合成几百毫秒，启动时有预热 |
+| **系统语音** | Windows 的 OneCore/SAPI、Android 的 `TextToSpeech`、浏览器的 `speechSynthesis`；点下即读，音色随机器的语音包而变 |
+
+系统语音此前被移除过（连播中途换音色），现在它是一次**显式选择**，而不是自动回退：选了谁就只用谁，
+不会在一条连播里换声音。内置的单词录音拼接没有回来 —— 它逐词发音，和「整句朗读」的目标相反。
 
 | 项 | 值 |
 |---|---|

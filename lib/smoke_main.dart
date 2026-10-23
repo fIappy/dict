@@ -166,6 +166,14 @@ class _RecordingAudio implements SpeechClipPlayer {
   }
 
   @override
+  Future<bool> speakSentence(String sentence,
+          {String accent = 'us', double rate = 1.0}) async =>
+      false;
+
+  @override
+  Future<String?> sentenceVoiceLabel(String accent) async => null;
+
+  @override
   Future<void> stop() async {}
 }
 

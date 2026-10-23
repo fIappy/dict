@@ -8,6 +8,7 @@ import '../services/dictionary_service.dart';
 import 'audio_background.dart';
 import 'ipa_asset.dart';
 import 'playback_wait.dart';
+import 'sentence_voice.dart';
 import 'speech_clip_player.dart';
 
 class AudioManager implements SpeechClipPlayer {
@@ -315,6 +316,83 @@ class AudioManager implements SpeechClipPlayer {
     }
   }
 
+  // ------------------------------------------------------------ sentence speech
+  //
+  // A number sentence ("one thousand two hundred and thirty-four") is spoken by
+  // the system voice in one utterance, because recorded words played back to back
+  // keep each word's citation form — its own final fall and its own pause. The
+  // engine is SAPI: offline, free-form, and the only English voice this machine
+  // has; when the requested accent has no voice here the manager says so and the
+  // caller falls back to the recordings.
+
+  /// The voice this machine would speak [accent] with, or null when it has no
+  /// English voice at all (the UI then says the recordings are in use).
+  @override
+  Future<String?> sentenceVoiceLabel(String accent) async {
+    final voice = await chosenSentenceVoice(accent);
+    return voice == null ? null : sentenceVoiceDescription(voice, accent);
+  }
+
+  /// Speaks [sentence] as one utterance through this machine's own voice: the
+  /// modern OneCore voices first (they render to a wav, which the player plays so
+  /// the UI keeps control of speed and stopping), then SAPI. Returns false when
+  /// there is no English voice, and the caller plays the recorded words instead.
+  ///
+  /// Never touches the network — the module has to work offline.
+  @override
+  Future<bool> speakSentence(
+    String sentence, {
+    String accent = 'us',
+    double rate = 1.0,
+  }) async {
+    final voice = await chosenSentenceVoice(accent);
+    if (voice == null) return false;
+    final text = sentenceForSpeech(sentence);
+
+    _currentlyPlayingTag = 'sentence_$accent';
+    _isPlaying = true;
+    AudioBackground.begin();
+    try {
+      if (voice.engine == VoiceEngine.oneCore) {
+        final wav = await synthesizeWithVoice(text, voice, rate: rate);
+        if (wav != null && await _playFileToCompletion(wav)) return true;
+        // Fall through to SAPI if the modern engine could not produce audio.
+        final sapi = chooseSentenceVoice(
+          (await systemVoices()).where((v) => v.engine == VoiceEngine.sapi).toList(),
+          accent,
+        );
+        if (sapi == null) return false;
+        return await speakWithSystemVoice(text, sapi, rate: rate);
+      }
+      return await speakWithSystemVoice(text, voice, rate: rate);
+    } finally {
+      AudioBackground.end();
+      _isPlaying = false;
+      _currentlyPlayingTag = null;
+    }
+  }
+
+  /// Plays a rendered wav and completes when it has finished sounding.
+  Future<bool> _playFileToCompletion(String path) async {
+    try {
+      final completed = await awaitPlayback(
+        completions: _player.onPlayerComplete,
+        durations: _player.onDurationChanged,
+        start: () => _player.play(DeviceFileSource(path)),
+        minPlausible: _minPlausiblePlayback,
+        durationWait: const Duration(milliseconds: 600),
+        stallGuard: _utteranceStallGuard,
+      );
+      if (!completed) {
+        debugPrint('The rendered sentence did not report completion');
+      }
+      return true;
+    } catch (e) {
+      debugPrint('Playing the rendered sentence failed: $e');
+      return false;
+    }
+  }
+
   /// A completion arriving sooner than this after a playback starts cannot be
   /// that playback finishing — it is the previous source being torn down.
   /// Kept below the shortest clip the module plays (about 300 ms).
@@ -328,8 +406,18 @@ class AudioManager implements SpeechClipPlayer {
     return cap > floor ? cap : floor;
   }
 
+  /// Longest a rendered sentence may take. A rendered wav reports its duration,
+  /// so the guard scales with it; without one, keep the generous cap the
+  /// sentence path always had rather than clipping a long number.
+  static Duration _utteranceStallGuard(Duration? reported) => reported == null
+      ? const Duration(seconds: 30)
+      : reported * 1.2 + const Duration(milliseconds: 500);
+
   @override
   Future<void> stop() async {
+    // A sentence is spoken by a child process (or played from a rendered file),
+    // so stopping means killing the process and silencing the player.
+    cancelSystemVoice();
     AudioBackground.stopNow();
     try {
       await _player.stop();

@@ -19,6 +19,23 @@ abstract class SpeechClipPlayer {
   /// caller fall back to another engine instead of leaving dead air.
   Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0});
 
+  /// Speaks a whole sentence with the prosody of connected speech.
+  ///
+  /// Recorded words played back to back keep each word's citation form — its own
+  /// final fall and its own pause — which is not how a person says
+  /// "one thousand two hundred and thirty-four". Platforms with a usable speech
+  /// voice therefore speak the sentence in one go; returning false means the
+  /// caller falls back to the recorded words ([NumberSpeaker] does exactly that).
+  Future<bool> speakSentence(
+    String sentence, {
+    String accent = 'us',
+    double rate = 1.0,
+  });
+
+  /// Which voice [speakSentence] will use, for the UI to show; null when the
+  /// platform has none (the recorded-word path is in use).
+  Future<String?> sentenceVoiceLabel(String accent);
+
   /// Silences whatever is playing.
   Future<void> stop();
 }

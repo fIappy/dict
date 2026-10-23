@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 import '../../providers/dictionary_provider.dart';
 import '../../core/ai/ai_config.dart';
 import '../../core/ai/openai_client.dart';
+import '../../core/audio/speech_engine.dart';
+import '../../core/audio/audio_manager.dart';
+import '../../core/audio/kokoro_model_store.dart';
 import '../../providers/settings_provider.dart';
 import 'dictionary_manager_screen.dart';
 
@@ -78,6 +81,29 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 24),
+        _SectionTitle('发音引擎'),
+        SegmentedButton<SpeechEngine>(
+          segments: [
+            for (final engine in SpeechEngine.values)
+              ButtonSegment(
+                value: engine,
+                label: Text(engine.label, style: const TextStyle(fontSize: 13)),
+              ),
+          ],
+          selected: {settings.speechEngine},
+          showSelectedIcon: false,
+          onSelectionChanged: (selection) =>
+              settings.setSpeechEngine(selection.first),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+            settings.speechEngine.hint,
+            style: TextStyle(fontSize: 12, height: 1.4, color: Theme.of(context).hintColor),
+          ),
+        ),
+        _EngineStatus(engine: settings.speechEngine),
         const SizedBox(height: 24),
         _SectionTitle('朗读短语与例句'),
         _SliderTile(
@@ -420,6 +446,70 @@ class _AiSettingsCardState extends State<_AiSettingsCard> {
       onChanged: (value) {
         save(value);
       },
+    );
+  }
+}
+
+/// What the chosen engine found on this machine: the voice it will use, or the
+/// path the model belongs at.
+class _EngineStatus extends StatefulWidget {
+  const _EngineStatus({required this.engine});
+
+  final SpeechEngine engine;
+
+  @override
+  State<_EngineStatus> createState() => _EngineStatusState();
+}
+
+class _EngineStatusState extends State<_EngineStatus> {
+  String? _status;
+  SpeechEngine? _asked;
+
+  @override
+  void initState() {
+    super.initState();
+    _ask();
+  }
+
+  @override
+  void didUpdateWidget(_EngineStatus oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.engine != widget.engine) _ask();
+  }
+
+  Future<void> _ask() async {
+    final engine = widget.engine;
+    _asked = engine;
+    final status = switch (engine) {
+      SpeechEngine.system => await AudioManager()
+          .sentenceVoiceLabel('us')
+          .then((label) => label ?? '本机没有英语系统语音'),
+      SpeechEngine.kokoro => await findKokoroModel() == null
+          ? await kokoroModelHint()
+          : '已找到 Kokoro 模型',
+    };
+    if (!mounted || _asked != engine) return;
+    setState(() => _status = status);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.graphic_eq_rounded, size: 14, color: theme.hintColor),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              _status ?? '正在检测…',
+              style: TextStyle(fontSize: 11.5, height: 1.4, color: theme.hintColor),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

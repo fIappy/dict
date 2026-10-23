@@ -87,6 +87,7 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
       gap: settings.sentenceGap,
       accent: accentForLanguage(settings.ttsLanguage),
       loop: settings.speechLoop,
+      engine: settings.speechEngine,
     );
   }
 
@@ -109,6 +110,7 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
       gap: settings.sentenceGap,
       accent: accentForLanguage(settings.ttsLanguage),
       loop: settings.speechLoop,
+      engine: settings.speechEngine,
     );
   }
 

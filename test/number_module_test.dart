@@ -93,6 +93,14 @@ class _GatedPlayer implements SpeechClipPlayer {
     return true;
   }
 
+
+  @override
+  Future<bool> speakSentence(String sentence,
+          {String accent = 'us', double rate = 1.0}) async =>
+      false;
+
+  @override
+  Future<String?> sentenceVoiceLabel(String accent) async => null;
   @override
   Future<void> stop() async {}
 }
@@ -132,6 +140,19 @@ class _RecordingPlayer implements SpeechClipPlayer {
     return true;
   }
 
+
+  @override
+  Future<bool> speakSentence(String sentence,
+      {String accent = 'us', double rate = 1.0}) async {
+    sentences.add(sentence);
+    sentenceAccents.add(accent);
+    rates.add(rate);
+    return supportsSentences;
+  }
+
+  @override
+  Future<String?> sentenceVoiceLabel(String accent) async =>
+      supportsSentences ? 'Test Voice' : null;
 
   @override
   Future<void> stop() async {

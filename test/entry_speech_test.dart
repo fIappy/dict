@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_dict/core/audio/pcm_audio.dart';
 import 'package:local_dict/core/audio/kokoro_voice.dart';
+import 'package:local_dict/core/audio/speech_engine.dart';
 import 'package:local_dict/core/audio/speech_clip_player.dart';
 import 'package:local_dict/core/mdx/entry_speech.dart';
 import 'package:local_dict/providers/entry_speech_provider.dart';
@@ -59,6 +60,18 @@ class _RecordingPlayer implements SpeechClipPlayer {
   @override
   Future<void> playSpeechClip(String assetPath, {double rate = 1.0}) async {}
 
+
+  @override
+  Future<bool> speakSentence(String sentence,
+      {String accent = 'us', double rate = 1.0}) async {
+    sentences.add(sentence);
+    accents.add(accent);
+    rates.add(rate);
+    return true;
+  }
+
+  @override
+  Future<String?> sentenceVoiceLabel(String accent) async => 'Test Voice';
   @override
   Future<void> stop() async {
     stops++;
@@ -507,6 +520,26 @@ void main() {
       expect(accentForLanguage('en-GB'), 'uk');
       expect(accentForLanguage('zh-CN'), 'us');
     });
+  });
+
+  test('the system engine reads the lines and Kokoro stays idle', () async {
+    final player = _RecordingPlayer();
+    final kokoro = _StubKokoro();
+    final provider = EntrySpeechProvider(player: player, kokoro: kokoro);
+
+    await provider.playAll(
+      const [
+        EntryUtterance(text: 'One.', isPhrase: false),
+        EntryUtterance(text: 'Two.', isPhrase: false),
+      ],
+      rate: 1.0,
+      gap: Duration.zero,
+      accent: 'us',
+      engine: SpeechEngine.system,
+    );
+
+    expect(kokoro.rendered, isEmpty, reason: 'the model is not touched');
+    expect(player.sentences, ['One.', 'Two.']);
   });
 
   group('pause, resume and loop', () {

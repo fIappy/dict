@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_dict/core/ui/ui_memory.dart';
+import 'package:local_dict/core/audio/speech_engine.dart';
 import 'package:local_dict/providers/alphabet_provider.dart';
 import 'package:local_dict/providers/custom_text_provider.dart';
 import 'package:local_dict/providers/ipa_provider.dart';
+import 'package:local_dict/providers/settings_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -51,5 +53,17 @@ void main() {
     final provider = AlphabetProvider();
     await provider.restore();
     expect(provider.selectedChar, 'M');
+  });
+
+  test('the engine choice is remembered', () async {
+    final first = SettingsProvider();
+    await first.initialize();
+    expect(first.speechEngine, SpeechEngine.kokoro);
+
+    await first.setSpeechEngine(SpeechEngine.system);
+
+    final second = SettingsProvider();
+    await second.initialize();
+    expect(second.speechEngine, SpeechEngine.system);
   });
 }

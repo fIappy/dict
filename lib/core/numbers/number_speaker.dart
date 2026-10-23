@@ -2,6 +2,7 @@ import '../audio/audio_manager.dart';
 import '../audio/kokoro_voice.dart';
 import '../audio/pcm_audio.dart';
 import '../audio/speech_clip_player.dart';
+import '../audio/speech_engine.dart';
 
 /// Plays a number sentence.
 ///
@@ -42,10 +43,13 @@ class NumberSpeaker {
     String sentence, {
     String accent = 'uk',
     double rate = 1.0,
+    SpeechEngine engine = SpeechEngine.kokoro,
   }) async {
     final run = ++_runId;
-    final clip = await _render(sentence, accent: accent, rate: rate);
-    await _play(clip, run: run);
+    final clip = engine == SpeechEngine.system
+        ? null
+        : await _render(sentence, accent: accent, rate: rate);
+    await _play(clip, run: run, engine: engine, text: sentence, accent: accent, rate: rate);
   }
 
   /// Speaks [sentences] one after another, waiting [gap] between them.
@@ -58,6 +62,7 @@ class NumberSpeaker {
     double rate = 1.0,
     Duration gap = const Duration(seconds: 1),
     void Function(int index)? onIndex,
+    SpeechEngine engine = SpeechEngine.kokoro,
   }) =>
       speakRuns(
         [for (final sentence in sentences) <String>[sentence]],
@@ -65,6 +70,7 @@ class NumberSpeaker {
         rate: rate,
         gap: gap,
         onIndex: onIndex,
+        engine: engine,
       );
 
   /// Speaks [rows] one after another, where each row is a short run of sentences
@@ -84,6 +90,7 @@ class NumberSpeaker {
     Duration innerGap = const Duration(milliseconds: 80),
     Duration gap = const Duration(seconds: 1),
     void Function(int index)? onIndex,
+    SpeechEngine engine = SpeechEngine.kokoro,
   }) async {
     final run = ++_runId;
     final joinRow = innerGap == Duration.zero;
@@ -98,14 +105,17 @@ class NumberSpeaker {
       // Render the next number while this one sounds: synthesis is the slow
       // part, and waiting for it after the gap is what made a 1 s gap feel like
       // three.
-      var pending = _render(parts.first, accent: accent, rate: rate);
+      var pending = engine == SpeechEngine.system
+          ? Future<PcmClip?>.value(null)
+          : _render(parts.first, accent: accent, rate: rate);
       for (var j = 0; j < parts.length; j++) {
         if (_stale(run)) return;
         final clip = await pending;
-        if (j + 1 < parts.length) {
+        if (j + 1 < parts.length && engine != SpeechEngine.system) {
           pending = _render(parts[j + 1], accent: accent, rate: rate);
         }
-        await _play(clip, run: run);
+        await _play(clip, run: run, engine: engine, text: parts[j],
+            accent: accent, rate: rate);
         if (_stale(run)) return;
         if (j < parts.length - 1) await Future<void>.delayed(innerGap);
       }
@@ -126,8 +136,19 @@ class NumberSpeaker {
   }
 
   /// Sounds one rendered line.
-  Future<bool> _play(PcmClip? clip, {required int run}) async {
-    if (clip == null || clip.isEmpty || _stale(run)) return false;
+  Future<bool> _play(
+    PcmClip? clip, {
+    required int run,
+    required SpeechEngine engine,
+    required String text,
+    required String accent,
+    required double rate,
+  }) async {
+    if (_stale(run)) return false;
+    if (engine == SpeechEngine.system) {
+      return _player.speakSentence(text, accent: accent, rate: rate);
+    }
+    if (clip == null || clip.isEmpty) return false;
     // The model paces itself (`speed`), so the player must not scale the audio a
     // second time.
     await _player.playAudioBytes(

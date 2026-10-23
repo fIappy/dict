@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../core/audio/kokoro_model_store.dart';
 import '../core/audio/kokoro_voice.dart';
+import '../core/audio/speech_engine.dart';
 import '../core/numbers/number_data.dart';
 import '../core/numbers/number_model.dart';
 import '../core/numbers/number_speaker.dart';
@@ -87,27 +87,9 @@ class NumbersProvider extends ChangeNotifier {
   String get lookupInput => _lookupInput;
   NumberCategory? get lookupOverride => _lookupOverride;
   String get accent => _accent;
-  /// Whether the Kokoro model is installed and loaded.
-  bool get kokoroReady => _kokoroReady;
-  bool _kokoroReady = false;
-
-  /// What the UI says about the engine, filled in asynchronously.
-  String? get kokoroStatus => _kokoroStatus;
-  String? _kokoroStatus;
-
-  /// Whether the engine has been probed since this screen opened.
-  bool get kokoroChecked => _kokoroChecked;
-  bool _kokoroChecked = false;
-
-  /// Loads the model (once) and reports what the UI should say.
-  Future<void> refreshKokoroStatus() async {
-    _kokoroReady = await _kokoro.isReady();
-    _kokoroStatus = _kokoroReady
-        ? await _kokoro.label()
-        : await kokoroModelHint();
-    _kokoroChecked = true;
-    notifyListeners();
-  }
+  /// Which engine reads the drill; the settings panel owns the choice and the
+  /// training screen mirrors it here before playing.
+  SpeechEngine speechEngine = SpeechEngine.kokoro;
 
   double get rate => _rate;
   int get gapMs => _gapMs;
@@ -218,6 +200,7 @@ class NumbersProvider extends ChangeNotifier {
       reading.textFor(chosen),
       accent: chosen,
       rate: _rate,
+      engine: speechEngine,
     );
     if (run != _playRun) return;
     _playing = false;
@@ -237,6 +220,7 @@ class NumbersProvider extends ChangeNotifier {
       <List<String>>[item.textsFor(_accent)],
       accent: _accent,
       rate: _rate,
+      engine: speechEngine,
       innerGap: Duration(milliseconds: _runGapMs),
     );
     if (run != _playRun) return;
@@ -262,6 +246,7 @@ class NumbersProvider extends ChangeNotifier {
         rows,
         accent: _accent,
         rate: _rate,
+        engine: speechEngine,
         innerGap: Duration(milliseconds: _runGapMs),
         gap: gap,
         onIndex: (index) {

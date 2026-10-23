@@ -27,6 +27,14 @@ class _RecordingPlayer implements SpeechClipPlayer {
   @override
   Future<void> playSpeechClip(String assetPath, {double rate = 1.0}) async {}
 
+
+  @override
+  Future<bool> speakSentence(String sentence,
+          {String accent = 'us', double rate = 1.0}) async =>
+      false;
+
+  @override
+  Future<String?> sentenceVoiceLabel(String accent) async => null;
   @override
   Future<void> stop() async {}
 }

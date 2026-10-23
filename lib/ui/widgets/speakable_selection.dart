@@ -70,6 +70,7 @@ void _playFrom(BuildContext context, List<String> sentences) {
     gap: settings.sentenceGap,
     accent: accentForLanguage(settings.ttsLanguage),
     loop: false,
+    engine: settings.speechEngine,
   );
 }
 

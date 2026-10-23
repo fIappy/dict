@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/ai/ai_config.dart';
 import '../core/ai/passage_style.dart';
+import '../core/audio/speech_engine.dart';
 
 class SettingsProvider extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
@@ -15,6 +16,7 @@ class SettingsProvider extends ChangeNotifier {
   String _aiModel = 'gpt-4o-mini';
   AiReasoningEffort _aiReasoningEffort = AiReasoningEffort.low;
   bool _speechLoop = false;
+  SpeechEngine _speechEngine = SpeechEngine.kokoro;
   int _passageLength = 140;
   PassageStyle _passageStyle = PassageStyle.descriptive;
 
@@ -29,6 +31,9 @@ class SettingsProvider extends ChangeNotifier {
   String get aiApiKey => _aiApiKey;
   String get aiModel => _aiModel;
   AiReasoningEffort get aiReasoningEffort => _aiReasoningEffort;
+
+  /// Which engine reads aloud, for every screen that speaks.
+  SpeechEngine get speechEngine => _speechEngine;
 
   /// 循环播放, shared by every multi-line player (dictionary order play,
   /// AI cards, custom passages).
@@ -63,6 +68,7 @@ class SettingsProvider extends ChangeNotifier {
     _aiApiKey = prefs.getString('ai_api_key') ?? '';
     _aiModel = prefs.getString('ai_model') ?? 'gpt-4o-mini';
     _speechLoop = prefs.getBool('speech_loop') ?? false;
+    _speechEngine = SpeechEngine.byName(prefs.getString('speech_engine'));
     _passageLength = prefs.getInt('passage_length') ?? 140;
     _passageStyle = PassageStyle.byName(prefs.getString('passage_style'));
     final effortName = prefs.getString('ai_reasoning_effort');
@@ -85,6 +91,14 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('font_size_scale', scale);
+  }
+
+  Future<void> setSpeechEngine(SpeechEngine engine) async {
+    if (engine == _speechEngine) return;
+    _speechEngine = engine;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('speech_engine', engine.name);
   }
 
   Future<void> setSpeechLoop(bool value) async {

@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_dict/core/mdx/entry_speech.dart';
+import 'package:local_dict/core/audio/speech_engine.dart';
 import 'package:local_dict/providers/entry_speech_provider.dart';
 import 'package:local_dict/providers/settings_provider.dart';
 import 'package:local_dict/ui/widgets/speakable_selection.dart';
@@ -20,6 +21,7 @@ class _RecordingSpeech extends EntrySpeechProvider {
     required Duration gap,
     required String accent,
     bool? loop,
+    SpeechEngine engine = SpeechEngine.kokoro,
   }) async {
     played.addAll([for (final item in items) item.text]);
   }
@@ -29,6 +31,7 @@ class _RecordingSpeech extends EntrySpeechProvider {
     String text, {
     required double rate,
     required String accent,
+    SpeechEngine engine = SpeechEngine.kokoro,
   }) async {
     spoken.add(text);
   }

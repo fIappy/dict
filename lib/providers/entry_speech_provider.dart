@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../core/audio/audio_manager.dart';
 import '../core/audio/pcm_audio.dart';
 import '../core/audio/kokoro_voice.dart';
+import '../core/audio/speech_engine.dart';
 import '../core/audio/speech_clip_player.dart';
 import '../core/mdx/entry_speech.dart';
 
@@ -50,6 +51,7 @@ class EntrySpeechProvider extends ChangeNotifier {
   /// Bumped to abandon the line in flight (打断) without ending the run.
   int _lineEpoch = 0;
 
+  SpeechEngine _engine = SpeechEngine.kokoro;
   double _rate = 1.0;
   Duration _gap = Duration.zero;
   String _accent = 'us';
@@ -118,8 +120,10 @@ class EntrySpeechProvider extends ChangeNotifier {
     required Duration gap,
     required String accent,
     bool? loop,
+    SpeechEngine engine = SpeechEngine.kokoro,
   }) async {
     if (items.isEmpty) return;
+    _engine = engine;
     final run = ++_run;
     _items = items;
     _rate = rate;
@@ -127,7 +131,7 @@ class EntrySpeechProvider extends ChangeNotifier {
     _accent = accent;
     _loopRun = loop ?? _loop;
     _repeatFrom = null;
-    _kokoroReady = await _kokoroUsable();
+    _kokoroReady = engine == SpeechEngine.system ? false : await _kokoroUsable();
     if (run != _run) return;
     _isPlaying = true;
     _isPaused = false;
@@ -236,11 +240,13 @@ class EntrySpeechProvider extends ChangeNotifier {
     EntryUtterance item, {
     required double rate,
     required String accent,
+    SpeechEngine engine = SpeechEngine.kokoro,
   }) async {
     stop();
+    _engine = engine;
     final run = ++_run;
     _items = [item];
-    _kokoroReady = await _kokoroUsable();
+    _kokoroReady = engine == SpeechEngine.system ? false : await _kokoroUsable();
     if (run != _run) return;
     _isPlaying = true;
     _isPaused = false;
@@ -264,6 +270,7 @@ class EntrySpeechProvider extends ChangeNotifier {
     String text, {
     required double rate,
     required String accent,
+    SpeechEngine engine = SpeechEngine.kokoro,
   }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
@@ -274,6 +281,7 @@ class EntrySpeechProvider extends ChangeNotifier {
       gap: Duration.zero,
       accent: accent,
       loop: false,
+      engine: engine,
     );
   }
 
@@ -335,6 +343,7 @@ class EntrySpeechProvider extends ChangeNotifier {
   /// gap and then waited again for the model. Doing it during playback costs
   /// nothing the reader notices.
   Future<PcmClip?> _render(String text, {required double rate}) async {
+    if (_engine == SpeechEngine.system) return null;
     if (!_kokoroReady) return null;
     final clip = await _kokoro!.synthesize(text, accent: _accent, rate: rate);
     if (clip == null || clip.samples.isEmpty) {
@@ -349,8 +358,18 @@ class EntrySpeechProvider extends ChangeNotifier {
     PcmClip? clip, {
     required int run,
   }) async {
-    if (clip == null) return false;
     if (run != _run || _isPaused) return false;
+    if (clip == null && _engine == SpeechEngine.system) {
+      // The platform voice speaks the line itself; there is no clip to play.
+      final index = _currentIndex;
+      if (index == null || index < 0 || index >= _items.length) return false;
+      return _player.speakSentence(
+        _items[index].text,
+        accent: _accent,
+        rate: _rate,
+      );
+    }
+    if (clip == null) return false;
     final epoch = _lineEpoch;
     final played = await _player.playAudioBytes(
       encodeWav(clip.samples, sampleRate: clip.sampleRate),

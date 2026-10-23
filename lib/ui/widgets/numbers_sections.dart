@@ -5,6 +5,7 @@ import '../../core/numbers/number_data.dart';
 import '../../core/numbers/number_model.dart';
 import '../../core/numbers/number_training.dart';
 import '../../providers/numbers_provider.dart';
+import '../../providers/settings_provider.dart';
 
 /// The 英 /美音 colours the module uses everywhere, matching the IPA screen.
 const Color kUkColor = Color(0xFF1E40AF);
@@ -34,6 +35,9 @@ class _AccentLine extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final provider = context.watch<NumbersProvider>();
+    final settings = context.watch<SettingsProvider>();
+    // The engine is a settings-panel choice; the drill just follows it.
+    provider.speechEngine = settings.speechEngine;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -710,11 +714,6 @@ class _NumbersTrainingSectionState extends State<NumbersTrainingSection> {
       _countController.text = '${provider.count}';
     }
 
-    // The model's presence is asked once, on first paint of this section.
-    if (!provider.kokoroChecked) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => provider.refreshKokoroStatus());
-    }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -970,18 +969,6 @@ class _NumbersTrainingSectionState extends State<NumbersTrainingSection> {
           ],
         ),
         const SizedBox(height: 6),
-        Row(
-          children: [
-            Icon(Icons.record_voice_over_rounded, size: 14, color: theme.hintColor),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                '整句朗读 · Kokoro：${provider.kokoroStatus ?? '正在检测模型…'}',
-                style: TextStyle(fontSize: 11.5, color: theme.hintColor, height: 1.4),
-              ),
-            ),
-          ],
-        ),
         const SizedBox(height: 12),
 
         // The generated numbers themselves.
