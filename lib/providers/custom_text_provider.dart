@@ -21,8 +21,12 @@ class CustomTextProvider extends ChangeNotifier {
   /// other: the list is classified by group first.
   static const String ungroupedId = '__ungrouped__';
 
-  /// One-time import of the library that ships with the app.
-  static const String _seedKey = 'custom_seed_v1';
+  /// The library that ships with the app and the version already merged.
+  ///
+  /// The library file carries a `version`; bumping it is the way new content
+  /// reaches an install that already has older content (see
+  /// `tool/publish_custom_library.py`).
+  static const String _seedVersionKey = 'custom_library_version';
   static const String _seedAsset = 'assets/seed/custom_home.json';
 
   final List<CustomText> _texts = [];
@@ -96,47 +100,64 @@ class CustomTextProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Imports the built-in 家庭场景 library the first time the app runs.
+  /// Merges the library that ships with the app.
   ///
-  /// Never on top of a library the reader already built: an existing entry wins.
-  /// The flag is set either way, so a later version of the seed cannot overwrite
-  /// hand-written passages.
+  /// Runs whenever the library's `version` is newer than the version already
+  /// merged: groups and entries that are not here yet are added, and an id that
+  /// exists locally keeps the local text (that is the reader's edit). Deleting a
+  /// built-in entry therefore only sticks until the next library version.
   Future<void> ensureSeeded() async {
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_seedKey) ?? false) return;
-    await prefs.setBool(_seedKey, true);
-    if (_texts.isNotEmpty || _groups.isNotEmpty) return;
+    final merged = prefs.getInt(_seedVersionKey) ?? 0;
     try {
       final raw = await rootBundle.loadString(_seedAsset);
       final data = jsonDecode(raw);
       if (data is! Map) return;
-      final groups = data['groups'];
-      if (groups is List) {
-        for (final entry in groups) {
-          if (entry is! Map) continue;
-          final group = CustomTextGroup.fromJson(entry.cast<String, Object?>());
-          if (group.id.isNotEmpty && !_groups.any((g) => g.id == group.id)) {
-            _groups.add(group);
-          }
-        }
+      final version = (data['version'] as num?)?.toInt() ?? 0;
+      if (version <= merged) return;
+
+      final wasEmpty = _groups.isEmpty;
+      final added = _mergeLibrary(data);
+      await prefs.setInt(_seedVersionKey, version);
+      if (added == 0) return;
+      if (wasEmpty && _groups.isNotEmpty) {
+        _selectedGroupId = _groups.first.id;
       }
-      final texts = data['texts'];
-      if (texts is List) {
-        for (final entry in texts) {
-          if (entry is! Map) continue;
-          final item = CustomText.fromJson(entry.cast<String, Object?>());
-          if (item.id.isNotEmpty && !_texts.any((t) => t.id == item.id)) {
-            _texts.add(item);
-          }
-        }
-      }
-      _selectedGroupId = _groups.isEmpty ? ungroupedId : _groups.first.id;
       notifyListeners();
       await _persistGroups();
       await _persistTexts();
     } catch (e) {
-      debugPrint('custom seed import failed: $e');
+      debugPrint('custom library import failed: $e');
     }
+  }
+
+  /// Adds the groups and entries of [data] whose ids are not here yet; returns
+  /// how many were added. Existing ids are left alone.
+  int _mergeLibrary(Map<dynamic, dynamic> data) {
+    var added = 0;
+    final groups = data['groups'];
+    if (groups is List) {
+      for (final entry in groups) {
+        if (entry is! Map) continue;
+        final group = CustomTextGroup.fromJson(entry.cast<String, Object?>());
+        if (group.id.isEmpty) continue;
+        if (_groups.any((existing) => existing.id == group.id)) continue;
+        _groups.add(group);
+        added++;
+      }
+    }
+    final texts = data['texts'];
+    if (texts is List) {
+      for (final entry in texts) {
+        if (entry is! Map) continue;
+        final item = CustomText.fromJson(entry.cast<String, Object?>());
+        if (item.id.isEmpty) continue;
+        if (_texts.any((existing) => existing.id == item.id)) continue;
+        _texts.add(item);
+        added++;
+      }
+    }
+    return added;
   }
 
   void selectGroup(String groupId) {
