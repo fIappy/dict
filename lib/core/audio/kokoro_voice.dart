@@ -84,13 +84,7 @@ class KokoroVoice {
       final engine = sherpa.OfflineTts(
         sherpa.OfflineTtsConfig(
           model: sherpa.OfflineTtsModelConfig(
-            kokoro: sherpa.OfflineTtsKokoroModelConfig(
-              model: files.model,
-              voices: files.voices,
-              tokens: files.tokens,
-              dataDir: files.dataDir,
-              lang: 'en',
-            ),
+            kokoro: kokoroConfigFor(files),
             numThreads: 1,
             debug: false,
           ),
@@ -106,3 +100,19 @@ class KokoroVoice {
   }
 
 }
+
+/// The Kokoro config for [files].
+///
+/// `lang` is left empty on purpose. Setting it to `'en'` switches sherpa-onnx to
+/// a second English front end that reads "four" with an open /a/ — it came out as
+/// "fa", and "for" nearly as wide. Empty keeps the espeak-ng path the model was
+/// trained against; measured on the rendered audio, the first formant of "four"
+/// is 565 Hz this way against 989 Hz with `'en'` (the /ɔː/ reference, "caught",
+/// sits at 544 Hz).
+sherpa.OfflineTtsKokoroModelConfig kokoroConfigFor(KokoroModelFiles files) =>
+    sherpa.OfflineTtsKokoroModelConfig(
+      model: files.model,
+      voices: files.voices,
+      tokens: files.tokens,
+      dataDir: files.dataDir,
+    );
