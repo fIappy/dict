@@ -229,8 +229,18 @@ class CustomScreen extends StatelessWidget {
             ),
           ),
           subtitle: Text(
-            '${item.utterances.length} 句',
-            style: const TextStyle(fontSize: 11.5),
+            speaking
+                ? '正在朗读 ${speakingIndex - starts[index] + 1}/'
+                    '${item.utterances.length}：'
+                    '${item.utterances[speakingIndex - starts[index]]}'
+                : '${item.utterances.length} 句',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11.5,
+              color: speaking ? theme.colorScheme.error : null,
+              fontWeight: speaking ? FontWeight.w600 : null,
+            ),
           ),
           trailing: PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert_rounded, size: 18),

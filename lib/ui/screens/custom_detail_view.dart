@@ -8,6 +8,7 @@ import '../../providers/custom_text_provider.dart';
 import '../../providers/entry_speech_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../widgets/speakable_selection.dart';
+import '../widgets/annotated_text.dart';
 import '../widgets/speech_controls.dart';
 
 /// Write or edit one 短文, and play it.
@@ -108,43 +109,7 @@ class _CustomDetailViewState extends State<CustomDetailView> {
             ),
           ),
           const SizedBox(height: 12),
-          Expanded(
-            // One scrollbar, not two: the framework adds its own to every
-            // scrollable by default (EditableText included), so the explicit
-            // always-visible one replaces it instead of doubling it.
-            child: ScrollConfiguration(
-              behavior: ScrollConfiguration.of(
-                context,
-              ).copyWith(scrollbars: false),
-              child: Scrollbar(
-                controller: _bodyScroll,
-                thumbVisibility: true,
-                child: Listener(
-                  onPointerDown: (event) {
-                    if (event.buttons & kSecondaryMouseButton != 0) {
-                      rememberSecondaryTap(event.position);
-                    }
-                  },
-                  child: TextField(
-                    controller: _body,
-                    contextMenuBuilder: speakableEditableMenu,
-                    scrollController: _bodyScroll,
-                    expands: true,
-                    minLines: null,
-                    maxLines: null,
-                    textAlignVertical: TextAlignVertical.top,
-                    keyboardType: TextInputType.multiline,
-                    decoration: const InputDecoration(
-                      labelText: '短文内容',
-                      hintText: '一段文字；句号/问号/叹号或换行处会分成句子，逐句朗读',
-                      alignLabelWithHint: true,
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
+          Expanded(child: _buildBody(context)),
           const SizedBox(height: 12),
           _buildGroupRow(context, provider),
           const SizedBox(height: 16),
@@ -182,6 +147,73 @@ class _CustomDetailViewState extends State<CustomDetailView> {
             style: TextStyle(fontSize: 12, color: theme.hintColor),
           ),
         ],
+      ),
+    );
+  }
+
+  /// The body box.
+  ///
+  /// A TextField cannot colour part of its text, so while this passage is
+  /// sounding the box becomes a reader that marks the sentence being read in
+  /// red; the moment playback stops the editable field is back. One scrollbar
+  /// either way: the explicit one replaces the framework's (which would be a
+  /// second bar on desktop), and the reader's viewport is the scrollable.
+  Widget _buildBody(BuildContext context) {
+    final speech = context.watch<EntrySpeechProvider>();
+    final lines = splitSentences(_body.text);
+    final speaking = speech.isReading(lines) ? speech.currentIndex : null;
+
+    if (speaking != null) {
+      final theme = Theme.of(context);
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: theme.colorScheme.outline),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: ScrollConfiguration(
+          behavior: const ScrollBehavior(),
+          child: SingleChildScrollView(
+            child: AnnotatedText(
+              _body.text,
+              themeWords: const {},
+              speakingIndex: speaking,
+              style: const TextStyle(fontSize: 15, height: 1.6),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+      child: Scrollbar(
+        controller: _bodyScroll,
+        thumbVisibility: true,
+        child: Listener(
+          onPointerDown: (event) {
+            if (event.buttons & kSecondaryMouseButton != 0) {
+              rememberSecondaryTap(event.position);
+            }
+          },
+          child: TextField(
+            controller: _body,
+            contextMenuBuilder: speakableEditableMenu,
+            scrollController: _bodyScroll,
+            expands: true,
+            minLines: null,
+            maxLines: null,
+            textAlignVertical: TextAlignVertical.top,
+            keyboardType: TextInputType.multiline,
+            decoration: const InputDecoration(
+              labelText: '短文内容',
+              hintText: '一段文字；句号/问号/叹号或换行处会分成句子，逐句朗读',
+              alignLabelWithHint: true,
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ),
       ),
     );
   }
