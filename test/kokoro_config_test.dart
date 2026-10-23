@@ -20,14 +20,12 @@ void main() {
     expect(config.tokens, _files.tokens);
     expect(config.dataDir, _files.dataDir);
 
-    // Everything else must be the SDK default. `lang` is the one that broke
-    // "four" (F1 989 Hz against 565 Hz); `lexicon` and `dictDir` swap the front
-    // end the same way, so they are pinned too.
+    // The v1.x multi-lingual bundle needs a language; everything else stays at
+    // the SDK default.
     const defaults = sherpa.OfflineTtsKokoroModelConfig();
 
-    expect(config.lang, defaults.lang,
-        reason: 'a lang override switches the front end and mispronounces words '
-            'the model reads correctly by default');
+    expect(config.lang, 'en',
+        reason: 'the multi-lingual model refuses to load without it');
     expect(config.lexicon, defaults.lexicon);
     expect(config.dictDir, defaults.dictDir);
     expect(config.lengthScale, defaults.lengthScale,

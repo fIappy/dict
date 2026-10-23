@@ -27,14 +27,20 @@ import urllib.request
 import zipfile
 
 RELEASE = 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models'
-DEFAULT_MODEL = 'kokoro-int8-en-v0_19'
+# v1.x (multi-lingual bundle) is required for real question intonation: the
+# English-only v0.19 model falls in pitch on questions as well as statements.
+DEFAULT_MODEL = 'kokoro-int8-multi-lang-v1_1'
 
 ROOT = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'tts-models', 'kokoro'
 )
 
 # What the app addresses by name on every platform.
-REQUIRED = ['model.onnx', 'voices.bin', 'tokens.txt']
+REQUIRED = ['model.onnx', 'voices.bin', 'tokens.txt', 'lexicon-us-en.txt']
+
+# Only English is spoken here, so the Chinese front end (jieba dictionaries and
+# the FST rules) is left out — it is about 50 MB of the download.
+UNUSED = ['dict', 'lexicon-zh.txt', 'date-zh.fst', 'number-zh.fst', 'phone-zh.fst']
 DATA_FOLDER = 'espeak-ng-data'
 
 # The browser cannot list a directory: it fetches exactly these paths.
@@ -110,9 +116,15 @@ def fetch(model):
         voices = [name for name in os.listdir(staged) if name.endswith('.bin')]
         if len(voices) == 1 and voices[0] != 'voices.bin':
             os.replace(os.path.join(staged, voices[0]), os.path.join(staged, 'voices.bin'))
-        for extra in ('test.wav', 'README.md'):
+        for extra in ('test.wav', 'README.md', 'LICENSE'):
             path = os.path.join(staged, extra)
             if os.path.exists(path):
+                os.remove(path)
+        for extra in UNUSED:
+            path = os.path.join(staged, extra)
+            if os.path.isdir(path):
+                shutil.rmtree(path, ignore_errors=True)
+            elif os.path.exists(path):
                 os.remove(path)
 
         shutil.rmtree(ROOT, ignore_errors=True)

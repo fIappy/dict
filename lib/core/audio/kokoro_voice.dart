@@ -79,25 +79,26 @@ class KokoroVoice {
 
 }
 
-/// The Kokoro config for [files]: the model's own defaults, and nothing else.
+/// The Kokoro config for [files].
 ///
-/// Every optional field in [sherpa.OfflineTtsKokoroModelConfig] stays at its
-/// default on purpose. `lang` is the one that bit: it does not mean "the language
-/// of my text", it selects a *front end*. Empty (the default) runs the espeak-ng
-/// path the model was trained on; `'en'` switches to a second English front end
-/// that read "four" with an open /a/ — it came out as "fa", and "for" nearly as
-/// wide. Measured on the rendered audio: the first formant of "four" is 565 Hz
-/// with the default against 989 Hz with `'en'` (the /ɔː/ reference, "caught",
-/// sits at 544 Hz). `lexicon` and `dictDir` are the other two traps: pointing at
-/// a lexicon replaces the front end the same way.
+/// `lang: 'en'` is required by the model in use (the v1.x multi-lingual bundle),
+/// and it is what the bundle's README tells you to pass — without a language or a
+/// lexicon it refuses to load outright.
 ///
-/// The rule this encodes: a voice model is a black box with one documented
-/// configuration; do not "improve" it. `test/kokoro_config_test.dart` reads the
-/// defaults off the SDK and fails if any of them is overridden.
+/// It was *not* harmless on the older English-only v0.19 model: there the same
+/// flag switched to a front end that read "four" with an open /a/ — "fa", with
+/// "for" nearly as wide (first formant 989 Hz against 565 Hz; the /ɔː/ reference,
+/// "caught", sits at 544 Hz). That model is gone; this one has a single English
+/// front end, and the same measurement on it is 625 Hz for "four" and 546 Hz for
+/// "for".
+///
+/// Everything else stays at the SDK default, and `test/kokoro_config_test.dart`
+/// fails if any of it is overridden.
 sherpa.OfflineTtsKokoroModelConfig kokoroConfigFor(KokoroModelFiles files) =>
     sherpa.OfflineTtsKokoroModelConfig(
       model: files.model,
       voices: files.voices,
       tokens: files.tokens,
       dataDir: files.dataDir,
+      lang: 'en',
     );

@@ -175,4 +175,5 @@ sherpa.OfflineTtsKokoroModelConfig kokoroConfigForFiles(KokoroModelFiles files) 
       voices: files.voices,
       tokens: files.tokens,
       dataDir: files.dataDir,
+      lang: 'en',
     );

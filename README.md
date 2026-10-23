@@ -385,7 +385,7 @@ python tool/generate_ipa_audio.py                        # 需要 espeak-ng + ff
 
 | 项 | 值 |
 |---|---|
-| 模型 | `tts-models/kokoro/`：`model.onnx`、`voices.bin`、`tokens.txt`、`espeak-ng-data/` |
+| 模型 | `tts-models/kokoro/`：`model.onnx`（v1.1 多语言 int8）、`voices.bin`、`tokens.txt`、`espeak-ng-data/`、`lexicon-*-en.txt` |
 | 三端 | Windows / Android / 浏览器（WebAssembly）同一模型、同一音色 |
 | 离线 | ✅ 完全离线；不联网 |
 | 缺失时 | 训练区写明「未安装 Kokoro 模型」与该放的位置，**不发声**（不再退到别的引擎） |
@@ -397,7 +397,7 @@ python tool/generate_ipa_audio.py                        # 需要 espeak-ng + ff
 #### 模型：一条命令装好
 
 ```bash
-python tool/fetch_kokoro_model.py            # 下载 int8 英文模型（约 150 MB）到 tts-models/kokoro/
+python tool/fetch_kokoro_model.py            # 下载 int8 模型（约 190 MB）到 tts-models/kokoro/
 python tool/fetch_kokoro_model.py --check    # 只看装了没有，并重建浏览器用的文件清单
 python tool/fetch_kokoro_model.py --zip-only # 只重建 kokoro.zip（Android 包内自带那份）
 ```
