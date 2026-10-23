@@ -1,11 +1,10 @@
 import 'dart:async';
-import 'dart:ffi';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
 import 'kokoro_model_store.dart';
+import 'sherpa_runtime.dart';
 import 'pcm_audio.dart';
 
 /// Speaks with Kokoro: an 82M-parameter model run locally by sherpa-onnx.
@@ -75,7 +74,7 @@ class KokoroVoice {
 
     try {
       if (!_bindingsReady) {
-        _preloadRuntime();
+        preloadOnnxRuntime();
         await sherpa.initBindingsAsync();
         _bindingsReady = true;
       }
@@ -106,22 +105,4 @@ class KokoroVoice {
     }
   }
 
-  /// Windows resolves `onnxruntime.dll` from the executable's folder, then from
-  /// System32 — and System32 can hold an old runtime that another program
-  /// installed. Loading the copy shipped beside the app first wins the name, so
-  /// the model is not refused with "requested API version 28 is not available".
-  void _preloadRuntime() {
-    if (kIsWeb || !Platform.isWindows) return;
-    try {
-      final beside = File(
-        '${File(Platform.resolvedExecutable).parent.path}'
-        '${Platform.pathSeparator}onnxruntime.dll',
-      );
-      if (beside.existsSync()) {
-        DynamicLibrary.open(beside.path);
-      }
-    } catch (e) {
-      debugPrint('onnxruntime.dll beside the app could not be loaded: $e');
-    }
-  }
 }
