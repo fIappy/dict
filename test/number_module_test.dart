@@ -822,17 +822,18 @@ void main() {
           reason: '0 = 连读: the engine reads the whole row as one clip');
 
       player.buffers.clear();
+      final watch = Stopwatch()..start();
       await voice.speakRuns(
         [row],
         accent: 'us',
         innerGap: const Duration(milliseconds: 200),
       );
-      // One clip per row, with the pause baked in between the numbers: the
-      // stub renders one second per number, so the gaps add up audibly.
-      expect(player.buffers, hasLength(1),
-          reason: 'a gap means one clip with real silence between the numbers');
-      final seconds = decodeWav(player.buffers.single).duration.inMilliseconds;
-      expect(seconds, greaterThanOrEqualTo(3000 + 200 * (row.length - 1) - 50),
+      final elapsedMs = watch.elapsedMilliseconds;
+      // One clip per number, with exactly the requested silence between them —
+      // the wall clock is where that silence now lives (the clips themselves are
+      // the stub's one-second tone).
+      expect(player.buffers, hasLength(row.length));
+      expect(elapsedMs, greaterThanOrEqualTo(200 * (row.length - 1) - 20),
           reason: 'the slider has to be audible — this is the bug it had');
     });
 

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import 'core/audio/audio_manager.dart';
 import 'core/audio/kokoro_model_store.dart';
+import 'core/mdx/entry_speech.dart';
+import 'providers/entry_speech_provider.dart';
 import 'core/audio/kokoro_voice.dart';
 import 'core/audio/pcm_audio.dart';
 import 'core/audio/speech_clip_player.dart';
@@ -27,6 +29,7 @@ void main() async {
   }
 
   await _checkKokoro(say);
+  await _checkTiming(say);
   await _checkRunPacing(say);
 
   final failed = lines.any((line) => line.startsWith('SMOKE fail'));
@@ -64,6 +67,45 @@ Future<void> _checkKokoro(void Function(String) say) async {
   }
 }
 
+/// How long a reader actually waits: model load, first sound, and whether a 1 s
+/// gap is the gap between lines rather than gap + synthesis.
+Future<void> _checkTiming(void Function(String) say) async {
+  try {
+    final voice = KokoroVoice();
+    final loadWatch = Stopwatch()..start();
+    final ready = await voice.isReady();
+    say('SMOKE timing load ${loadWatch.elapsedMilliseconds} ms ready=$ready');
+    if (!ready) return;
+
+    final firstWatch = Stopwatch()..start();
+    await voice.synthesize('One.', accent: 'us', rate: 1.0);
+    say('SMOKE timing first line ${firstWatch.elapsedMilliseconds} ms');
+
+    final secondWatch = Stopwatch()..start();
+    await voice.synthesize('Two.', accent: 'us', rate: 1.0);
+    say('SMOKE timing next line ${secondWatch.elapsedMilliseconds} ms');
+
+    // Three lines, 1 s apart, through the real player and the real pipeline.
+    final speech = EntrySpeechProvider(kokoro: voice);
+    final runWatch = Stopwatch()..start();
+    await speech.playAll(
+      const [
+        EntryUtterance(text: 'One.', isPhrase: false),
+        EntryUtterance(text: 'Two.', isPhrase: false),
+        EntryUtterance(text: 'Three.', isPhrase: false),
+      ],
+      rate: 1.0,
+      gap: const Duration(seconds: 1),
+      accent: 'us',
+    );
+    final total = runWatch.elapsedMilliseconds;
+    say('SMOKE timing three lines @1s gap: $total ms '
+        '(${(total - 2000) ~/ 3} ms of audio each, synthesis overlapped)');
+  } catch (e) {
+    say('SMOKE fail timing: $e');
+  }
+}
+
 /// 组内间隔 has to be audible: 0 means the row is read as one sentence, a gap
 /// means one utterance per number joined with exactly that silence.
 Future<void> _checkRunPacing(void Function(String) say) async {
@@ -79,11 +121,9 @@ Future<void> _checkRunPacing(void Function(String) say) async {
     player.buffers.clear();
     player.sentences.clear();
 
+    final watch = Stopwatch()..start();
     await speaker.speakRuns(rows, accent: 'uk', innerGap: const Duration(milliseconds: 200));
     final buffers = player.buffers.length;
-    final seconds = player.buffers.isEmpty
-        ? 0.0
-        : decodeWav(player.buffers.first).duration.inMilliseconds / 1000;
 
     if (joined == 0) {
       say('SMOKE skip runs: 没有模型，无法比较组内间隔');
@@ -93,15 +133,16 @@ Future<void> _checkRunPacing(void Function(String) say) async {
       say('SMOKE fail runs: 组内 0 应把整行并成一句，实际 $joined 次');
       return;
     }
-    if (buffers != 1) {
-      say('SMOKE fail runs: 组内有间隔也应并成一个缓冲，实际 $buffers 次');
+    if (buffers != 2) {
+      say('SMOKE fail runs: 有间隔时每个数字一段音频，实际 $buffers 次');
       return;
     }
-    if (seconds < 0.4) {
-      say('SMOKE fail runs: 缓冲只有 ${seconds.toStringAsFixed(2)} s，间隔被吞了');
+    final elapsed = watch.elapsedMilliseconds;
+    if (elapsed < 190) {
+      say('SMOKE fail runs: 组内间隔只有 $elapsed ms，设定是 200 ms');
       return;
     }
-    say('SMOKE ok runs ${seconds.toStringAsFixed(2)} s');
+    say('SMOKE ok runs $elapsed ms for a 200 ms gap');
   } catch (e) {
     say('SMOKE fail runs: $e');
   }

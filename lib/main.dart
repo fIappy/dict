@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/platform/ai_window_launcher.dart';
+import 'core/audio/kokoro_voice.dart';
 import 'providers/custom_text_provider.dart';
 import 'providers/dictionary_provider.dart';
 import 'providers/ai_practice_provider.dart';
@@ -29,6 +30,10 @@ void main(List<String> args) async {
     return;
   }
 
+  // One engine for the whole app: it owns a worker isolate with the model
+  // loaded (~150 MB), so a second instance would double that.
+  final voice = KokoroVoice();
+
   runApp(
     MultiProvider(
       providers: [
@@ -39,9 +44,9 @@ void main(List<String> args) async {
         ChangeNotifierProvider(create: (_) => FrequencyProvider()),
         ChangeNotifierProvider(create: (_) => IpaProvider()),
         ChangeNotifierProvider(create: (_) => AlphabetProvider()),
-        ChangeNotifierProvider(create: (_) => NumbersProvider()),
+        ChangeNotifierProvider(create: (_) => NumbersProvider(kokoro: voice)),
         ChangeNotifierProvider(create: (_) => ThemesProvider()),
-        ChangeNotifierProvider(create: (_) => EntrySpeechProvider()),
+        ChangeNotifierProvider(create: (_) => EntrySpeechProvider(kokoro: voice)),
         ChangeNotifierProvider(create: (_) => CustomTextProvider()),
         ChangeNotifierProvider(create: (_) => AiPracticeProvider()),
       ],

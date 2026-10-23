@@ -20,7 +20,9 @@ class NumbersProvider extends ChangeNotifier {
   /// without an audio device. Production code leaves it null — the speaker is
   /// then built on first playback, so a screen that only reads numbers never
   /// touches the audio plugin.
-  NumbersProvider({NumberSpeaker? speaker}) : _speaker = speaker;
+  NumbersProvider({NumberSpeaker? speaker, KokoroVoice? kokoro})
+      : _speaker = speaker,
+        _kokoro = kokoro ?? KokoroVoice();
 
   static const String _kRate = 'numbers_rate';
   static const String _kRateAnchored = 'numbers_rate_anchored';
@@ -41,7 +43,7 @@ class NumbersProvider extends ChangeNotifier {
   NumberSpeaker get _player => _speaker ??= NumberSpeaker(kokoro: _kokoro);
 
   /// The one engine: Kokoro.
-  final KokoroVoice _kokoro = KokoroVoice();
+  final KokoroVoice _kokoro;
 
   /// Bumped by every start and every stop. Only the run that owns the current
   /// value may clear [isPlaying].

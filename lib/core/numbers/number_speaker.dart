@@ -44,7 +44,8 @@ class NumberSpeaker {
     double rate = 1.0,
   }) async {
     final run = ++_runId;
-    await _speakLine(sentenceForSpeech(sentence), accent: accent, rate: rate, run: run);
+    final clip = await _render(sentence, accent: accent, rate: rate);
+    await _play(clip, run: run);
   }
 
   /// Speaks [sentences] one after another, waiting [gap] between them.
@@ -94,66 +95,45 @@ class NumberSpeaker {
           joinRow && rows[i].length > 1 ? <String>[rows[i].join(', ')] : rows[i];
       if (parts.isEmpty) continue;
 
-      if (parts.length == 1) {
-        await _speakLine(sentenceForSpeech(parts.first), accent: accent, rate: rate, run: run);
-      } else {
-        await _speakRow(parts, accent: accent, rate: rate, innerGap: innerGap, run: run);
+      // Render the next number while this one sounds: synthesis is the slow
+      // part, and waiting for it after the gap is what made a 1 s gap feel like
+      // three.
+      var pending = _render(parts.first, accent: accent, rate: rate);
+      for (var j = 0; j < parts.length; j++) {
+        if (_stale(run)) return;
+        final clip = await pending;
+        if (j + 1 < parts.length) {
+          pending = _render(parts[j + 1], accent: accent, rate: rate);
+        }
+        await _play(clip, run: run);
+        if (_stale(run)) return;
+        if (j < parts.length - 1) await Future<void>.delayed(innerGap);
       }
-      if (_stale(run) || i == rows.length - 1) return;
-      await Future.delayed(gap);
+      if (i == rows.length - 1) return;
+      await Future<void>.delayed(gap);
     }
   }
 
-  /// Renders every number of a row and plays the row as one clip, with
-  /// [innerGap] of real silence between them.
-  Future<bool> _speakRow(
-    List<String> parts, {
+  /// The audio for one line, or null when the model cannot render it.
+  Future<PcmClip?> _render(
+    String text, {
     required String accent,
     required double rate,
-    required Duration innerGap,
-    required int run,
   }) async {
     final kokoro = _kokoro;
-    if (kokoro == null) return false;
-
-    final clips = <PcmClip>[];
-    for (final part in parts) {
-      if (_stale(run)) return false;
-      final clip =
-          await kokoro.synthesize(sentenceForSpeech(part), accent: accent, rate: rate);
-      if (_stale(run)) return false;
-      if (clip == null || clip.isEmpty) return false;
-      clips.add(clip);
-    }
-    final joined = joinClips(
-      clips,
-      gaps: [for (var i = 0; i < clips.length - 1; i++) innerGap],
-    );
-    await _player.playAudioBytes(
-      encodeWav(joined.samples, sampleRate: joined.sampleRate),
-    );
-    return true;
+    if (kokoro == null) return null;
+    return kokoro.synthesize(sentenceForSpeech(text), accent: accent, rate: rate);
   }
 
-  /// Reads one line with Kokoro. False when the model is missing or the line
-  /// could not be rendered; nothing else takes over.
-  Future<bool> _speakLine(
-    String sentence, {
-    required String accent,
-    required double rate,
-    required int run,
-  }) async {
-    final kokoro = _kokoro;
-    if (kokoro == null) return false;
+  /// Sounds one rendered line.
+  Future<bool> _play(PcmClip? clip, {required int run}) async {
+    if (clip == null || clip.isEmpty || _stale(run)) return false;
     // The model paces itself (`speed`), so the player must not scale the audio a
     // second time.
-    final clip = await kokoro.synthesize(sentence, accent: accent, rate: rate);
-    if (_stale(run)) return false;
-    if (clip == null || clip.isEmpty) return false;
     await _player.playAudioBytes(
       encodeWav(clip.samples, sampleRate: clip.sampleRate),
     );
-    return true;
+    return !_stale(run);
   }
 
   /// Stops the current run: the run id moves on, so every step still in flight

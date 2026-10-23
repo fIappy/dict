@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../core/audio/audio_manager.dart';
@@ -132,12 +134,25 @@ class EntrySpeechProvider extends ChangeNotifier {
     _currentIndex = null;
     notifyListeners();
     try {
+      // One render per line for this run: the next line is rendered while the
+      // current one sounds, so the configured gap is the gap the reader hears
+      // rather than gap + synthesis. A repeat reuses the clip.
+      final clips = <int, Future<PcmClip?>>{};
+      Future<PcmClip?> clipAt(int at) =>
+          clips[at] ??= _render(items[at].text, rate: _rate);
+      Future<void> prefetch(int at) async {
+        if (at >= 0 && at < items.length) await clipAt(at);
+      }
+
+      unawaited(prefetch(0));
       var index = 0;
       while (run == _run) {
         for (; index < items.length; index++) {
           if (run != _run) return;
-          if (_isPaused) await _waitWhilePaused(run);
-          if (run != _run) return;
+          if (_isPaused) {
+            await _waitWhilePaused(run);
+            if (run != _run) return;
+          }
 
           // A repeat asked for while the gap was running lands here, before the
           // next line starts, so only the requested line is said.
@@ -149,7 +164,8 @@ class EntrySpeechProvider extends ChangeNotifier {
 
           _currentIndex = index;
           notifyListeners();
-          await _speak(items[index].text, accent: _accent, rate: _rate, run: run);
+          unawaited(prefetch(index + 1));
+          await _playClip(await clipAt(index), run: run);
           if (run != _run) return;
 
           // A repeat asked for during the line lands here, after it finished.
@@ -171,7 +187,6 @@ class EntrySpeechProvider extends ChangeNotifier {
         if (!_loopRun) break;
         index = 0;
         await Future<void>.delayed(_gap);
-        if (run != _run) return;
       }
     } finally {
       // Only the run that still owns the id may clear the state: a stopped run
@@ -231,7 +246,8 @@ class EntrySpeechProvider extends ChangeNotifier {
     _isPaused = false;
     _currentIndex = 0;
     notifyListeners();
-    await _speak(item.text, accent: accent, rate: rate, run: run);
+    final clip = await _render(item.text, rate: rate);
+    await _playClip(clip, run: run);
     if (run != _run) return;
     _isPlaying = false;
     _currentIndex = null;
@@ -281,6 +297,25 @@ class EntrySpeechProvider extends ChangeNotifier {
     super.dispose();
   }
 
+  /// Loads the model and runs one throwaway line, so the first 播放 does not pay
+  /// for either.
+  ///
+  /// Loading takes about a second, and the first inference costs about as much
+  /// again while ONNX builds its kernels — together that was the "click 朗读 and
+  /// wait" pause. The engine lives in its own isolate, so this warms up without
+  /// touching the UI thread.
+  void warmUp() {
+    unawaited(_warmUp());
+  }
+
+  Future<void> _warmUp() async {
+    final kokoro = _kokoro;
+    if (kokoro == null) return;
+    if (!await kokoro.isReady()) return;
+    // A single letter: the cheapest line that makes ONNX do its first pass.
+    await kokoro.synthesize('a', accent: _accent, rate: 1.0);
+  }
+
   /// Whether this machine has the Kokoro model.
   Future<bool> _kokoroUsable() async {
     final kokoro = _kokoro;
@@ -293,35 +328,35 @@ class EntrySpeechProvider extends ChangeNotifier {
     }
   }
 
-  /// One line, with Kokoro.
+  /// The next line's audio, rendered while the current one is sounding.
   ///
-  /// There is no second engine: a line the model cannot render is skipped (and
-  /// logged), because falling back to a platform voice is what used to turn a
-  /// female run into a male one halfway through. A paused or superseded run
-  /// returns false before anything starts sounding — [playAll] then re-says the
-  /// line after 继续.
-  Future<bool> _speak(
-    String text, {
-    required String accent,
-    required double rate,
-    required int run,
-  }) async {
-    if (run != _run || _isPaused) return false;
-    final epoch = _lineEpoch;
-    if (!_kokoroReady) {
-      debugPrint('Kokoro model missing; nothing to speak with');
-      return false;
-    }
-
-    final clip = await _kokoro!.synthesize(text, accent: accent, rate: rate);
-    if (run != _run || _isPaused || epoch != _lineEpoch) return false;
+  /// Synthesis takes about half a second per sentence. Rendering it *after* the
+  /// configured gap is what made a 1 s pause feel like 3 s: the reader waited the
+  /// gap and then waited again for the model. Doing it during playback costs
+  /// nothing the reader notices.
+  Future<PcmClip?> _render(String text, {required double rate}) async {
+    if (!_kokoroReady) return null;
+    final clip = await _kokoro!.synthesize(text, accent: _accent, rate: rate);
     if (clip == null || clip.samples.isEmpty) {
       debugPrint('Kokoro could not render a line; skipping it');
-      return false;
+      return null;
     }
-    return _player.playAudioBytes(
+    return clip;
+  }
+
+  /// Sounds one rendered line.
+  Future<bool> _playClip(
+    PcmClip? clip, {
+    required int run,
+  }) async {
+    if (clip == null) return false;
+    if (run != _run || _isPaused) return false;
+    final epoch = _lineEpoch;
+    final played = await _player.playAudioBytes(
       encodeWav(clip.samples, sampleRate: clip.sampleRate),
       rate: 1.0,
     );
+    if (run != _run || _isPaused || epoch != _lineEpoch) return false;
+    return played;
   }
 }

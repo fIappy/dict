@@ -46,9 +46,13 @@ class _RecordingPlayer implements SpeechClipPlayer {
   /// backend cannot is what the fallback in the provider exists for.
   bool bytesPlayable = true;
 
+  /// Called after each buffer starts, so a test can stop a looping run.
+  void Function(int played)? onBuffer;
+
   @override
   Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
     buffers.add(bytes);
+    onBuffer?.call(buffers.length);
     return bytesPlayable;
   }
 
@@ -322,9 +326,11 @@ void main() {
 
       provider.resume();
       await run;
-      expect(kokoro.rendered, ['One.', 'One.', 'Two.'],
-          reason: 'the interrupted line is said again by Piper after 继续');
-      expect(player.sentences, isEmpty);
+      // One render per line: prefetching already had "Two." ready, and the
+      // repeated line reuses its clip. What matters is that it *sounds* twice.
+      expect(kokoro.rendered, ['One.', 'Two.']);
+      expect(player.buffers, hasLength(3),
+          reason: 'One, One again after 继续, then Two');
     });
 
     test('重复本句 lets the line finish, then says it again', () async {
@@ -344,7 +350,10 @@ void main() {
       player.releaseAll();
       await run;
 
-      expect(kokoro.rendered, ['One.', 'One.', 'Two.', 'Three.']);
+      expect(kokoro.rendered, ['One.', 'Two.', 'Three.'],
+          reason: 'each line is rendered once');
+      expect(player.buffers, hasLength(4),
+          reason: 'One sounds twice: once now, once again after it finished');
     });
 
     test('重复前一句 cuts the line and continues from the one before', () async {
@@ -369,7 +378,9 @@ void main() {
       player.releaseAll();
       await run;
 
-      expect(kokoro.rendered, ['One.', 'Two.', 'One.', 'Two.', 'Three.']);
+      expect(kokoro.rendered, ['One.', 'Two.', 'Three.']);
+      expect(player.buffers, hasLength(5),
+          reason: 'One, Two, then One and Two again, then Three');
     });
 
     test('重复前一句 on the first line repeats the first line', () async {
@@ -388,7 +399,8 @@ void main() {
       player.releaseAll();
       await run;
 
-      expect(kokoro.rendered, ['One.', 'One.', 'Two.']);
+      expect(kokoro.rendered, ['One.', 'Two.']);
+      expect(player.buffers, hasLength(3), reason: 'One twice, then Two');
     });
 
     test('the repeat buttons do nothing when the run is idle', () async {
@@ -447,7 +459,8 @@ void main() {
       kokoro.gate!.complete();
       await run;
 
-      expect(kokoro.rendered, hasLength(1), reason: 'nothing after the stop');
+      expect(kokoro.rendered.length, lessThanOrEqualTo(2),
+          reason: 'at most the line playing plus the one prefetched');
       expect(player.buffers, isEmpty, reason: 'the cut line never sounds');
       expect(provider.isPlaying, isFalse);
       expect(player.stops, greaterThan(0));
@@ -504,43 +517,43 @@ void main() {
         ];
 
     test('pause silences at once and resume says that line again', () async {
-      final player = _RecordingPlayer();
-      final kokoro = _StubKokoro()..gate = Completer<void>();
+      // The gate is on the *player*, so the pause lands while the line is
+      // actually sounding — which is where "silence now" has to work.
+      final player = _GateQueuePlayer();
+      final kokoro = _StubKokoro();
       final speech = EntrySpeechProvider(player: player, kokoro: kokoro);
 
-      final run = speech.playAll(
-        lines(),
-        rate: 1.0,
-        gap: Duration.zero,
-        accent: 'us',
-      );
+      player.holdNext();
+      final run = speech.playAll(lines(), rate: 1.0, gap: Duration.zero, accent: 'us');
       await Future<void>.delayed(Duration.zero);
-      expect(speech.currentIndex, 0, reason: 'it is inside the first line');
+      expect(speech.currentIndex, 0, reason: 'inside the first line');
 
       speech.pause();
       expect(speech.isPaused, isTrue);
       expect(player.stops, 1, reason: 'the sound is cut, not waited out');
 
-      kokoro.gate!.complete();
+      player.releaseNext();
       await Future<void>.delayed(Duration.zero);
-      expect(kokoro.rendered, ['One.'],
-          reason: 'the cut line finished silently; nothing new starts');
+      expect(player.buffers, hasLength(1), reason: 'nothing new while paused');
 
       speech.resume();
+      player.releaseAll();
       await run;
 
-      expect(kokoro.rendered, ['One.', 'One.', 'Two.', 'Three.'],
-          reason: 'the interrupted line is said again from its start');
+      expect(kokoro.rendered, ['One.', 'Two.', 'Three.'],
+          reason: 'one render per line; the repeated line reuses its clip');
+      expect(player.buffers, hasLength(4),
+          reason: 'One, One again after 继续, Two, Three');
       expect(speech.isPaused, isFalse);
       expect(speech.isPlaying, isFalse);
     });
 
     test('循环 runs the list again until stopped', () async {
       final player = _RecordingPlayer();
-      final kokoro = _StubKokoro()..onRender = null;
+      final kokoro = _StubKokoro();
       final speech = EntrySpeechProvider(player: player, kokoro: kokoro);
-      kokoro.onRender = (index) {
-        if (kokoro.rendered.length >= 5) speech.stop();
+      player.onBuffer = (played) {
+        if (played >= 5) speech.stop();
       };
 
       await speech.playAll(
@@ -551,8 +564,9 @@ void main() {
         loop: true,
       );
 
-      expect(kokoro.rendered.length, greaterThanOrEqualTo(5));
-      expect(kokoro.rendered.take(3), ['One.', 'Two.', 'Three.']);
+      expect(player.buffers.length, greaterThanOrEqualTo(5));
+      expect(kokoro.rendered, ['One.', 'Two.', 'Three.'],
+          reason: 'a looping run reuses the clips it already rendered');
       expect(speech.isPlaying, isFalse);
     });
 

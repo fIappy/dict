@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
+import 'kokoro_engine.dart';
 import 'kokoro_model_store.dart';
-import 'sherpa_runtime.dart';
 import 'pcm_audio.dart';
 
 /// Speaks with Kokoro: an 82M-parameter model run locally by sherpa-onnx.
@@ -19,8 +19,8 @@ class KokoroVoice {
 
   final Future<KokoroModelFiles?> Function() _find;
 
-  sherpa.OfflineTts? _engine;
-  bool _bindingsReady = false;
+  KokoroEngine? _engine;
+  Future<KokoroEngine?>? _loading;
 
   /// Whether the model is installed and loaded.
   Future<bool> isReady() async => await _load() != null;
@@ -31,7 +31,7 @@ class KokoroVoice {
     if (engine == null) return null;
     final files = await _find();
     return 'Kokoro（${files?.folder ?? kokoroModelFolder}）'
-        '· ${engine.sampleRate} Hz · 本机推理';
+        '· ${engine.sampleRate} Hz · 后台推理';
   }
 
   /// The sentence as audio, or null when the model is missing or failed.
@@ -42,61 +42,39 @@ class KokoroVoice {
   }) async {
     final engine = await _load();
     if (engine == null || text.trim().isEmpty) return null;
-    try {
-      final audio = engine.generateWithConfig(
-        text: text,
-        config: sherpa.OfflineTtsGenerationConfig(
-          speed: rate.clamp(0.25, 3.0),
-          sid: kokoroSpeakerId,
-        ),
-      );
-      if (audio.samples.isEmpty) return null;
-      return fromFloat32(audio.samples.toList(), audio.sampleRate);
-    } catch (e) {
-      debugPrint('Kokoro synthesis failed: $e');
-      return null;
-    }
+    return engine.synthesize(text, rate.clamp(0.25, 3.0));
   }
 
   void dispose() {
-    _engine?.free();
+    _engine?.dispose();
     _engine = null;
+    _loading = null;
   }
 
-  /// The loaded model, loading it on first use. A failed load is not cached, so
-  /// a model installed while the app runs is picked up on the next try.
-  Future<sherpa.OfflineTts?> _load() async {
+  /// The engine, started on first use. A failed start is not cached: a model
+  /// installed while the app runs is picked up on the next try.
+  Future<KokoroEngine?> _load() {
     final existing = _engine;
-    if (existing != null) return existing;
+    if (existing != null) return Future.value(existing);
+    return _loading ??= _start();
+  }
 
+  Future<KokoroEngine?> _start() async {
     final files = await _find();
-    if (files == null) return null;
-
-    try {
-      if (!_bindingsReady) {
-        preloadOnnxRuntime();
-        await sherpa.initBindingsAsync();
-        _bindingsReady = true;
-      }
-      // Native: the files are already on disk. Web: they are fetched into the
-      // wasm's file system, because the library inside cannot read HTTP paths.
-      await prepareKokoroModel(files);
-      final engine = sherpa.OfflineTts(
-        sherpa.OfflineTtsConfig(
-          model: sherpa.OfflineTtsModelConfig(
-            kokoro: kokoroConfigFor(files),
-            numThreads: 1,
-            debug: false,
-          ),
-          maxNumSenetences: 1,
-        ),
-      );
-      _engine = engine;
-      return engine;
-    } catch (e) {
-      debugPrint('Kokoro model at ${files.model} could not be loaded: $e');
+    if (files == null) {
+      _loading = null;
       return null;
     }
+    final engine = KokoroEngine(files, config: kokoroConfigFor(files));
+    final error = await engine.start();
+    if (error != null) {
+      debugPrint('Kokoro could not start: $error');
+      engine.dispose();
+      _loading = null;
+      return null;
+    }
+    _engine = engine;
+    return engine;
   }
 
 }

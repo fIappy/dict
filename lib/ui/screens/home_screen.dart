@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/dictionary_provider.dart';
+import '../../providers/entry_speech_provider.dart';
 import '../../providers/favorites_provider.dart';
 import '../../providers/history_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -58,6 +59,9 @@ class _HomeScreenState extends State<HomeScreen> {
       context.read<SettingsProvider>().initialize();
       final custom = context.read<CustomTextProvider>();
       unawaited(custom.initialize().then((_) => custom.ensureSeeded()));
+      // Loads the speech model in its worker isolate now, so the first 播放 does
+      // not wait for it.
+      context.read<EntrySpeechProvider>().warmUp();
       context.read<IpaProvider>().restore();
       context.read<AlphabetProvider>().restore();
       await _restoreLayout();
