@@ -109,8 +109,16 @@ class AiPracticeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Shows what is already on this device, then merges the shipped library.
+  ///
+  /// The library merge reads an asset (and may write), which is not worth
+  /// delaying the first paint for — the archive that exists locally is on screen
+  /// immediately and the merge lands a moment later.
   Future<void> loadArchive() async {
-    _archive = await _store.ensureSeeded();
+    _archive = await _store.load();
+    notifyListeners();
+    final merged = await _store.ensureSeeded();
+    _archive = merged;
     notifyListeners();
   }
 

@@ -95,14 +95,22 @@ void main() {
     expect(await store.load(), hasLength(seeded.length));
   });
 
-  test('an AI archive with work in it is left alone', () async {
+  test('the AI archive merges the shipped generations around local work', () async {
     SharedPreferences.setMockInitialValues({
       'flutter.ai_archive_v1':
           '[{"id":"x","sceneId":"s","sceneLabel":"S","kind":"passage","level":"easy",'
               '"createdAt":1,"model":"m","title":"Mine","text":"Body."}]',
     });
-    final seeded = await AiArchiveStore().ensureSeeded();
-    expect(seeded, hasLength(1));
-    expect(seeded.single.title, 'Mine');
+    final store = AiArchiveStore();
+    final seeded = await store.ensureSeeded();
+
+    // The reader's own generation survives untouched…
+    expect(seeded.where((item) => item.id == 'x').single.title, 'Mine');
+    // …and the library's items are added next to it.
+    expect(seeded.length, greaterThan(1));
+
+    // The same version is not merged twice.
+    final again = await AiArchiveStore().ensureSeeded();
+    expect(again, hasLength(seeded.length));
   });
 }

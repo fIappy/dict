@@ -1,0 +1,69 @@
+{
+ "version": 2,
+ "groups": [
+  {
+   "id": "default",
+   "name": "默认生词本",
+   "description": "查词时随手收藏的词汇",
+   "color": 4282339765,
+   "icon": null,
+   "sort_order": 0,
+   "created_at": 1792114500900
+  },
+  {
+   "id": "cet_core",
+   "name": "四六级重点",
+   "description": "大学英语四六级核心考点词",
+   "color": 4281236786,
+   "icon": null,
+   "sort_order": 1,
+   "created_at": 1792114500901
+  },
+  {
+   "id": "gre_ielts",
+   "name": "GRE / 雅思托福",
+   "description": "留学出国与高级学术词汇",
+   "color": 4293880832,
+   "icon": null,
+   "sort_order": 2,
+   "created_at": 1792114500902
+  },
+  {
+   "id": "review",
+   "name": "重点复习",
+   "description": "易错易混需要反复强化的词汇",
+   "color": 4290910299,
+   "icon": null,
+   "sort_order": 3,
+   "created_at": 1792114500903
+  }
+ ],
+ "items": [
+  {
+   "id": "fav_1792723759247",
+   "word": "back-to-back",
+   "group_id": "default",
+   "phonetic": "",
+   "definition_snippet": null,
+   "examples_snippet": null,
+   "note": "",
+   "dict_source": "Dictionary.com",
+   "tags": "",
+   "created_at": 1792723759247,
+   "updated_at": 1792723759247
+  },
+  {
+   "id": "fav_1792723778187",
+   "word": "commute",
+   "group_id": "default",
+   "phonetic": "",
+   "definition_snippet": null,
+   "examples_snippet": null,
+   "note": "",
+   "dict_source": "Dictionary.com",
+   "tags": "",
+   "created_at": 1792723778187,
+   "updated_at": 1792723778187
+  }
+ ]
+}

@@ -49,7 +49,8 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       context.read<DictionaryProvider>().initialize();
-      context.read<FavoritesProvider>().initialize();
+      final favorites = context.read<FavoritesProvider>();
+      unawaited(favorites.initialize().then((_) => favorites.ensureSeeded()));
       context.read<HistoryProvider>().initialize();
       context.read<FrequencyProvider>().initialize();
       context.read<NumbersProvider>().initialize();

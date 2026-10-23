@@ -139,7 +139,10 @@ class AiArchiveItem {
 /// not a table that needs querying.
 class AiArchiveStore {
   static const String _key = 'ai_archive_v1';
-  static const String _seedKey = 'ai_seed_v1';
+
+  /// Version of the shipped archive already merged, so a newer library reaches
+  /// an install that already has generations of its own.
+  static const String _seedVersionKey = 'ai_seed_version';
   static const String _seedAsset = 'assets/seed/ai_archive.json';
 
   /// Newest first; older items fall off the end so the document cannot grow
@@ -167,30 +170,40 @@ class AiArchiveStore {
     }
   }
 
-  /// One-time import of the generations that ship with the app.
+  /// Merges the generations that ship with the app.
   ///
-  /// Runs only when the reader's archive is still empty, and only once — a
-  /// later launch that cleared the archive on purpose must stay cleared.
+  /// Runs when the library's `version` is newer than the one already merged:
+  /// items whose id is missing are added and an id that exists locally keeps the
+  /// local copy. The old one-shot flag is honoured for a single upgrade so an
+  /// install that already imported the first library does not import it twice.
   Future<List<AiArchiveItem>> ensureSeeded() async {
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_seedKey) ?? false) return load();
-    await prefs.setBool(_seedKey, true);
-    if ((await load()).isNotEmpty) return load();
+    final merged = prefs.getInt(_seedVersionKey) ?? 0;
     try {
       final raw = await rootBundle.loadString(_seedAsset);
       final data = jsonDecode(raw);
-      final items = data is Map ? data['items'] : data;
-      if (items is! List) return await load();
-      final seeded = <AiArchiveItem>[];
-      for (final entry in items) {
+      // A bare list is the format the first library shipped with.
+      final version = data is Map ? ((data['version'] as num?)?.toInt() ?? 0) : 0;
+      if (version <= merged) return await load();
+      final entries = data is Map ? data['items'] : data;
+      if (entries is! List) return await load();
+
+      await prefs.setInt(_seedVersionKey, version);
+      final existing = await load();
+      final known = {for (final item in existing) item.id};
+      final added = <AiArchiveItem>[];
+      for (final entry in entries) {
         if (entry is! Map) continue;
         final item = AiArchiveItem.fromJson(entry.cast<String, dynamic>());
-        if (item != null) seeded.add(item);
+        if (item == null || !known.add(item.id)) continue;
+        added.add(item);
       }
-      if (seeded.isEmpty) return await load();
-      seeded.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      await _write(seeded);
-      return seeded;
+      if (added.isEmpty) return existing;
+      final all = [...added, ...existing]
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final kept = all.length > maxItems ? all.sublist(0, maxItems) : all;
+      await _write(kept);
+      return kept;
     } catch (e) {
       debugPrint('archive seed import failed: $e');
       return load();

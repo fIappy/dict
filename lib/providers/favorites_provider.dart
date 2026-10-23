@@ -1,4 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../core/database/favorites_dao.dart';
 import '../core/models/favorite_group.dart';
 import '../core/models/favorite_item.dart';
@@ -25,6 +29,59 @@ class FavoritesProvider extends ChangeNotifier {
     await refreshFavorites();
     _isLoading = false;
     notifyListeners();
+  }
+
+  /// Version of the shipped vocabulary library already merged.
+  static const String _seedVersionKey = 'favorites_seed_version';
+  static const String _seedAsset = 'assets/seed/favorites.json';
+
+  /// Merges the vocabulary that ships with the app.
+  ///
+  /// Runs when the library's `version` is newer than the one already merged:
+  /// groups and words that are missing are copied into the database, and a word
+  /// the reader already has keeps its own note/group. `python
+  /// tool/publish_library.py` writes that file from the live database.
+  Future<void> ensureSeeded() async {
+    final prefs = await SharedPreferences.getInstance();
+    final merged = prefs.getInt(_seedVersionKey) ?? 0;
+    try {
+      final raw = await rootBundle.loadString(_seedAsset);
+      final data = jsonDecode(raw);
+      if (data is! Map) return;
+      final version = (data['version'] as num?)?.toInt() ?? 0;
+      if (version <= merged) return;
+
+      final groups = data['groups'];
+      if (groups is List) {
+        final known = {for (final group in await _dao.getAllGroups()) group.id};
+        for (final entry in groups) {
+          if (entry is! Map) continue;
+          final group = FavoriteGroup.fromMap(entry.cast<String, dynamic>());
+          if (!known.add(group.id)) continue;
+          await _dao.insertGroup(group);
+        }
+      }
+
+      final items = data['items'];
+      if (items is List) {
+        final known = {
+          for (final favorite in await _dao.getFavorites())
+            favorite.word.toLowerCase(),
+        };
+        for (final entry in items) {
+          if (entry is! Map) continue;
+          final item = FavoriteItem.fromMap(entry.cast<String, dynamic>());
+          if (!known.add(item.word.toLowerCase())) continue;
+          await _dao.addFavorite(item);
+        }
+      }
+
+      await prefs.setInt(_seedVersionKey, version);
+      await refreshGroups();
+      await refreshFavorites();
+    } catch (e) {
+      debugPrint('favorites seed import failed: $e');
+    }
   }
 
   Future<void> refreshGroups() async {
