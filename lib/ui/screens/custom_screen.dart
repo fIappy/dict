@@ -279,7 +279,6 @@ class CustomScreen extends StatelessWidget {
                     },
             ),
           ),
-          const SizedBox(width: 8),
           FilledButton.icon(
             icon: const Icon(Icons.add_rounded, size: 18),
             label: const Text('添加'),

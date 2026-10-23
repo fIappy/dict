@@ -166,14 +166,12 @@ class _CustomDetailViewState extends State<CustomDetailView> {
                   ),
                 ),
               ),
-              if (!isNew) ...[
-                const SizedBox(width: 8),
+              if (!isNew)
                 IconButton(
                   tooltip: '删除',
                   icon: const Icon(Icons.delete_outline_rounded),
                   onPressed: () => _delete(provider, item),
                 ),
-              ],
             ],
           ),
           const SizedBox(height: 10),

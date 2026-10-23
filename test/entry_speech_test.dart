@@ -128,6 +128,49 @@ class _GatedPlayer extends _RecordingPlayer {
   }
 }
 
+/// A player that holds chosen playbacks, so a repeat can be requested while a
+/// line is sounding.
+class _GateQueuePlayer extends _RecordingPlayer {
+  final List<Completer<void>> _gates = [];
+
+  /// The gate a playback is currently waiting on (already taken off the queue).
+  Completer<void>? _held;
+
+  void holdNext() => _gates.add(Completer<void>());
+
+  void releaseNext() {
+    // The playback already waiting on a gate comes first: a later holdNext()
+    // queues the gate for the *next* line.
+    final held = _held;
+    if (held != null && !held.isCompleted) {
+      held.complete();
+      return;
+    }
+    if (_gates.isNotEmpty) {
+      final gate = _gates.removeAt(0);
+      if (!gate.isCompleted) gate.complete();
+    }
+  }
+
+  void releaseAll() {
+    while (_gates.isNotEmpty) {
+      releaseNext();
+    }
+    releaseNext();
+  }
+
+  @override
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
+    buffers.add(bytes);
+    if (_gates.isNotEmpty) {
+      _held = _gates.removeAt(0);
+      await _held!.future;
+      _held = null;
+    }
+    return true;
+  }
+}
+
 class _StubPiper extends PiperVoice {
   _StubPiper({this.ready = true}) : super(finder: (accent) async => null);
 
@@ -288,6 +331,82 @@ void main() {
       expect(piper.rendered, ['One.', 'One.', 'Two.'],
           reason: 'the interrupted line is said again by Piper after 继续');
       expect(player.sentences, isEmpty);
+    });
+
+    test('重复本句 lets the line finish, then says it again', () async {
+      final player = _GateQueuePlayer();
+      final piper = _StubPiper();
+      final provider = EntrySpeechProvider(player: player, piper: piper);
+
+      player.holdNext();
+      final run = provider.playAll(const [
+        EntryUtterance(text: 'One.', isPhrase: false),
+        EntryUtterance(text: 'Two.', isPhrase: false),
+        EntryUtterance(text: 'Three.', isPhrase: false),
+      ], rate: 1.0, gap: Duration.zero, accent: 'us');
+      await pumpEventQueue();
+
+      provider.repeatCurrent();
+      player.releaseAll();
+      await run;
+
+      expect(piper.rendered, ['One.', 'One.', 'Two.', 'Three.']);
+    });
+
+    test('重复前一句 cuts the line and continues from the one before', () async {
+      final player = _GateQueuePlayer();
+      final piper = _StubPiper();
+      final provider = EntrySpeechProvider(player: player, piper: piper);
+
+      player.holdNext();
+      final run = provider.playAll(const [
+        EntryUtterance(text: 'One.', isPhrase: false),
+        EntryUtterance(text: 'Two.', isPhrase: false),
+        EntryUtterance(text: 'Three.', isPhrase: false),
+      ], rate: 1.0, gap: Duration.zero, accent: 'us');
+      await pumpEventQueue();
+
+      player.holdNext();
+      player.releaseNext(); // 'One.' finishes, 'Two.' now sounds
+      await pumpEventQueue();
+      expect(provider.currentIndex, 1);
+
+      provider.repeatPrevious();
+      player.releaseAll();
+      await run;
+
+      expect(piper.rendered, ['One.', 'Two.', 'One.', 'Two.', 'Three.']);
+    });
+
+    test('重复前一句 on the first line repeats the first line', () async {
+      final player = _GateQueuePlayer();
+      final piper = _StubPiper();
+      final provider = EntrySpeechProvider(player: player, piper: piper);
+
+      player.holdNext();
+      final run = provider.playAll(const [
+        EntryUtterance(text: 'One.', isPhrase: false),
+        EntryUtterance(text: 'Two.', isPhrase: false),
+      ], rate: 1.0, gap: Duration.zero, accent: 'us');
+      await pumpEventQueue();
+
+      provider.repeatPrevious();
+      player.releaseAll();
+      await run;
+
+      expect(piper.rendered, ['One.', 'One.', 'Two.']);
+    });
+
+    test('the repeat buttons do nothing when the run is idle', () async {
+      final player = _RecordingPlayer();
+      final provider = EntrySpeechProvider(player: player, piper: _StubPiper());
+
+      provider.repeatCurrent();
+      provider.repeatPrevious();
+
+      expect(provider.canRepeat, isFalse);
+      expect(player.sentences, isEmpty);
+      expect(player.buffers, isEmpty);
     });
 
     test('stop drops the pending lines of a run in flight', () async {

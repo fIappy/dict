@@ -56,6 +56,20 @@ class SpeechControls extends StatelessWidget {
             icon: icon,
             onPressed: playing ? speech.togglePause : onStart,
           ),
+        if (playing) ...[
+          // 重复练习: the sentence just missed. 重复本句 lets the line finish and
+          // says it again; 重复前一句 cuts it and starts at the line before.
+          IconButton(
+            tooltip: '重复本句',
+            icon: const Icon(Icons.replay_rounded, size: 18),
+            onPressed: speech.canRepeat ? speech.repeatCurrent : null,
+          ),
+          IconButton(
+            tooltip: '重复前一句',
+            icon: const Icon(Icons.skip_previous_rounded, size: 18),
+            onPressed: speech.canRepeat ? speech.repeatPrevious : null,
+          ),
+        ],
         if (playing)
           IconButton(
             tooltip: '停止',

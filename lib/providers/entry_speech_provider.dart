@@ -42,6 +42,12 @@ class EntrySpeechProvider extends ChangeNotifier {
   /// "read this selection" never loops even when the switch is on.
   bool _loopRun = false;
 
+  /// Line the run should go back to, set by 重复当前 / 重复前一句.
+  int? _repeatFrom;
+
+  /// Bumped to abandon the line in flight (打断) without ending the run.
+  int _lineEpoch = 0;
+
   double _rate = 1.0;
   Duration _gap = Duration.zero;
   String _accent = 'us';
@@ -66,6 +72,29 @@ class EntrySpeechProvider extends ChangeNotifier {
 
   bool get loop => _loop;
 
+  /// Whether 重复当前 / 重复前一句 can do anything right now.
+  bool get canRepeat => _isPlaying && _currentIndex != null;
+
+  /// 重复当前: let the line that is sounding finish, then say it again and carry
+  /// on — the usual way of replaying a sentence that slipped past.
+  ///
+  /// A click during the gap lands on the same line: the request is picked up
+  /// before the next line starts, so nothing extra is spoken.
+  void repeatCurrent() {
+    if (_isPlaying && _currentIndex != null) {
+      _repeatFrom = _currentIndex;
+    }
+  }
+
+  /// 重复前一句: cut the line that is sounding and start again from the line
+  /// before it (the first line stays the first line).
+  void repeatPrevious() {
+    if (!_isPlaying || _currentIndex == null) return;
+    _repeatFrom = _currentIndex! > 0 ? _currentIndex! - 1 : 0;
+    _lineEpoch++; // the line in flight must not start sounding any more
+    _player.stop();
+  }
+
   /// Speaks every line of [items], waiting [gap] between them.
   ///
   /// [loop] overrides the 循环 switch for this run only. Pausing cuts the sound
@@ -85,6 +114,7 @@ class EntrySpeechProvider extends ChangeNotifier {
     _gap = gap;
     _accent = accent;
     _loopRun = loop ?? _loop;
+    _repeatFrom = null;
     _usePiper = await _piperUsable(accent);
     if (run != _run) return;
     _isPlaying = true;
@@ -99,10 +129,26 @@ class EntrySpeechProvider extends ChangeNotifier {
           if (_isPaused) await _waitWhilePaused(run);
           if (run != _run) return;
 
+          // A repeat asked for while the gap was running lands here, before the
+          // next line starts, so only the requested line is said.
+          final requested = _repeatFrom;
+          if (requested != null) {
+            _repeatFrom = null;
+            index = requested;
+          }
+
           _currentIndex = index;
           notifyListeners();
           await _speak(items[index].text, accent: _accent, rate: _rate, run: run);
           if (run != _run) return;
+
+          // A repeat asked for during the line lands here, after it finished.
+          final again = _repeatFrom;
+          if (again != null) {
+            _repeatFrom = null;
+            index = again - 1; // the loop's ++ lands on the requested line
+            continue;
+          }
 
           // Paused mid-line: hold, then say this line again from its start.
           if (_isPaused) {
@@ -211,6 +257,8 @@ class EntrySpeechProvider extends ChangeNotifier {
     _isPlaying = false;
     _isPaused = false;
     _currentIndex = null;
+    _repeatFrom = null;
+    _lineEpoch++;
     _player.stop();
     notifyListeners();
   }
@@ -249,13 +297,14 @@ class EntrySpeechProvider extends ChangeNotifier {
     required int run,
   }) async {
     if (run != _run || _isPaused) return false;
+    final epoch = _lineEpoch;
 
     if (!_usePiper) {
       return _player.speakSentence(text, accent: accent, rate: rate);
     }
 
     final clip = await _piper!.synthesize(text, accent: accent, rate: rate);
-    if (run != _run || _isPaused) return false;
+    if (run != _run || _isPaused || epoch != _lineEpoch) return false;
     if (clip == null || clip.samples.isEmpty) {
       debugPrint('Piper could not render a line; skipping it instead of '
           'switching to another voice');
@@ -265,7 +314,7 @@ class EntrySpeechProvider extends ChangeNotifier {
       encodeWav(clip.samples, sampleRate: clip.sampleRate),
       rate: 1.0,
     );
-    if (!played && run == _run && !_isPaused) {
+    if (!played && run == _run && !_isPaused && epoch == _lineEpoch) {
       // This platform cannot sound a byte buffer (or the mixer refused it).
       // Fall back for the rest of the run as well, so the voice changes once
       // instead of flipping back to Piper on the next line.
