@@ -124,6 +124,54 @@ List<({int start, int end})> sentenceRanges(String body) {
   return trimmed;
 }
 
+/// One piece of a passage as it was written: the text between two sentence
+/// breaks, the separator that followed it, and — when the piece is not just
+/// whitespace — the index [splitSentences] gives it.
+///
+/// Rendering a passage sentence by sentence for the red mark must not reflow
+/// it: a one-sentence-per-line article has to keep its line breaks, so the
+/// separators travel with the pieces instead of being collapsed to spaces.
+class PassageSegment {
+  const PassageSegment({
+    required this.text,
+    required this.separator,
+    required this.sentenceIndex,
+  });
+
+  final String text;
+  final String separator;
+
+  /// Null for whitespace-only pieces (blank lines between paragraphs).
+  final int? sentenceIndex;
+
+  bool get isSentence => sentenceIndex != null;
+}
+
+/// [body] split into [PassageSegment]s, using the same rule as
+/// [splitSentences] so the indices line up with what playback reads.
+List<PassageSegment> passageSegments(String body) {
+  final normalised = body.replaceAll('\r\n', '\n');
+  final separator = RegExp(r'(?<=[.!?。！？;；:])\s+|\n+');
+  final segments = <PassageSegment>[];
+  var start = 0;
+  var sentence = 0;
+  void add(String text, String separator) {
+    final isSentence = text.trim().isNotEmpty;
+    segments.add(PassageSegment(
+      text: text,
+      separator: separator,
+      sentenceIndex: isSentence ? sentence++ : null,
+    ));
+  }
+
+  for (final match in separator.allMatches(normalised)) {
+    add(normalised.substring(start, match.start), match.group(0)!);
+    start = match.end;
+  }
+  if (start < normalised.length) add(normalised.substring(start), '');
+  return segments;
+}
+
 /// Splits a passage into the sentences playback walks one by one.
 ///
 /// A sentence ends at `.` `!` `?` (Latin or full-width), `;` `:` or a line

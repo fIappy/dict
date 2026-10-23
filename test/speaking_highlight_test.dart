@@ -43,6 +43,25 @@ void main() {
     expect(reds, isNot(contains('Three.')));
   });
 
+  testWidgets('the layout survives the red mark', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: AnnotatedText(
+            'One.\nTwo.',
+            themeWords: {},
+            speakingIndex: 1,
+          ),
+        ),
+      ),
+    );
+
+    final selectable =
+        tester.widget<SelectableText>(find.byType(SelectableText).first);
+    expect(selectable.textSpan!.toPlainText(), 'One.\nTwo.',
+        reason: 'a one-sentence-per-line passage keeps its line breaks');
+  });
+
   testWidgets('with nothing read the passage stays one span', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(

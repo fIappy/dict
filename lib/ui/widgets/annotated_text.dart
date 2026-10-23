@@ -58,17 +58,16 @@ class AnnotatedText extends StatelessWidget {
 
     // A sentence is sounding: render sentence by sentence so that one can be
     // red. The words inside each sentence keep their annotations.
-    final sentences = splitSentences(text);
+    // Line breaks and spacing are kept: the segments carry the separators that
+    // were in the source, so a one-sentence-per-line article stays laid out.
+    final segments = passageSegments(text);
     return SpeakableText.rich(
       TextSpan(
         children: [
-          for (var index = 0; index < sentences.length; index++)
+          for (final segment in segments) ...[
             TextSpan(
-              children: [
-                spansOf(sentences[index]),
-                if (index < sentences.length - 1) const TextSpan(text: ' '),
-              ],
-              style: index == speaking
+              children: [spansOf(segment.text)],
+              style: segment.sentenceIndex == speaking
                   ? TextStyle(
                       color: error,
                       fontWeight: FontWeight.w700,
@@ -76,6 +75,9 @@ class AnnotatedText extends StatelessWidget {
                     )
                   : null,
             ),
+            if (segment.separator.isNotEmpty)
+              TextSpan(text: segment.separator),
+          ],
         ],
       ),
       style: style,

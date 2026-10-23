@@ -20,6 +20,19 @@ void main() {
       ]);
     });
 
+    test('segments keep the line breaks and line up with the sentences', () {
+      final segments = passageSegments('One.\nTwo.\n\nThree.');
+      expect(segments.where((s) => s.isSentence).map((s) => s.text),
+          ['One.', 'Two.', 'Three.']);
+      expect(segments.where((s) => s.isSentence).map((s) => s.sentenceIndex),
+          [0, 1, 2]);
+      expect(segments.map((s) => s.separator).toList(),
+          ['\n', '\n\n', '']);
+      // The same rule as playback, so a highlight index means the same line.
+      expect(splitSentences('One.\nTwo.\n\nThree.'),
+          segments.where((s) => s.isSentence).map((s) => s.text).toList());
+    });
+
     test('a body without punctuation is a single sentence', () {
       final oneLiner = CustomText(
         id: 'a',
