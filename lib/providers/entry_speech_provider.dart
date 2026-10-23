@@ -72,6 +72,18 @@ class EntrySpeechProvider extends ChangeNotifier {
 
   bool get loop => _loop;
 
+  /// Whether the run in flight reads exactly [lines] right now.
+  ///
+  /// The player is shared by every screen, so a view tints its own text only
+  /// when the words on screen are the words being spoken.
+  bool isReading(List<String> lines) {
+    if (!_isPlaying || _items.length != lines.length) return false;
+    for (var i = 0; i < lines.length; i++) {
+      if (_items[i].text != lines[i]) return false;
+    }
+    return true;
+  }
+
   /// Whether 重复当前 / 重复前一句 can do anything right now.
   bool get canRepeat => _isPlaying && _currentIndex != null;
 

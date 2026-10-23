@@ -195,8 +195,14 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
 
   Widget _buildHtmlContent(String html, bool isDark) {
     // The reader adds a speaker link to every 词语搭配 / 权威例句 line; the
-    // indices it hands back address the same list the links carry.
-    final prepared = prepareEntrySpeech(html);
+    // indices it hands back address the same list the links carry. The line
+    // being read is marked so it can be coloured.
+    final speech = context.watch<EntrySpeechProvider>();
+    final speaking = speech.isPlaying &&
+            speech.isReading([for (final line in extractEntryUtterances(html)) line.text])
+        ? speech.currentIndex
+        : null;
+    final prepared = prepareEntrySpeech(html, speaking: speaking);
     final primaryColor = Theme.of(context).colorScheme.primary;
     final primaryHex =
         '#${primaryColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
@@ -345,6 +351,10 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
         styles['display'] = 'none';
       }
       // The speaker link the reader appends to each speakable line.
+      if (classes.contains('speaking')) {
+        styles['color'] = '#E53935';
+        styles['font-weight'] = '600';
+      }
       if (classes.contains('speech')) {
         styles['display'] = 'inline';
         styles['margin-left'] = '6px';

@@ -65,12 +65,18 @@ List<EntryUtterance> extractEntryUtterances(String html) =>
 /// [html] with a small speaker link appended to every speakable line, plus the
 /// utterances those links address.
 ///
+/// [speaking] is the index of the line being read; that line is marked with a
+/// `speaking` class so the reader can colour it (the CSS lives in the view).
+///
 /// The index in `speech://<n>` is the index in [utterances], so the view can
 /// hand a tapped link straight to the player. The markup is rewritten rather
 /// than the lines being rendered as separate widgets because the entry is drawn
 /// by `HtmlWidget` from one HTML string — pointing at the original elements
 /// keeps every existing style rule and the surrounding flow intact.
-({String html, List<EntryUtterance> utterances}) prepareEntrySpeech(String html) {
+({String html, List<EntryUtterance> utterances}) prepareEntrySpeech(
+  String html, {
+  int? speaking,
+}) {
   if (html.trim().isEmpty) return (html: html, utterances: const []);
 
   final document = html_parser.parse(html);
@@ -108,6 +114,9 @@ List<EntryUtterance> extractEntryUtterances(String html) =>
       ..attributes['href'] = 'speech://$index'
       ..attributes['class'] = 'speech'
       ..text = '🔊');
+    if (index == speaking) {
+      element.classes.add('speaking');
+    }
   }
 
   return (

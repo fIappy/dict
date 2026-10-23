@@ -121,9 +121,13 @@ void main() {
       final entry = MdxEntry.parse('hello', sampleHtml);
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: WordDefinitionView(entry: entry),
+        // The view tints the line being read, so it watches the speech player.
+        ChangeNotifierProvider(
+          create: (_) => EntrySpeechProvider(),
+          child: MaterialApp(
+            home: Scaffold(
+              body: WordDefinitionView(entry: entry),
+            ),
           ),
         ),
       );

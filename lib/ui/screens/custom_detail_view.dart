@@ -174,12 +174,32 @@ class _CustomDetailViewState extends State<CustomDetailView> {
                 ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
+          _buildSpeakingLine(context),
+          const SizedBox(height: 6),
           Text(
             '在句号、问号、叹号或换行处断句，逐句朗读，句间停顿取设置里的间隔。',
             style: TextStyle(fontSize: 12, color: theme.hintColor),
           ),
         ],
+      ),
+    );
+  }
+
+  /// The sentence sounding right now, in red — the same mark the lists use.
+  Widget _buildSpeakingLine(BuildContext context) {
+    final speech = context.watch<EntrySpeechProvider>();
+    final lines = splitSentences(_body.text);
+    final index = speech.isReading(lines) ? speech.currentIndex : null;
+    if (index == null || index >= lines.length) return const SizedBox.shrink();
+    return Text(
+      '正在朗读 ${index + 1}/${lines.length}：${lines[index]}',
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: 12.5,
+        fontWeight: FontWeight.w600,
+        color: Theme.of(context).colorScheme.error,
       ),
     );
   }

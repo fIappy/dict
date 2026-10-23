@@ -189,18 +189,33 @@ class CustomScreen extends StatelessWidget {
     }
 
     final speech = context.watch<EntrySpeechProvider>();
+    // Where each item's sentences start in the flattened queue, so the row of
+    // the sentence being read can be found.
+    final starts = <int>[];
+    var cursor = 0;
+    for (final item in items) {
+      starts.add(cursor);
+      cursor += item.utterances.length;
+    }
+    final queue = [for (final item in items) ...item.utterances];
+    final speakingIndex =
+        speech.isReading(queue) ? speech.currentIndex : null;
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 4),
       itemCount: items.length,
       separatorBuilder: (_, _) => const Divider(height: 1, indent: 56),
       itemBuilder: (context, index) {
         final item = items[index];
-        final speaking = speech.isPlaying && speech.currentIndex != null;
+        final speaking = speakingIndex != null &&
+            speakingIndex >= starts[index] &&
+            speakingIndex < starts[index] + item.utterances.length;
+        final theme = Theme.of(context);
         return ListTile(
           dense: true,
           leading: IconButton(
             icon: Icon(
                 speaking ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded),
+            color: speaking ? theme.colorScheme.error : null,
             tooltip: '播放这一条',
             onPressed: () => _play(context, [item]),
           ),
@@ -208,7 +223,10 @@ class CustomScreen extends StatelessWidget {
             item.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: speaking ? theme.colorScheme.error : null,
+            ),
           ),
           subtitle: Text(
             '${item.utterances.length} 句',

@@ -90,6 +90,14 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
     );
   }
 
+  /// Which sentence of [text] is sounding right now, if it is this passage.
+  int? _speakingPassageSentence(AiPracticeProvider provider, String text) {
+    final speech = context.watch<EntrySpeechProvider>();
+    final lines = splitSentences(text);
+    if (!speech.isReading(lines)) return null;
+    return speech.currentIndex;
+  }
+
   void _speakAll(List<GeneratedSentence> sentences) {
     final settings = context.read<SettingsProvider>();
     context.read<EntrySpeechProvider>().playAll(
@@ -551,6 +559,7 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
                 themeWords: sceneWords,
                 phrases: passage.phrases,
                 style: const TextStyle(fontSize: 13.5, height: 1.6),
+                speakingIndex: _speakingPassageSentence(provider, passage.text),
               ),
               if (provider.passageWords.isNotEmpty) ...[
                 const SizedBox(height: 10),

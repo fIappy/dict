@@ -409,6 +409,36 @@ void main() {
       expect(player.buffers, isEmpty);
     });
 
+    test('isReading matches only the exact lines being spoken', () async {
+      final player = _GateQueuePlayer();
+      final provider = EntrySpeechProvider(player: player, piper: _StubPiper());
+
+      player.holdNext();
+      final run = provider.playAll(const [
+        EntryUtterance(text: 'One.', isPhrase: false),
+        EntryUtterance(text: 'Two.', isPhrase: false),
+      ], rate: 1.0, gap: Duration.zero, accent: 'us');
+      await pumpEventQueue();
+
+      expect(provider.isReading(['One.', 'Two.']), isTrue);
+      expect(provider.isReading(['One.']), isFalse);
+      expect(provider.isReading(['Two.', 'One.']), isFalse);
+
+      player.releaseAll();
+      await run;
+      expect(provider.isReading(['One.', 'Two.']), isFalse);
+    });
+
+    test('the speaking line carries the class the reader colours', () {
+      final prepared = prepareEntrySpeech(_sioHtml, speaking: 1);
+      expect('speaking'.allMatches(prepared.html).length, 1);
+      expect(
+        prepareEntrySpeech(_sioHtml).html.contains('speaking'),
+        isFalse,
+        reason: 'nothing is read when no index is given',
+      );
+    });
+
     test('stop drops the pending lines of a run in flight', () async {
       final player = _RecordingPlayer();
       final provider = EntrySpeechProvider(player: player, piper: _StubPiper(ready: false));
