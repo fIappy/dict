@@ -11,7 +11,7 @@
   词语搭配、权威例句各一条记录）会按归档顺序合并成一条正文，`@@@LINK` 跳转也展开到目标词条的全部记录。
 - **部分匹配检索** — 精确 → 前缀 → 包含三级排序，输入即搜。
 - **词条内短语/例句发音** - 词条详情里的「词语搭配」与「权威例句」逐行带 🔊，
-  也可以一键「顺序播放 N 句」：Piper 神经语音整句读，语速与句间间隔在设置里调。
+  也可以一键「顺序播放 N 句」：Kokoro 神经语音整句读，语速与句间间隔在设置里调。
   朗读文本只取英文——SIO 的中文释义、出处书目与〔关键词〕标签，渲染时保留、朗读时剔除。
 - **多行播放：暂停 / 继续 / 循环** - 词条顺序播放、AI 造句与短文、自定义短文都带
   同一组控件：播放中按「暂停」立即静音并记住读到哪一句，按「继续」从那一句重念；
@@ -39,7 +39,7 @@
 - **设置面板** - 导航栏底部的齿轮（原主题切换按钮的位置）：主题、本地词典管理、
   播放语速、短语/例句间隔都在这里。
 - **多词典** — 同时加载多本词典联合查词，可逐本启用/停用。
-- **发音** — 优先播放 `.mdd` 内的高保真原声；缺失时回退系统语音/在线音源。
+- **发音** — 优先播放 `.mdd` 内的高保真原声；缺失时回退[Kokoro](#发音引擎kokoro)本机合成/在线音源。
   美音、英音双轨；`lead` / `read` 等同形异音词的多个读音分别提供。
 - **音标（IPA）** — 48 条音标数据，与[剑桥音标表](https://dictionary.cambridge.org/help/phonetics.html)
   逐行对应（含 `/ɒ/ /ɜː/ /əʊ/` 等英音专有、`/ɝː/ /ɚ/ /oʊ/ /t̬/` 等美音专有）：发音要领、口型舌位、
@@ -55,7 +55,7 @@
   （各附 3 个可试听样例），不逐个重复。日期类目另收录**12 个月份与 7 个星期**的全部词汇卡
   （含缩写 Jan. / Sept. / Wed.，以及 Wednesday 的 d 不发音、Tuesday 英 /ˈtjuːzdeɪ/ 等读音要点），
   每月/每周一张、可分别试听英美两音。训练模式随机出一组数字、**默认隐藏**，点「显示数字」再对照，
-  朗读语速（×0.5–×1.5；Windows 系统语音的 **×1.0 = 教学语速**，Piper/Android/浏览器/录音的 ×1.0 = 各自自然语速）与数字之间的间隔
+  朗读语速（×0.5–×1.5，×1.0 = Kokoro 的自然语速）与数字之间的间隔
   （0–3 秒，滑到 0 即连读）可调并持久化；**「循环」**开关让整组朗读完自动从头再来（直到按「停止」，
   播放中改开关在本轮结束后生效），适合跟读与听写时反复磨耳朵；
   每组数量滑杆到 100，更多可在「自定义」里直接输入（最多 1000，列表懒加载渲染）。
@@ -237,24 +237,21 @@ tool/android_smoke.sh -s emulator-5554 --uninstall
 
 脚本用 `flutter run -t lib/smoke_main.dart` 编译、安装、启动，抓取 `SMOKE …` 行判定通过/失败，手机上同时显示同一份结果与顺手播出的声音：
 
-- **录音拼接**：只用包内资源，刚装好的应用就能测；
-- **Piper**：装了模型就测（`SMOKE ok piper-uk 23296 samples @ 22050 Hz`），没装报 `skip`——这是正常状态，不会误判失败；
-- **系统语音**：让平台语音念同一句话（没有英语语音的设备会如实报 `skip`）。
+- **Kokoro**：装了模型就测（`SMOKE ok kokoro 22181 samples @ 24000 Hz`），没装报 `skip`——这是正常状态，不会误判失败；
+- **组内间隔**：把两个数字连读一次、再按设定间隔读一次，比较音频时长，确认间隔真的进了音频。
 
-Piper 的模型得进应用私有目录，两条路落点相同（`/data/user/0/<包名>/files/tts-models/piper/<us|uk>`）：
+Kokoro 的模型得进应用私有目录（`/data/user/0/<包名>/files/tts-models/kokoro`）：
 
-- **通常不需要**：正式包自带模型，首次启动自动解包（见[发布打包](#发布打包含-piper-模型)）；
-- **调试包/旧包没有内置**：在应用里「安装模型…」选 `piper.zip` 导入；
-- **已经 root**（`adb shell` 里 `su` 可用）：不必点手机上的文件选择器，直接推进去——
+- **通常不需要**：正式包自带模型，首次启动由原生侧解包；
+- **调试包没有内置**：把模型推进去即可（下面是 root 机器上的做法）——
 
 ```bash
-python tool/fetch_piper_models.py --zip-only          # 生成 tts-models/piper.zip
-python -c "import zipfile; zipfile.ZipFile('tts-models/piper.zip').extractall('build/piper_extract')"
-adb push build/piper_extract/. /sdcard/Download/piper_extract
-adb shell "su -c 'mkdir -p /data/user/0/com.example.local_dict/files/tts-models/piper'"
-adb shell "su -c 'cp -rf /sdcard/Download/piper_extract/. /data/user/0/com.example.local_dict/files/tts-models/piper/'"
-adb shell "su -c 'chown -R \$(stat -c %u /data/user/0/com.example.local_dict):\$(stat -c %u /data/user/0/com.example.local_dict) /data/user/0/com.example.local_dict/files/tts-models'"
-adb shell "su -c 'rm -rf /sdcard/Download/piper_extract'"
+python tool/fetch_kokoro_model.py --zip-only          # 生成 tts-models/kokoro.zip
+python -c "import zipfile; zipfile.ZipFile('tts-models/kokoro.zip').extractall('build/kokoro_extract')"
+adb push build/kokoro_extract/. /sdcard/Download/kokoro_extract
+adb shell "su -c 'mkdir -p /data/user/0/com.example.local_dict/files/tts-models/kokoro'"
+adb shell "su -c 'cp -rf /sdcard/Download/kokoro_extract/. /data/user/0/com.example.local_dict/files/tts-models/kokoro/'"
+adb shell "su -c 'rm -rf /sdcard/Download/kokoro_extract'"
 ```
 
 （`su -c` 那段务必保持 `adb shell "su -c '…'"` 这个引号形式：引号要是被本地 shell 吃掉，`su` 会停在等待输入上。）
@@ -269,13 +266,13 @@ adb shell "su -c 'rm -rf /sdcard/Download/piper_extract'"
 
 Windows 上请在 Git Bash / MSYS2 / cmd 里运行，**不要在 WSL 里**：本机的工具链是 Windows 那一份（WSL 会报 `unable to extract Dart SDK`），脚本也会直接提示这一点。
 
-### 发布打包（含 Piper 模型）
+### 发布打包（含 Kokoro 模型）
 
-词典文件与 Piper 模型都**不进版本库**（体积与授权），它们是**运行时资源**：应用在各平台约定的位置读取。
+词典文件与 Kokoro 模型都**不进版本库**（体积与授权），它们是**运行时资源**：应用在各平台约定的位置读取。
 所以"发布版" = 构建产物 + 放在正确位置的模型。一条命令把两件事一起做：
 
 ```bash
-python tool/fetch_piper_models.py      # 首次准备：约 70 MB，落在 tts-models/（已 gitignore）
+python tool/fetch_kokoro_model.py      # 首次准备：约 150 MB，落在 tts-models/（已 gitignore）
 tool/package_release.sh windows        # 或 web / apk / all；加 --no-build 只重新摆放模型
 ```
 
@@ -285,13 +282,12 @@ tool/package_release.sh windows        # 或 web / apk / all；加 --no-build �
 | web | `build/web/` | `build/web/tts-models/`（脚本自动拷入） | 连同静态站点部署，nginx 片段见[部署指南 §5.3](docs/WEB_DEPLOYMENT.md#53-piper-模型数字训练的piper-神经语音引擎) |
 | apk | `build/release/app-<abi>-release.apk`（按 ABI 拆分，每个约 105–110 MB） | **已内置**：构建时把 `tts-models/piper.zip` 打进 `assets/`，首次启动由原生侧解到私有目录 | 只发 APK。**安装用 `tool/package_release.sh install`**：它按设备的 ABI 选包，避免拿通用包（versionCode 1）覆盖拆分包（2000+）报 downgrade |
 
-**模型随 APK 走**：Gradle 任务 `copyPiperModels` 把 `tts-models/piper.zip` 放进 assets（没准备模型时构建照常成功，应用自动回退），
-APK 装好第一次打开就解压到 `/data/user/0/<包名>/files/tts-models/piper/`，**不需要电脑、不需要下载、不需要导入**。
-没有内置模型时，手机既没有英语系统语音、又没有模型，整句朗读只能退到录音拼接（逐词录音，听感是一个一个单词）——
-这正是"安装即用"要解决的问题。通用包要塞 4 套 sherpa-onnx（约 280 MB），所以 release 仍用 `--split-per-abi`。
+**模型随 APK 走**：Gradle 任务 `copyKokoroModels` 把 `tts-models/kokoro.zip` 放进 assets（没准备模型时构建照常成功，应用提示模型缺失），
+APK 装好第一次打开就解压到 `/data/user/0/<包名>/files/tts-models/kokoro/`，**不需要电脑、不需要下载、不需要导入**。
+通用包要塞 4 套 sherpa-onnx（约 280 MB），所以 release 仍用 `--split-per-abi`。
 
-**没有模型也能发**：整句朗读会自动换引擎（Piper 缺失 → 系统语音 → 自带录音拼接），训练区写明当前用的是谁；
-所以只想验证功能的构建不必先准备模型。
+**没有模型就只能无声**：Kokoro 是唯一的引擎（换引擎会让音色中途变化，所以系统语音与录音拼接都已移除），
+训练区会写明「未安装 Kokoro 模型」以及该放哪里。
 
 > `android/app/build.gradle.kts` 里 release 目前仍用 **debug 签名**（Flutter 模板默认，带 TODO）。
 > 正式分发前换成自己的 keystore——换签名后已装应用的数据会被清空，模型要重新导入一次。
@@ -375,104 +371,47 @@ python tool/generate_ipa_audio.py                        # 需要 espeak-ng + ff
 > 也别用按文件名从第三方仓库挑的录音：那类多是**基本元音（cardinal vowel）**，cardinal [ʌ]
 > 是后半开元音，英语 /ʌ/（cup）是央化的 [ɐ]；cardinal [e] 是次闭前元音，英语 /e/（bed）实际是 [ɛ]。
 
-### 数字怎么读：整句朗读的三档引擎 + 逐词拼读
+### 发音引擎：Kokoro
 
-训练区里「整句朗读」旁边有一个开关选**用哪个引擎念整句**，只有两档可选：**系统语音**（默认）与 **Piper 神经语音**（选择会持久化）。
-引擎说不出话时**不会**把数字拆成单词念：按 `选择 → Piper → 系统语音 → 自带录音拼接` 换引擎整句念完，
-其中**录音拼接**是内置兜底（永远可用、无接缝），不出现在开关里——它的音色和逐词模式用的是同一批录音，没人会主动选它；
-只有所有引擎都失败才退到逐词播放，而「逐词拼读」模式照旧逐词播放（它就是听写用的）。
+整句朗读只有一个引擎：**[Kokoro](https://github.com/hexgrad/kokoro)**（82M 参数的 TTS 模型，int8 量化，
+24 kHz），由 sherpa-onnx 在本机推理。系统语音（Windows OneCore/SAPI、Android `TextToSpeech`、浏览器
+`speechSynthesis`）与内置的单词录音拼接都已移除 —— 一次连播里换音色正是它们造成的问题，现在没有第二个引擎可换。
 
-| 引擎 | 声音来自 | 连读/韵律 | 离线 | 三端一致性 |
-|---|---|---|---|---|
-| **系统语音**（默认） | 宿主的语音合成：Windows 用 **OneCore 自然语音**（Narrator 那批：Mark / Jenny / Aria / Hazel / George…）否则 **SAPI 桌面语音**（Zira 等）；Android 用 `TextToSpeech`；Web 用 `speechSynthesis` | 真·连读（整句一次合成） | Windows/Android 是；浏览器上 `Google US/UK English` 需要联网（界面会注明） | 音色随机器而异 |
-| **Piper 神经语音** | 随应用分发的 **Piper**（VITS）模型在本机推理 | 真·连读 | ✅ 完全离线 | ✅ **同一模型、同一音色**：Windows / Android / 浏览器（WebAssembly） |
-| **录音拼接**（内部兜底，不在开关里） | 模块自带的 330 条单词录音，在**内存里拼成一句**再交给播放器播一次 | 逐词读音，但**没有接缝** | ✅ | ✅ 三端逐字节相同（拼接是纯 Dart，有单测） |
-| 逐词拼读（听写模式） | 同上，但不拼接：一个词一个词播、词间留 200 ms 与设定间隔 | 逐词，有断口 | ✅ | ✅ |
+| 项 | 值 |
+|---|---|
+| 模型 | `tts-models/kokoro/`：`model.onnx`、`voices.bin`、`tokens.txt`、`espeak-ng-data/` |
+| 三端 | Windows / Android / 浏览器（WebAssembly）同一模型、同一音色 |
+| 离线 | ✅ 完全离线；不联网 |
+| 缺失时 | 训练区写明「未安装 Kokoro 模型」与该放的位置，**不发声**（不再退到别的引擎） |
+| 语速 | 滑杆值原样作为模型的 `speed`（×1.0 = 自然语速）；句间/组内间隔由播放器插入真实静音 |
 
-同一句话的客观对比（见 `tool/` 时代的测量记录）：系统语音整句 2.20 s / 0 处停顿，逐词 4.92 s / 6 处 ≥80 ms 断口。
-语速滑杆对所有引擎都生效（系统语音走 SSML `prosody rate` / SAPI Rate / `setSpeechRate` / 浏览器 `rate`，Piper 走模型自身的 `speed`，录音走播放器倍速）。
+组内间隔不是「希望引擎自己停顿」：`innerGap > 0` 时每个数字单独合成，再按设定时长把音频**拼接**成一段
+（`joinClips`），所以滑杆动多少，音频里就多多少静音；`innerGap == 0` 时整行并成一句交给模型，靠逗号带走节奏。
 
-### 语速：×1.0 是「教学语速」，不是母语语速（Windows 系统语音路径）
-
-Piper、Android TTS、浏览器语音的速率都是连续量，直接照滑杆值走（代码里也没有二传：`number_speaker` 把滑杆值原样交给各引擎，
-`windowsEngineRateFor` 只在 Windows 的两个语音实现里被调用）。**Windows 系统语音不是**：
-`lib/core/audio/speech_rate.dart`（纯函数、有单测）专门处理这条路径 —— 它的速率控制是分级的，
-而且这里有个刻意的取舍：**母语者的自然语速不该是这个用途的中性点**。母语者念
-"one thousand two hundred and thirty-four" 只要 1548 ms，而你要一边听一边做心算，
-那个速度属于「快」的一端。所以滑杆的 ×1.0 定义为**教学语速 = 自然语速的一半**：
-
-| 滑杆 | ×0.50 | ×0.75 | **×1.00** | ×1.25 | ×1.50 |
-|---|---|---|---|---|---|
-| 相对母语者 | 0.23× | 0.33× | **0.50×** | 0.64× | 0.71× |
-| 实测时长 | 6.805 s | 4.735 s | **3.100 s** | 2.429 s | 2.166 s |
-
-（同一句话，OneCore「Microsoft David」；母语者基准 1.548 s。旧版本 ×1.0 就是 1.548 s。）
-
-OneCore 的 prosody 是 **11 档分级**，不是线性的：
-
-| prosody | 1–5% | 8–15% | 18–30% | 35–45% | 50–60% | 70–80% | 90–100% | 110–120% | 130–150% | 175% | 200% |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| 相对母语者 | 0.50× | 0.57× | 0.64× | 0.71× | 0.80× | 0.90× | 1.00× | 1.12× | 1.24× | 1.39× | 1.52× |
-
-所以是查表就近取值（对数距离，并列取更慢的一档），而不是把滑杆值当百分比直接传 ——
-后者（`percent = rate * 100`）只会落在最平的中间四档，滑杆几乎推不动。
-
-**慢于 0.50× 的部分用词间停顿实现**：prosody 到 5% 就到底了，再慢靠 SSML `<break>`
-在词间留白（实测：无停顿 1548 ms，150/300/500 ms 间隔分别 2279/2779/3380 ms）。
-**不换声线、不降音调**，每个词仍是自然发音，只是词间留白。SAPI 回退另有一张表
-（`SpVoice.Rate` -10…10 实测跨 3.0× 慢到 3.1× 快），但 SAPI 在这套桥接里没有停顿支持，
-下限是硬的。
-
-> 升级兼容：语速是持久化的，旧版本的 ×1.0 等于自然语速，所以旧值**乘 2** 迁移
-> （旧的 0.5 就是现在的 1.0，听感不变），并写标记避免重复迁移。
-
-**想换更好听的人声**：
-
-1. Windows：设置 → 时间和语言 → 语音 → 管理语音 → **添加语音** → English (United States) / (United Kingdom)：
-   会装上新一代 OneCore 语音，模块按 LCID/tag 优先匹配，并**优先于旧版桌面语音**被选中；
-   或安装第三方 **SAPI5** 语音（CereProc、Ivona、RHVoice 等），它们同样出现在 SAPI 列表里；
-2. Android：设置 → 系统 → 语言和输入 → 文字转语音输出，选引擎/语言，或另装一个 TTS 引擎；
-3. Web：音色由浏览器决定——Chrome 的 `Google US/UK English` 是**在线语音**，界面会注明「这条语音要联网」，
-   而系统的本地语音（如 Windows 上的 Microsoft David/Zira）离线可用，模块优先选后者。
-
-模块的选择顺序（`lib/core/audio/voice_choice.dart`，纯函数、有单测）：
-**请求口音的离线语音 → 任意英语离线语音 → 请求口音的在线语音 → 任意英语在线语音 → 无（用录音）**。
-离线排在口音前面是刻意的：浏览器与部分 Android 引擎会给出云端语音，一旦断网就会在朗读中途哑掉，
-而音色不完全是小事。
-
-#### Piper 模型：一条命令装好，三端同一音色
-
-模型不进仓库（每档约 35 MB，含 espeak-ng 数据），用一个脚本准备好：
+#### 模型：一条命令装好
 
 ```bash
-python tool/fetch_piper_models.py            # 美音 + 英音（默认 lessac / alan 的 int8 模型）
-python tool/fetch_piper_models.py --check    # 只看装了没有，并重建文件清单
-python tool/fetch_piper_models.py --voice us=en_US-amy-medium-int8   # 换音色
-```
-
-装好的目录（`files.txt` 是给浏览器用的文件清单，工具自动生成）：
-
-```
-tts-models/piper/
-├── us/{model.onnx, model.onnx.json, tokens.txt, espeak-ng-data/, files.txt}
-└── uk/{…}
+python tool/fetch_kokoro_model.py            # 下载 int8 英文模型（约 150 MB）到 tts-models/kokoro/
+python tool/fetch_kokoro_model.py --check    # 只看装了没有，并重建浏览器用的文件清单
+python tool/fetch_kokoro_model.py --zip-only # 只重建 kokoro.zip（Android 包内自带那份）
 ```
 
 各端去哪里找它——**与词典同一套规则**（`TTS_MODEL_DIR` 环境变量 → 当前目录 → 程序目录及其上级 → 应用数据目录）：
 
 | 端 | 放哪里 | 说明 |
 |---|---|---|
-| Windows | 程序目录或仓库根目录下的 `tts-models/`，也可用 `TTS_MODEL_DIR` | 从 `build/windows/x64/runner/Release/` 往上能找到仓库根目录的 `tts-models/` |
-| Android | **包内自带**：APK 的 `assets/piper.zip` 在首次启动时解到 `/data/user/0/<包名>/files/tts-models/piper/`；换声/更新用训练区的「**安装模型…**」 | **不能用 `adb push`/文件管理器放进 `Android/data/…/files`**：Android 11+ 的作用域存储让应用读不到别的工具写进去的文件，只认应用自己解出来的那份 |
-| Web | 站点根下的 `/tts-models/` | 浏览器不能列目录，按 `files.txt` 逐个取（约 35 MB/档，浏览器缓存后不再下载）；nginx 配置见部署指南 |
+| Windows | 程序目录或仓库根目录下的 `tts-models/kokoro/`，也可用 `TTS_MODEL_DIR` | 从 `build/windows/x64/runner/Release/` 往上能找到仓库根目录 |
+| Android | **包内自带**：APK 的 `assets/kokoro.zip` 首次启动由原生侧解到 `/data/user/0/<包名>/files/tts-models/kokoro/` | 作用域存储让应用读不到别的工具写进去的文件 |
+| Web | 站点根下的 `/tts-models/kokoro/` | 浏览器不能列目录，按 `files.txt` 逐个取，缓存后不再下载 |
 
-`tts-models/piper.zip` 就是给 Android 导入用的那份压缩包（`--zip-only` 可单独重建，不必重新下载模型）。
-
-模型缺失时训练区会显示「未安装模型：…」并自动改用别的引擎，不会报错。
+> **Windows 上还要一个运行时**：`sherpa_onnx_windows` 1.13.8 自带的 `onnxruntime.dll` 比它链接的
+> sherpa-onnx 旧（一个要 ORT API 28，一个只到 17），而且系统里常有一个更旧的 `System32\onnxruntime.dll` 抢先命中。
+> `python tool/fetch_sherpa_runtime.py` 把配套的 runtime 放到 `windows/dlls/`（已 gitignore，不随仓库走），
+> 构建时安装到 exe 旁边；`KokoroVoice` 起播前显式加载它，名字一旦被占住就轮不到 System32 那份。
 
 > **WebAssembly 的特殊之处**：浏览器里跑的库读的是 Emscripten 自己的文件系统，HTTP 路径对它没有意义
 > （模型明明能 `fetch` 到，它仍然报 "does not exist"）。所以 Web 端会把清单里的文件全部取下来写进那个
-> 文件系统（`FS_createPath` / `FS_createDataFile`）再加载模型——这段是平台差异，藏在 `piper_model_store_web.dart` 里。
+> 文件系统（`FS_createPath` / `FS_createDataFile`）再加载模型——这段是平台差异，藏在 `kokoro_model_store_web.dart` 里。
 
 ### 数字表达的覆盖范围
 

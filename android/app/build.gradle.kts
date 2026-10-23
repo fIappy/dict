@@ -4,21 +4,20 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// The Piper voices travel inside the APK: the app unpacks them into its own
-// storage on first launch, so the neural engine works right after install —
-// no computer, no download, no import step. The archive is produced by
-// `python tool/fetch_piper_models.py --zip-only` and is not in git; without it
-// the build still succeeds and the app falls back to the system voice and the
-// recordings.
-val piperArchive = rootProject.layout.projectDirectory.file("../tts-models/piper.zip")
-val bundledPiperModels = layout.buildDirectory.dir("generated/piperModels")
-val copyPiperModels = tasks.register<Copy>("copyPiperModels") {
-    onlyIf { piperArchive.asFile.exists() }
-    from(piperArchive) { into("") }
-    into(bundledPiperModels)
+// The Kokoro model travels inside the APK: the app reads it from its own assets
+// on first launch, so the engine works right after install — no computer, no
+// download, no import step. The archive is produced by
+// `python tool/fetch_kokoro_model.py --zip-only` and is not in git; without it
+// the build still succeeds and the app reports that the model is missing.
+val kokoroArchive = rootProject.layout.projectDirectory.file("../tts-models/kokoro.zip")
+val bundledKokoroModels = layout.buildDirectory.dir("generated/kokoroModels")
+val copyKokoroModels = tasks.register<Copy>("copyKokoroModels") {
+    onlyIf { kokoroArchive.asFile.exists() }
+    from(kokoroArchive) { into("") }
+    into(bundledKokoroModels)
 }
 tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }
-    .configureEach { dependsOn(copyPiperModels) }
+    .configureEach { dependsOn(copyKokoroModels) }
 
 android {
     namespace = "com.example.local_dict"
@@ -27,7 +26,7 @@ android {
 
     // AGP's SourceSet API refuses a Provider here; the directory is filled by
     // copyPiperModels, which every merge*Assets task depends on.
-    sourceSets["main"].assets.srcDir(bundledPiperModels.get().asFile)
+    sourceSets["main"].assets.srcDir(bundledKokoroModels.get().asFile)
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

@@ -85,6 +85,18 @@ if(PLUGIN_BUNDLED_LIBRARIES)
     COMPONENT Runtime)
 endif()
 
+# The onnxruntime.dll that ships with sherpa_onnx_windows is older than the
+# build of sherpa-onnx it accompanies (that DLL asks for ONNX Runtime API 28,
+# the bundled runtime offers 17), and Windows would otherwise pick up whatever
+# copy sits in System32. `tool/fetch_sherpa_runtime.py` puts the matching runtime
+# here; the copy is installed last so it wins.
+set(SHERPA_RUNTIME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dlls")
+if(EXISTS "${SHERPA_RUNTIME_DIR}")
+  install(DIRECTORY "${SHERPA_RUNTIME_DIR}/"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endif()
+
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/windows/")
 install(DIRECTORY "${NATIVE_ASSETS_DIR}"

@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_dict/core/audio/pcm_audio.dart';
-import 'package:local_dict/core/audio/piper_voice.dart';
+import 'package:local_dict/core/audio/kokoro_voice.dart';
 import 'package:local_dict/core/audio/speech_clip_player.dart';
 import 'package:local_dict/core/mdx/entry_speech.dart';
 import 'package:local_dict/providers/entry_speech_provider.dart';
@@ -42,18 +42,6 @@ class _RecordingPlayer implements SpeechClipPlayer {
   /// line when it pauses.
   Completer<void>? gate;
 
-  @override
-  Future<bool> speakSentence(String sentence,
-      {String accent = 'us', double rate = 1.0}) async {
-    onSpeak?.call(sentences.length);
-    final waiting = gate;
-    if (waiting != null) await waiting.future;
-    sentences.add(sentence);
-    accents.add(accent);
-    rates.add(rate);
-    return supportsSentences;
-  }
-
   /// Whether the player can actually sound a byte buffer. A platform whose
   /// backend cannot is what the fallback in the provider exists for.
   bool bytesPlayable = true;
@@ -68,18 +56,14 @@ class _RecordingPlayer implements SpeechClipPlayer {
   Future<void> playSpeechClip(String assetPath, {double rate = 1.0}) async {}
 
   @override
-  Future<String?> sentenceVoiceLabel(String accent) async =>
-      supportsSentences ? 'Test Voice' : null;
-
-  @override
   Future<void> stop() async {
     stops++;
   }
 }
 
-/// A Piper that renders everything except [bad], which it cannot.
-class _PartialPiper extends _StubPiper {
-  _PartialPiper(this.bad);
+/// A Kokoro that renders everything except [bad], which it cannot.
+class _PartialKokoro extends _StubKokoro {
+  _PartialKokoro(this.bad);
 
   final String bad;
 
@@ -171,22 +155,31 @@ class _GateQueuePlayer extends _RecordingPlayer {
   }
 }
 
-class _StubPiper extends PiperVoice {
-  _StubPiper({this.ready = true}) : super(finder: (accent) async => null);
+class _StubKokoro extends KokoroVoice {
+  _StubKokoro({this.ready = true}) : super(finder: () async => null);
 
   final bool ready;
   final List<String> rendered = [];
   final List<double> rates = [];
 
+  /// Held by a test that wants to sit inside a line.
+  Completer<void>? gate;
+
+  /// Called before each line is rendered.
+  void Function(int index)? onRender;
+
   @override
-  Future<bool> isReady(String accent) async => ready;
+  Future<bool> isReady() async => ready;
 
   @override
   Future<PcmClip?> synthesize(String text,
       {required String accent, required double rate}) async {
+    onRender?.call(rendered.length);
     rendered.add(text);
     rates.add(rate);
-    return PcmClip(Int16List.fromList(List.filled(2205, 3)), 22050);
+    final waiting = gate;
+    if (waiting != null) await waiting.future;
+    return PcmClip(Int16List.fromList(List.filled(2205, 3)), 24000);
   }
 }
 
@@ -260,39 +253,40 @@ void main() {
       EntryUtterance(text: 'She runs to school every morning.', isPhrase: false),
     ];
 
-    test('plays the lines in order with the slider value and the accent', () async {
+    test('plays the lines in order with the slider value', () async {
       final player = _RecordingPlayer();
-      final provider = EntrySpeechProvider(player: player, piper: _StubPiper(ready: false));
+      final kokoro = _StubKokoro();
+      final provider = EntrySpeechProvider(player: player, kokoro: kokoro);
 
       await provider.playAll(lines,
           rate: 0.8, gap: Duration.zero, accent: 'uk');
 
-      expect(player.sentences, lines.map((l) => l.text).toList());
-      expect(player.rates, [0.8, 0.8]);
-      expect(player.accents, ['uk', 'uk']);
+      expect(kokoro.rendered, lines.map((l) => l.text).toList());
+      expect(kokoro.rates, [0.8, 0.8]);
+      expect(player.buffers, hasLength(2));
       expect(provider.isPlaying, isFalse);
       expect(provider.currentIndex, isNull);
     });
 
-    test('Piper reads the line when the model is there', () async {
+    test('Kokoro reads the line when the model is there', () async {
       final player = _RecordingPlayer();
-      final piper = _StubPiper();
-      final provider = EntrySpeechProvider(player: player, piper: piper);
+      final kokoro = _StubKokoro();
+      final provider = EntrySpeechProvider(player: player, kokoro: kokoro);
 
       await provider.playAll([lines.first],
           rate: 1.0, gap: Duration.zero, accent: 'us');
 
-      expect(piper.rendered, ['in charge of']);
-      expect(piper.rates, [1.0], reason: 'the slider value, not halved');
+      expect(kokoro.rendered, ['in charge of']);
+      expect(kokoro.rates, [1.0], reason: 'the slider value, not halved');
       expect(player.buffers, hasLength(1));
-      expect(player.sentences, isEmpty, reason: 'the platform voice is not used');
+      expect(player.sentences, isEmpty, reason: 'no other engine is used');
     });
 
-    test('a line Piper cannot render is skipped, not read by another voice',
+    test('a line Kokoro cannot render is skipped, not read by another voice',
         () async {
       final player = _RecordingPlayer();
-      final piper = _PartialPiper('Two.');
-      final provider = EntrySpeechProvider(player: player, piper: piper);
+      final kokoro = _PartialKokoro('Two.');
+      final provider = EntrySpeechProvider(player: player, kokoro: kokoro);
 
       await provider.playAll(const [
         EntryUtterance(text: 'One.', isPhrase: false),
@@ -309,8 +303,8 @@ void main() {
     test('pausing mid-line never hands the line to the platform voice',
         () async {
       final player = _GatedPlayer();
-      final piper = _StubPiper();
-      final provider = EntrySpeechProvider(player: player, piper: piper);
+      final kokoro = _StubKokoro();
+      final provider = EntrySpeechProvider(player: player, kokoro: kokoro);
 
       player.hold();
       final run = provider.playAll(const [
@@ -328,15 +322,15 @@ void main() {
 
       provider.resume();
       await run;
-      expect(piper.rendered, ['One.', 'One.', 'Two.'],
+      expect(kokoro.rendered, ['One.', 'One.', 'Two.'],
           reason: 'the interrupted line is said again by Piper after 继续');
       expect(player.sentences, isEmpty);
     });
 
     test('重复本句 lets the line finish, then says it again', () async {
       final player = _GateQueuePlayer();
-      final piper = _StubPiper();
-      final provider = EntrySpeechProvider(player: player, piper: piper);
+      final kokoro = _StubKokoro();
+      final provider = EntrySpeechProvider(player: player, kokoro: kokoro);
 
       player.holdNext();
       final run = provider.playAll(const [
@@ -350,13 +344,13 @@ void main() {
       player.releaseAll();
       await run;
 
-      expect(piper.rendered, ['One.', 'One.', 'Two.', 'Three.']);
+      expect(kokoro.rendered, ['One.', 'One.', 'Two.', 'Three.']);
     });
 
     test('重复前一句 cuts the line and continues from the one before', () async {
       final player = _GateQueuePlayer();
-      final piper = _StubPiper();
-      final provider = EntrySpeechProvider(player: player, piper: piper);
+      final kokoro = _StubKokoro();
+      final provider = EntrySpeechProvider(player: player, kokoro: kokoro);
 
       player.holdNext();
       final run = provider.playAll(const [
@@ -375,13 +369,13 @@ void main() {
       player.releaseAll();
       await run;
 
-      expect(piper.rendered, ['One.', 'Two.', 'One.', 'Two.', 'Three.']);
+      expect(kokoro.rendered, ['One.', 'Two.', 'One.', 'Two.', 'Three.']);
     });
 
     test('重复前一句 on the first line repeats the first line', () async {
       final player = _GateQueuePlayer();
-      final piper = _StubPiper();
-      final provider = EntrySpeechProvider(player: player, piper: piper);
+      final kokoro = _StubKokoro();
+      final provider = EntrySpeechProvider(player: player, kokoro: kokoro);
 
       player.holdNext();
       final run = provider.playAll(const [
@@ -394,12 +388,12 @@ void main() {
       player.releaseAll();
       await run;
 
-      expect(piper.rendered, ['One.', 'One.', 'Two.']);
+      expect(kokoro.rendered, ['One.', 'One.', 'Two.']);
     });
 
     test('the repeat buttons do nothing when the run is idle', () async {
       final player = _RecordingPlayer();
-      final provider = EntrySpeechProvider(player: player, piper: _StubPiper());
+      final provider = EntrySpeechProvider(player: player, kokoro: _StubKokoro());
 
       provider.repeatCurrent();
       provider.repeatPrevious();
@@ -411,7 +405,7 @@ void main() {
 
     test('isReading matches only the exact lines being spoken', () async {
       final player = _GateQueuePlayer();
-      final provider = EntrySpeechProvider(player: player, piper: _StubPiper());
+      final provider = EntrySpeechProvider(player: player, kokoro: _StubKokoro());
 
       player.holdNext();
       final run = provider.playAll(const [
@@ -441,59 +435,54 @@ void main() {
 
     test('stop drops the pending lines of a run in flight', () async {
       final player = _RecordingPlayer();
-      final provider = EntrySpeechProvider(player: player, piper: _StubPiper(ready: false));
-      player.onSpeak = (index) {
-        if (index == 0) provider.stop();
-      };
+      final kokoro = _StubKokoro()..gate = Completer<void>();
+      final provider = EntrySpeechProvider(player: player, kokoro: kokoro);
 
-      await provider.playAll(lines,
+      final run = provider.playAll(lines,
           rate: 1.0, gap: Duration.zero, accent: 'us');
+      await Future<void>.delayed(Duration.zero);
+      expect(provider.currentIndex, 0);
 
-      expect(player.sentences, [lines.first.text]);
+      provider.stop();
+      kokoro.gate!.complete();
+      await run;
+
+      expect(kokoro.rendered, hasLength(1), reason: 'nothing after the stop');
+      expect(player.buffers, isEmpty, reason: 'the cut line never sounds');
       expect(provider.isPlaying, isFalse);
       expect(player.stops, greaterThan(0));
     });
 
     test('playing one line stops whatever was running', () async {
       final player = _RecordingPlayer();
-      final provider = EntrySpeechProvider(player: player, piper: _StubPiper(ready: false));
+      final kokoro = _StubKokoro();
+      final provider = EntrySpeechProvider(player: player, kokoro: kokoro);
 
-      await provider.playOne(lines.last,
-          rate: 1.0, accent: 'us');
+      await provider.playOne(lines.last, rate: 1.0, accent: 'us');
 
-      expect(player.sentences, [lines.last.text]);
+      expect(kokoro.rendered, [lines.last.text]);
+      expect(player.buffers, hasLength(1));
       expect(player.stops, greaterThan(0));
       expect(provider.isPlaying, isFalse);
     });
 
-    test('a clip the player cannot sound falls back to the platform voice', () async {
-      final player = _RecordingPlayer()..bytesPlayable = false;
-      final provider = EntrySpeechProvider(player: player, piper: _StubPiper(ready: true));
-
-      await provider.playOne(lines.first, rate: 1.0, accent: 'us');
-
-      expect(player.buffers, isNotEmpty, reason: 'the Piper clip was tried first');
-      expect(player.sentences, [lines.first.text],
-          reason: 'the platform voice spoke instead of leaving silence');
-    });
-
     test('a selection is spoken through the same voice', () async {
       final player = _RecordingPlayer();
-      final provider = EntrySpeechProvider(player: player, piper: _StubPiper(ready: false));
+      final kokoro = _StubKokoro();
+      final provider = EntrySpeechProvider(player: player, kokoro: kokoro);
 
       await provider.speakText('  A definition nobody tagged.  ',
           rate: 1.2, accent: 'uk');
 
-      expect(player.sentences, ['A definition nobody tagged.'],
+      expect(kokoro.rendered, ['A definition nobody tagged.'],
           reason: 'the selection is one utterance, trimmed');
-      expect(player.rates.last, 1.2);
-      expect(player.accents.last, 'uk');
+      expect(kokoro.rates.last, 1.2);
       expect(provider.isPlaying, isFalse);
     });
 
     test('an empty selection says nothing', () async {
       final player = _RecordingPlayer();
-      final provider = EntrySpeechProvider(player: player, piper: _StubPiper(ready: false));
+      final provider = EntrySpeechProvider(player: player, kokoro: _StubKokoro(ready: false));
 
       await provider.speakText('   ', rate: 1.0, accent: 'us');
       expect(player.sentences, isEmpty);
@@ -516,8 +505,8 @@ void main() {
 
     test('pause silences at once and resume says that line again', () async {
       final player = _RecordingPlayer();
-      final speech = EntrySpeechProvider(player: player, piper: null);
-      player.gate = Completer<void>();
+      final kokoro = _StubKokoro()..gate = Completer<void>();
+      final speech = EntrySpeechProvider(player: player, kokoro: kokoro);
 
       final run = speech.playAll(
         lines(),
@@ -532,15 +521,15 @@ void main() {
       expect(speech.isPaused, isTrue);
       expect(player.stops, 1, reason: 'the sound is cut, not waited out');
 
-      player.gate!.complete();
+      kokoro.gate!.complete();
       await Future<void>.delayed(Duration.zero);
-      expect(player.sentences, ['One.'],
+      expect(kokoro.rendered, ['One.'],
           reason: 'the cut line finished silently; nothing new starts');
 
       speech.resume();
       await run;
 
-      expect(player.sentences, ['One.', 'One.', 'Two.', 'Three.'],
+      expect(kokoro.rendered, ['One.', 'One.', 'Two.', 'Three.'],
           reason: 'the interrupted line is said again from its start');
       expect(speech.isPaused, isFalse);
       expect(speech.isPlaying, isFalse);
@@ -548,9 +537,10 @@ void main() {
 
     test('循环 runs the list again until stopped', () async {
       final player = _RecordingPlayer();
-      final speech = EntrySpeechProvider(player: player, piper: null);
-      player.onSpeak = (index) {
-        if (player.sentences.length >= 5) speech.stop();
+      final kokoro = _StubKokoro()..onRender = null;
+      final speech = EntrySpeechProvider(player: player, kokoro: kokoro);
+      kokoro.onRender = (index) {
+        if (kokoro.rendered.length >= 5) speech.stop();
       };
 
       await speech.playAll(
@@ -561,19 +551,20 @@ void main() {
         loop: true,
       );
 
-      expect(player.sentences.length, greaterThanOrEqualTo(5));
-      expect(player.sentences.take(3), ['One.', 'Two.', 'Three.']);
+      expect(kokoro.rendered.length, greaterThanOrEqualTo(5));
+      expect(kokoro.rendered.take(3), ['One.', 'Two.', 'Three.']);
       expect(speech.isPlaying, isFalse);
     });
 
     test('a one-off read never loops, even with the switch on', () async {
       final player = _RecordingPlayer();
-      final speech = EntrySpeechProvider(player: player, piper: null);
+      final kokoro = _StubKokoro();
+      final speech = EntrySpeechProvider(player: player, kokoro: kokoro);
       speech.setLoop(true);
 
       await speech.speakText('Hello.', rate: 1.0, accent: 'us');
 
-      expect(player.sentences, ['Hello.']);
+      expect(kokoro.rendered, ['Hello.']);
       expect(speech.loop, isTrue, reason: 'the switch keeps its setting');
     });
   });

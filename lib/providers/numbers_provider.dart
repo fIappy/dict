@@ -1,14 +1,11 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../core/audio/piper_model_store.dart' as piper_store;
-import '../core/audio/piper_voice.dart';
+import '../core/audio/kokoro_model_store.dart';
+import '../core/audio/kokoro_voice.dart';
 import '../core/numbers/number_data.dart';
 import '../core/numbers/number_model.dart';
-import '../core/audio/sentence_voice.dart';
 import '../core/numbers/number_speaker.dart';
-import '../core/numbers/sentence_engine.dart';
 import '../core/numbers/number_training.dart';
 import '../core/numbers/number_speller.dart';
 
@@ -32,8 +29,6 @@ class NumbersProvider extends ChangeNotifier {
   static const String _kDigits = 'numbers_digits';
   static const String _kCount = 'numbers_count';
   static const String _kAccent = 'numbers_accent';
-  static const String _kSpeechMode = 'numbers_speech_mode';
-  static const String _kSentenceEngine = 'numbers_sentence_engine';
   static const String _kRunMode = 'numbers_run_mode';
   static const String _kLoop = 'numbers_loop';
   static const String _kRunMin = 'numbers_run_min';
@@ -43,8 +38,10 @@ class NumbersProvider extends ChangeNotifier {
   // Built on first playback: constructing it publishes an AudioPlayer, and a
   // module that only reads numbers must not touch the audio plugin at all.
   NumberSpeaker? _speaker;
-  NumberSpeaker get _player =>
-      _speaker ??= NumberSpeaker(engine: _sentenceEngine, piper: _piper);
+  NumberSpeaker get _player => _speaker ??= NumberSpeaker(kokoro: _kokoro);
+
+  /// The one engine: Kokoro.
+  final KokoroVoice _kokoro = KokoroVoice();
 
   /// Bumped by every start and every stop. Only the run that owns the current
   /// value may clear [isPlaying].
@@ -61,7 +58,7 @@ class NumbersProvider extends ChangeNotifier {
   NumberCategory? _lookupOverride;
 
   String _accent = 'uk';
-  SpeechMode _speechMode = SpeechMode.sentence;
+
   double _rate = 1.0;
   int _gapMs = 1000;
   // 整数 mode's 多组连读: each row is a run of numbers read back to back.
@@ -88,80 +85,28 @@ class NumbersProvider extends ChangeNotifier {
   String get lookupInput => _lookupInput;
   NumberCategory? get lookupOverride => _lookupOverride;
   String get accent => _accent;
-  SpeechMode get speechMode => _speechMode;
+  /// Whether the Kokoro model is installed and loaded.
+  bool get kokoroReady => _kokoroReady;
+  bool _kokoroReady = false;
 
-  /// Which voice the sentence engine will use, or null when this platform has
-  /// none (then the module speaks the recorded words one by one).
-  String? _sentenceVoice;
-  bool _sentenceVoiceChecked = false;
-  String? get sentenceVoice => _sentenceVoice;
-  bool get hasSentenceVoice => _sentenceVoice != null;
-  bool get sentenceVoiceChecked => _sentenceVoiceChecked;
+  /// What the UI says about the engine, filled in asynchronously.
+  String? get kokoroStatus => _kokoroStatus;
+  String? _kokoroStatus;
 
-  SentenceEngine _sentenceEngine = SentenceEngine.system;
+  /// Whether the engine has been probed since this screen opened.
+  bool get kokoroChecked => _kokoroChecked;
+  bool _kokoroChecked = false;
 
-  /// The Piper model, shared by the speaker and the status line.
-  final PiperVoice _piper = PiperVoice();
-
-  /// What the UI says about the selected engine, refreshed asynchronously
-  /// because the Piper model has to be read from disk (or fetched) first.
-  String? _piperStatus;
-
-  /// Whether Piper's model for the current accent is loaded and usable.
-  bool get piperModelReady => _piperReady;
-  bool _piperReady = false;
-
-  /// Whether this platform can copy models out of a folder the user picks.
-  bool get canImportPiperModels => piper_store.canImportPiperModels;
-
-  /// Which engine reads a whole number sentence. Whatever is picked, an engine
-  /// that cannot speak that sentence falls back to the recorded words.
-  SentenceEngine get sentenceEngine => _sentenceEngine;
-
-  /// What the UI says about the engine that will read a whole sentence: the
-  /// system voice names itself (and warns when it has none for the accent), the
-  /// other engines can always speak.
-  String get sentenceEngineStatus => switch (_sentenceEngine) {
-        // With no English voice here the sentence is still read in one go, by
-        // the next engine that can — the same order [NumberSpeaker] walks.
-        SentenceEngine.system => _sentenceVoice ??
-            (_piperReady
-                ? '本机没有英语语音：改用 Piper 神经语音整句朗读'
-                : '本机没有英语语音：改用自带录音整句朗读（无接缝）'),
-        SentenceEngine.spliced =>
-          '内置录音在内存里拼成一句：无接缝、完全离线，三端同一份音频',
-        SentenceEngine.piper => _piperStatus ?? '正在检测 Piper 模型…',
-      };
-
-  /// Probes the selected engine: loads the Piper model (once) or asks the system
-  /// for its voices. Called when the engine or the accent changes, and once when
-  /// the training section first paints — the flag is what keeps that from
-  /// becoming a rebuild loop.
-  Future<void> refreshSentenceEngineStatus() async {
-    switch (_sentenceEngine) {
-      case SentenceEngine.system:
-        await refreshSentenceVoice();
-        if (_sentenceVoice == null) {
-          // Say what will read the numbers instead. Only the model's presence is
-          // asked for here — loading it is the engine's business.
-          _piperReady = await piper_store.findPiperModel(_accent) != null;
-          notifyListeners();
-        }
-      case SentenceEngine.spliced:
-        _sentenceEngineChecked = true;
-        notifyListeners();
-      case SentenceEngine.piper:
-        _piperReady = await _piper.isReady(_accent);
-        _piperStatus = await _piper.label(_accent) ?? await piper_store.piperModelHint();
-        _sentenceEngineChecked = true;
-        notifyListeners();
-    }
+  /// Loads the model (once) and reports what the UI should say.
+  Future<void> refreshKokoroStatus() async {
+    _kokoroReady = await _kokoro.isReady();
+    _kokoroStatus = _kokoroReady
+        ? await _kokoro.label()
+        : await kokoroModelHint();
+    _kokoroChecked = true;
+    notifyListeners();
   }
 
-  bool _sentenceEngineChecked = false;
-
-  /// Whether the selected engine has been probed since it was chosen.
-  bool get sentenceEngineChecked => _sentenceEngineChecked;
   double get rate => _rate;
   int get gapMs => _gapMs;
 
@@ -211,17 +156,6 @@ class NumbersProvider extends ChangeNotifier {
     _runGapMs = (prefs.getInt(_kRunGap) ?? 80)
         .clamp(NumbersLimits.minRunGapMs, NumbersLimits.maxRunGapMs);
     _accent = prefs.getString(_kAccent) ?? 'uk';
-    _speechMode = SpeechMode.values.firstWhere(
-      (mode) => mode.name == prefs.getString(_kSpeechMode),
-      orElse: () => SpeechMode.sentence,
-    );
-    // A preference saved when 录音拼接 was still offered names an engine that is
-    // no longer selectable: it stays in the fallback chain, but not as the choice.
-    final savedEngine = SentenceEngine.values.firstWhere(
-      (engine) => engine.name == prefs.getString(_kSentenceEngine),
-      orElse: () => SentenceEngine.system,
-    );
-    _sentenceEngine = savedEngine.selectable ? savedEngine : SentenceEngine.system;
     _kind = TrainingKind.values.firstWhere(
       (k) => k.name == prefs.getString(_kKind),
       orElse: () => TrainingKind.integer,
@@ -282,7 +216,6 @@ class NumbersProvider extends ChangeNotifier {
       reading.textFor(chosen),
       accent: chosen,
       rate: _rate,
-      mode: _speechMode,
     );
     if (run != _playRun) return;
     _playing = false;
@@ -303,7 +236,6 @@ class NumbersProvider extends ChangeNotifier {
       accent: _accent,
       rate: _rate,
       innerGap: Duration(milliseconds: _runGapMs),
-      mode: _speechMode,
     );
     if (run != _playRun) return;
     _playing = false;
@@ -330,7 +262,6 @@ class NumbersProvider extends ChangeNotifier {
         rate: _rate,
         innerGap: Duration(milliseconds: _runGapMs),
         gap: gap,
-        mode: _speechMode,
         onIndex: (index) {
           _playingIndex = from + index;
           notifyListeners();
@@ -446,82 +377,11 @@ class NumbersProvider extends ChangeNotifier {
 
   // --------------------------------------------------------------- settings
 
-  /// Looks up the voice once, for the UI to show what 整句朗读 will sound like.
-  ///
-  /// Uses the standalone probe (not the audio manager): it must not publish an
-  /// AudioPlayer just to ask which voice exists.
-  Future<void> refreshSentenceVoice() async {
-    final voice = await chosenSentenceVoice(_accent);
-    _sentenceVoice = voice == null ? null : sentenceVoiceDescription(voice, _accent);
-    _sentenceVoiceChecked = true;
-    notifyListeners();
-  }
-
-  Future<void> setSpeechMode(SpeechMode mode) async {
-    _speechMode = mode;
-    notifyListeners();
-    if (!_sentenceVoiceChecked) await refreshSentenceVoice();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kSpeechMode, mode.name);
-  }
-
-  /// Picks the engine that reads a whole sentence. Each engine reports its own
-  /// availability first (the system voice is a property of the machine, the Piper
-  /// model has to be loaded), so the status line is right before the next drill.
-  Future<void> setSentenceEngine(SentenceEngine engine) async {
-    _sentenceEngine = engine;
-    _speaker?.engine = engine;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kSentenceEngine, engine.name);
-    await refreshSentenceEngineStatus();
-  }
-
-  /// Asks the user for the voice — an archive on Android, a folder elsewhere —
-  /// and copies it into app storage; returns the message to show.
-  Future<String> importPiperModels() async {
-    final List<String> installed;
-
-    if (piper_store.piperImportUsesArchive) {
-      // Android: one readable archive, because a picked folder is only a SAF tree
-      // that cannot be opened as a path. The picker hands back a copy of the file
-      // in the app's cache, which is readable.
-      final picked = await FilePicker.pickFile(
-        dialogTitle: '选择 Piper 模型压缩包（piper.zip）',
-        type: FileType.custom,
-        allowedExtensions: const ['zip'],
-      );
-      final path = picked?.path;
-      if (path == null) return '已取消';
-      installed = await piper_store.installPiperArchive(
-        await piper_store.readPickedFile(path),
-      );
-    } else {
-      final picked = await FilePicker.getDirectoryPath(
-        dialogTitle: '选择包含 Piper 模型的文件夹',
-      );
-      if (picked == null) return '已取消';
-      installed = await piper_store.importPiperModelsFrom(picked);
-    }
-
-    _sentenceEngineChecked = false;
-    await refreshSentenceEngineStatus();
-    if (installed.isEmpty) {
-      return '没找到模型：压缩包/文件夹里应有 us/ 或 uk/，'
-          '里面有 model.onnx、tokens.txt 与 espeak-ng-data/';
-    }
-    return '已安装${installed.map((a) => a == 'uk' ? '英音' : '美音').join('、')}模型';
-  }
-
   Future<void> setAccent(String accent) async {
     _accent = accent;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kAccent, accent);
-    _sentenceVoiceChecked = false;
-    // The accent picks a voice (system) and a model (Piper), so the selected
-    // engine re-reports either way.
-    await refreshSentenceEngineStatus();
   }
 
   Future<void> setRate(double rate) async {
@@ -565,7 +425,7 @@ class NumbersProvider extends ChangeNotifier {
   @override
   void dispose() {
     _speaker?.cancel();
-    _piper.dispose();
+    _kokoro.dispose();
     super.dispose();
   }
 }

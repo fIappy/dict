@@ -143,19 +143,19 @@ class MainActivity : FlutterActivity() {
     }
 
     /**
-     * Unpacks the voices that travel inside the APK into app storage, where the
-     * Dart side looks for them.
+     * Unpacks the Kokoro model that travels inside the APK into app storage,
+     * where the Dart side looks for it.
      *
      * Scoped storage keeps the app from reading a model another tool wrote into
      * its data directory, and a phone that never touches a computer cannot import
-     * one either — so the archive ships in the APK and is unpacked here. The
-     * archive holds `us/…` and `uk/…` at its root; they land under
-     * `files/tts-models/piper/`, the layout `findPiperModel` probes. Idempotent:
-     * with both voices already unpacked it does nothing and answers true.
+     * one either — so the archive ships in the APK and is unpacked here. Its
+     * files land under `files/tts-models/kokoro/`, the layout `findKokoroModel`
+     * probes. Idempotent: with the model already unpacked it does nothing and
+     * answers true.
      */
     private fun installBundledModels(): Boolean {
-        val root = File(filesDir, "tts-models/piper")
-        if (listOf("us", "uk").all { File(root, "$it/model.onnx").isFile }) return true
+        val root = File(filesDir, "tts-models/kokoro")
+        if (File(root, "model.onnx").isFile && File(root, "voices.bin").isFile) return true
         val rootPath = root.canonicalPath + File.separator
         return try {
             assets.open(MODELS_ASSET).use { input ->
@@ -249,7 +249,7 @@ class MainActivity : FlutterActivity() {
     private companion object {
         const val CHANNEL = "local_dict/sentence_voice"
         const val MODELS_CHANNEL = "local_dict/bundled_models"
-        const val MODELS_ASSET = "piper.zip"
+        const val MODELS_ASSET = "kokoro.zip"
         const val AUDIO_BACKGROUND_CHANNEL = "local_dict/audio_background"
         const val NOTIFICATION_REQUEST = 4211
     }

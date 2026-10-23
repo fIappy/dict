@@ -5,7 +5,6 @@ import '../api/api_config.dart';
 import '../services/dictionary_service.dart';
 import 'ipa_asset.dart';
 import 'playback_wait.dart';
-import 'sentence_voice.dart';
 import 'speech_clip_player.dart';
 
 /// Web implementation of the audio manager.
@@ -211,43 +210,8 @@ class AudioManager implements SpeechClipPlayer {
     }
   }
 
-  /// Speaks the whole sentence with the browser's own voice, so "twenty-four" is
-  /// read as one number instead of the module playing the `twenty` and `four`
-  /// recordings back to back. Returns false when the browser has no voice (or
-  /// refuses to speak), and the caller then uses the recordings, which stay the
-  /// offline-safe path.
-  @override
-  Future<bool> speakSentence(
-    String sentence, {
-    String accent = 'us',
-    double rate = 1.0,
-  }) async {
-    final voice = await chosenSentenceVoice(accent);
-    if (voice == null) return false;
-
-    _currentlyPlayingTag = 'sentence_$accent';
-    _isPlaying = true;
-    try {
-      return await speakWithSystemVoice(
-        sentenceForSpeech(sentence),
-        voice,
-        rate: rate,
-      );
-    } finally {
-      _isPlaying = false;
-      _currentlyPlayingTag = null;
-    }
-  }
-
-  @override
-  Future<String?> sentenceVoiceLabel(String accent) async {
-    final voice = await chosenSentenceVoice(accent);
-    return voice == null ? null : sentenceVoiceDescription(voice, accent);
-  }
-
   @override
   Future<void> stop() async {
-    cancelSystemVoice();
     try {
       await _player.stop();
     } catch (_) {}

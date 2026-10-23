@@ -58,3 +58,6 @@ app.*.map.json
 # `python tool/fetch_piper_models.py`, never committed.
 /tts-models/
 
+
+# ONNX Runtime fetched by tool/fetch_sherpa_runtime.py
+/windows/dlls/

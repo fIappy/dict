@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/audio/audio_manager.dart';
 import '../core/audio/pcm_audio.dart';
-import '../core/audio/piper_voice.dart';
+import '../core/audio/kokoro_voice.dart';
 import '../core/audio/speech_clip_player.dart';
 import '../core/mdx/entry_speech.dart';
 
@@ -22,12 +22,12 @@ String accentForLanguage(String language) =>
 /// between lines; [stop] cuts whatever is sounding and drops the pending pause,
 /// so starting again cannot overlap the previous run.
 class EntrySpeechProvider extends ChangeNotifier {
-  EntrySpeechProvider({SpeechClipPlayer? player, PiperVoice? piper})
+  EntrySpeechProvider({SpeechClipPlayer? player, KokoroVoice? kokoro})
     : _player = player ?? AudioManager(),
-      _piper = piper ?? PiperVoice();
+      _kokoro = kokoro ?? KokoroVoice();
 
   final SpeechClipPlayer _player;
-  final PiperVoice? _piper;
+  final KokoroVoice? _kokoro;
 
   List<EntryUtterance> _items = const [];
   int? _currentIndex;
@@ -52,12 +52,10 @@ class EntrySpeechProvider extends ChangeNotifier {
   Duration _gap = Duration.zero;
   String _accent = 'us';
 
-  /// Which engine this run speaks with, decided once in [playAll].
-  ///
-  /// Deciding per line is what made the voice change mid-list: one line Piper
-  /// could not render fell through to the platform voice — a male SAPI voice on
-  /// Windows — and the next line was Piper again.
-  bool _usePiper = false;
+  /// Whether the model is loaded for this run. Probed once per run: Kokoro is
+  /// the only engine, so a line it cannot render is skipped rather than spoken
+  /// in some other voice.
+  bool _kokoroReady = false;
 
   /// The list [playAll] is walking (or walked last), for the UI's progress.
   List<EntryUtterance> get items => _items;
@@ -127,7 +125,7 @@ class EntrySpeechProvider extends ChangeNotifier {
     _accent = accent;
     _loopRun = loop ?? _loop;
     _repeatFrom = null;
-    _usePiper = await _piperUsable(accent);
+    _kokoroReady = await _kokoroUsable();
     if (run != _run) return;
     _isPlaying = true;
     _isPaused = false;
@@ -227,7 +225,7 @@ class EntrySpeechProvider extends ChangeNotifier {
     stop();
     final run = ++_run;
     _items = [item];
-    _usePiper = await _piperUsable(accent);
+    _kokoroReady = await _kokoroUsable();
     if (run != _run) return;
     _isPlaying = true;
     _isPaused = false;
@@ -279,29 +277,29 @@ class EntrySpeechProvider extends ChangeNotifier {
   void dispose() {
     _run++;
     _player.stop();
-    _piper?.dispose();
+    _kokoro?.dispose();
     super.dispose();
   }
 
-  /// Whether this machine can speak with the Piper model.
-  Future<bool> _piperUsable(String accent) async {
-    final piper = _piper;
-    if (piper == null) return false;
+  /// Whether this machine has the Kokoro model.
+  Future<bool> _kokoroUsable() async {
+    final kokoro = _kokoro;
+    if (kokoro == null) return false;
     try {
-      return await piper.isReady(accent);
+      return await kokoro.isReady();
     } catch (e) {
-      debugPrint('Piper probe failed: $e');
+      debugPrint('Kokoro probe failed: $e');
       return false;
     }
   }
 
-  /// One line, with the engine this run settled on.
+  /// One line, with Kokoro.
   ///
-  /// Never switches voice: a line Piper cannot render is skipped (and logged),
-  /// because reading it with the platform voice is what made a female run turn
-  /// into a male one halfway through. A paused or superseded run returns false
-  /// before anything starts sounding — [playAll] then re-says the line after
-  /// 继续.
+  /// There is no second engine: a line the model cannot render is skipped (and
+  /// logged), because falling back to a platform voice is what used to turn a
+  /// female run into a male one halfway through. A paused or superseded run
+  /// returns false before anything starts sounding — [playAll] then re-says the
+  /// line after 继续.
   Future<bool> _speak(
     String text, {
     required String accent,
@@ -310,31 +308,20 @@ class EntrySpeechProvider extends ChangeNotifier {
   }) async {
     if (run != _run || _isPaused) return false;
     final epoch = _lineEpoch;
-
-    if (!_usePiper) {
-      return _player.speakSentence(text, accent: accent, rate: rate);
-    }
-
-    final clip = await _piper!.synthesize(text, accent: accent, rate: rate);
-    if (run != _run || _isPaused || epoch != _lineEpoch) return false;
-    if (clip == null || clip.samples.isEmpty) {
-      debugPrint('Piper could not render a line; skipping it instead of '
-          'switching to another voice');
+    if (!_kokoroReady) {
+      debugPrint('Kokoro model missing; nothing to speak with');
       return false;
     }
-    final played = await _player.playAudioBytes(
+
+    final clip = await _kokoro!.synthesize(text, accent: accent, rate: rate);
+    if (run != _run || _isPaused || epoch != _lineEpoch) return false;
+    if (clip == null || clip.samples.isEmpty) {
+      debugPrint('Kokoro could not render a line; skipping it');
+      return false;
+    }
+    return _player.playAudioBytes(
       encodeWav(clip.samples, sampleRate: clip.sampleRate),
       rate: 1.0,
     );
-    if (!played && run == _run && !_isPaused && epoch == _lineEpoch) {
-      // This platform cannot sound a byte buffer (or the mixer refused it).
-      // Fall back for the rest of the run as well, so the voice changes once
-      // instead of flipping back to Piper on the next line.
-      _usePiper = false;
-      debugPrint('Piper clip did not sound; the rest of this run uses the '
-          'platform voice');
-      return _player.speakSentence(text, accent: accent, rate: rate);
-    }
-    return played;
   }
 }

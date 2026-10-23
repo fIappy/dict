@@ -1,47 +1,29 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:local_dict/core/audio/playback_wait.dart';
+import 'package:local_dict/core/audio/kokoro_voice.dart';
 import 'package:local_dict/core/audio/speech_clip_player.dart';
-import 'package:local_dict/core/audio/speech_rate.dart';
-import 'package:local_dict/core/audio/voice_choice.dart';
 import 'package:local_dict/core/audio/pcm_audio.dart';
-import 'package:archive/archive.dart';
-import 'package:local_dict/core/audio/piper_model_store_native.dart';
-import 'package:local_dict/core/audio/piper_voice.dart';
-import 'package:path/path.dart' as p;
-import 'package:local_dict/core/numbers/number_audio.dart';
 import 'package:local_dict/core/numbers/number_data.dart';
 import 'package:local_dict/core/numbers/number_model.dart';
 import 'package:local_dict/core/numbers/number_speaker.dart';
-import 'package:local_dict/core/numbers/sentence_engine.dart';
 import 'package:local_dict/core/numbers/number_speller.dart';
 import 'package:local_dict/core/numbers/number_training.dart';
 import 'package:local_dict/providers/numbers_provider.dart';
-import 'package:local_dict/ui/screens/numbers_screen.dart';
-import 'package:local_dict/ui/widgets/numbers_sections.dart';
 
 /// Reads the number spellings the module produces, without touching audio.
 String uk(String input) => NumberSpeller.read(input)!.ukText;
 String us(String input) => NumberSpeller.read(input)!.usText;
 
-/// A resolver for tests that must not fall back to clips: any word resolves to
-/// null, so a missing voice would be visible instead of silent.
-Future<String?> _noClips(String word, String accent) async => null;
-
 /// Records what the speaker asked for, so the sequencing can be asserted.
-/// A Piper voice that always has a model: the engine's own loading is not what
-/// these tests are about, its place in the fallback order is.
-class _StubPiper extends PiperVoice {
-  _StubPiper() : super(finder: (accent) async => null);
+/// A Kokoro voice that always has a model: the engine's own loading is not what
+/// these tests are about.
+class _StubKokoro extends KokoroVoice {
+  _StubKokoro() : super(finder: () async => null);
 
   /// Every sentence the stub was asked to render, in order.
   final List<String> rendered = [];
@@ -50,13 +32,13 @@ class _StubPiper extends PiperVoice {
   final List<double> rates = [];
 
   @override
-  Future<bool> isReady(String accent) async => true;
+  Future<bool> isReady() async => true;
 
   @override
   Future<PcmClip?> synthesize(String text, {required String accent, required double rate}) async {
     rendered.add(text);
     rates.add(rate);
-    return PcmClip(Int16List.fromList(List.filled(22050, 3)), 22050);
+    return PcmClip(Int16List.fromList(List.filled(24000, 3)), 24000);
   }
 }
 
@@ -66,6 +48,7 @@ class _StubPiper extends PiperVoice {
 /// released individually, so one run can be resumed while another stays parked.
 class _GatedPlayer implements SpeechClipPlayer {
   final List<String> played = [];
+  final List<Uint8List> buffers = [];
   final List<Completer<void>> _gates = [];
   bool _hold = false;
 
@@ -100,22 +83,15 @@ class _GatedPlayer implements SpeechClipPlayer {
 
   @override
   Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
-    // The spliced and Piper engines play through here, so it parks too —
-    // otherwise a run that goes down that path would never be caught mid-await.
+    // Kokoro plays through here, so it parks too — otherwise a run would never
+    // be caught mid-await.
+    buffers.add(bytes);
     if (!_hold) return true;
     final gate = Completer<void>();
     _gates.add(gate);
     await gate.future;
     return true;
   }
-
-  @override
-  Future<bool> speakSentence(String sentence,
-          {String accent = 'us', double rate = 1.0}) async =>
-      false;
-
-  @override
-  Future<String?> sentenceVoiceLabel(String accent) async => null;
 
   @override
   Future<void> stop() async {}
@@ -156,22 +132,6 @@ class _RecordingPlayer implements SpeechClipPlayer {
     return true;
   }
 
-
-  @override
-  Future<bool> speakSentence(
-    String sentence, {
-    String accent = 'us',
-    double rate = 1.0,
-  }) async {
-    sentences.add(sentence);
-    sentenceAccents.add(accent);
-    rates.add(rate);
-    return supportsSentences;
-  }
-
-  @override
-  Future<String?> sentenceVoiceLabel(String accent) async =>
-      supportsSentences ? 'Test Voice' : null;
 
   @override
   Future<void> stop() async {
@@ -458,126 +418,11 @@ void main() {
             reason: '$enumerated is regular and must not get its own card');
       }
 
-      // Every listed word must be one the module can actually play. A few cards
-      // are short phrases ("once a week"), so every word of them is checked.
+      // Every listed card must teach a value; the words themselves are rendered
+      // by the engine now, so there is no clip list to check.
       for (final card in NumberData.wordCards) {
-        for (final word in NumberAudio.words(card.input)) {
-          expect(NumberAudio.hasClip(word), isTrue,
-              reason: 'no clip for "$word" (${card.input})');
-        }
         expect(card.value, isNotNull, reason: '${card.input} has no value');
       }
-    });
-
-    test('every word a reading can produce has a bundled clip', () {
-      // The speaker stays silent for words without a clip, so a missing word
-      // would be a hole in the middle of a spoken number.
-      final inputs = <String>[
-        for (final example in NumberData.allExamples) example.input,
-        for (var i = 0; i <= 120; i++) '$i',
-        for (var i = 100; i <= 9999; i += 37) '$i',
-        for (final time in ['0:00', '3:15', '3:30', '3:45', '7:05', '9:23', '12:00', '15:30', '23:59'])
-          time,
-        for (final day in ['2026-01-01', '2026-02-28', '2026-12-31']) day,
-        for (final fraction in ['1/2', '2/3', '3/4', '4/5', '5/6', '6/7', '7/8', '8/9', '9/10', '11/12'])
-          fraction,
-        r'$0.01', r'$99.99', '£0.50', '€1', '25%', '99.9%', '-3.5', '007', '0755-1234-5678',
-        // forms added by the coverage audit
-        '7:05 a.m.', '3 pm', '12:00', '0:00', '1990s', '80s', '2000s', '2010s', '1900s',
-        '500 BC', 'AD 800', '800 AD', '1-800-555-0199', '0800 123 456', '203', '1001',
-        '0.007', '1,234.56', '3/12', '12/7', '23/100', '7/8', '150%', '0.5%',
-        r'$2,000,000', r'$1,500', '£1.50', 'on Monday',
-        // temperature, multiples/frequency and ratios
-        '25°C', '-5°C', '98.6°F', '30°', '25 degrees', '1x', '2x', '3x', '10x', '1.5x', '2.5x',
-        '2:1', '4:3', '1 in 10', '9 out of 10',
-      ];
-
-      final missing = <String>{};
-      for (final input in inputs) {
-        for (final category in [null, NumberCategory.cardinal, NumberCategory.decimal]) {
-          final reading = NumberSpeller.read(input, as: category);
-          if (reading == null) continue;
-          for (final text in [reading.ukText, reading.usText]) {
-            for (final word in NumberAudio.words(text)) {
-              if (!NumberAudio.hasClip(word)) missing.add(word);
-            }
-          }
-        }
-      }
-      // Phrases whose audio is the words themselves (frequency expressions).
-      for (final phrase in ['once a week', 'twice a day', 'three times a week',
-        'once every two weeks', 'on Monday']) {
-        for (final word in NumberAudio.words(phrase)) {
-          if (!NumberAudio.hasClip(word)) missing.add(word);
-        }
-      }
-      // Years, clock times and the drill's own output are covered by the examples
-      // above; the random generator is swept in its own test.
-      for (final kind in TrainingKind.values) {
-        for (final item in NumberTraining.generate(
-          kind: kind,
-          digits: 7,
-          count: 20,
-          random: Random(11),
-        )) {
-          for (final text in [item.ukText, item.usText]) {
-            for (final word in NumberAudio.words(text)) {
-              if (!NumberAudio.hasClip(word)) missing.add(word);
-            }
-          }
-        }
-      }
-      expect(missing, isEmpty, reason: 'words without a clip: ${missing.join(', ')}');
-    });
-
-    test('every vocabulary word ships both accents', () {
-      final missing = <String>[];
-      final stubs = <String>[];
-      for (final word in NumberAudio.vocabulary) {
-        for (final accent in ['uk', 'us']) {
-          final file = File('assets/${NumberAudio.assetPath(word, accent)}');
-          if (!file.existsSync()) {
-            missing.add(NumberAudio.assetPath(word, accent));
-            continue;
-          }
-          if (file.lengthSync() < 1000) stubs.add('$word ($accent)');
-        }
-      }
-      expect(missing, isEmpty, reason: 'missing clips: ${missing.join(', ')}');
-      expect(stubs, isEmpty, reason: 'stub clips: ${stubs.join(', ')}');
-    });
-
-    test('the running bundle resolves the clips the speaker asks for', () async {
-      // The file check above proves the clips exist on disk; this proves the
-      // player can find them in the *bundle*, which is what playback uses.
-      expect(await NumberAudio.resolve('one', 'uk'), 'audio/numbers/one_uk.wav');
-      expect(await NumberAudio.resolve('one', 'us'), 'audio/numbers/one_us.wav');
-      // A word with no clip resolves to nothing rather than to the wrong accent.
-      expect(await NumberAudio.resolve('xyzzy', 'uk'), isNull);
-      for (final word in NumberAudio.vocabulary) {
-        expect(await NumberAudio.resolve(word, 'uk'), isNotNull, reason: word);
-        expect(await NumberAudio.resolve(word, 'us'), isNotNull, reason: word);
-      }
-    });
-
-    test('the Dart vocabulary and the generator agree', () {
-      // Two halves of one contract: the generator writes exactly the clips the
-      // speaker can ask for. Renaming a word on one side must fail here.
-      final script = File('tool/generate_number_audio.py').readAsStringSync();
-      final block = RegExp(r'NUMBER_WORDS[^{]*\{([^}]*)\}').firstMatch(script);
-      expect(block, isNotNull, reason: 'NUMBER_WORDS not found in the generator');
-      final generated = RegExp("'([a-z]+)':").allMatches(block!.group(1)!).map((m) => m.group(1)!).toSet();
-
-      expect(
-        generated.difference(NumberAudio.vocabulary),
-        isEmpty,
-        reason: 'generated but unused',
-      );
-      expect(
-        NumberAudio.vocabulary.difference(generated),
-        isEmpty,
-        reason: 'used but never generated',
-      );
     });
 
     test('the drill hides its numbers until asked, and speaks at the set speed', () async {
@@ -841,49 +686,6 @@ void main() {
       expect(reloaded.runGapMs, 40);
     });
 
-    test('a run goes to the machine voice as one sentence, or word by word', () async {
-      final rows = NumberTraining.generateRuns(
-        digits: 2, count: 3, minLength: 3, maxLength: 3, random: Random(33));
-
-      // 组内间隔 = 0 is 连读: one utterance per row, the commas carrying the rhythm.
-      final voiced = _RecordingPlayer(supportsSentences: true);
-      final voice = NumberSpeaker(player: voiced, resolver: _noClips);
-      final seen = <int>[];
-      await voice.speakRuns(
-        [for (final row in rows) row.textsFor('us')],
-        accent: 'us',
-        innerGap: Duration.zero,
-        gap: const Duration(milliseconds: 5),
-        onIndex: seen.add,
-      );
-      expect(seen, [0, 1, 2], reason: 'the UI marks one row at a time');
-      expect(voiced.sentences, [for (final row in rows) row.usText]);
-
-      // Without a voice the recorded words are played one number at a time, so the
-      // 组内 interval is what paces them.
-      final clips = _RecordingPlayer();
-      final recorded = NumberSpeaker(
-        player: clips,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-      );
-      final only = rows.first;
-      await recorded.speakRuns(
-        [only.textsFor('uk')],
-        accent: 'uk',
-        innerGap: const Duration(milliseconds: 5),
-        mode: SpeechMode.clips,
-      );
-      expect(clips.sentences, isEmpty,
-          reason: '逐词拼读 never asks the machine voice');
-      final expected = <String>[
-        for (final number in only.numbers)
-          for (final group in NumberAudio.pauseGroups(number.ukText))
-            for (final word in NumberAudio.words(group)) 'audio/numbers/${word}_uk.wav',
-      ];
-      expect(clips.played, expected,
-          reason: 'the run is played word by word, its numbers in order');
-    });
-
     test('a batch keeps the requested length and repeats only once the pool runs out', () {
       // One-digit integers: nine values. Thirty numbers means the nine come round
       // again — the batch is not cut short, and the same number never lands twice
@@ -984,262 +786,6 @@ void main() {
       expect(provider.lookup, isNull);
     });
 
-    test('the speaker plays one clip per word, in order, at the chosen speed', () async {
-      // The audible contract: a generated sentence is assembled word by word,
-      // so the order of the clip list *is* the sentence.
-      final player = _RecordingPlayer();
-      final speaker = NumberSpeaker(
-        player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-      );
-
-      await speaker.speak(
-        "one thousand two hundred and thirty-four",
-        accent: 'uk',
-        rate: 0.75,
-        mode: SpeechMode.clips,
-      );
-
-      expect(player.played, [
-        'audio/numbers/one_uk.wav',
-        'audio/numbers/thousand_uk.wav',
-        'audio/numbers/two_uk.wav',
-        'audio/numbers/hundred_uk.wav',
-        'audio/numbers/and_uk.wav',
-        'audio/numbers/thirty_uk.wav',
-        'audio/numbers/four_uk.wav',
-      ]);
-      expect(player.rates, everyElement(0.75),
-          reason: 'the speed knob reaches the player as the slider value: the '
-              'clip player scales by a plain multiplier of natural pace');
-
-      // The other accent is a different set of recordings, not a different word.
-      await speaker.speak('one', accent: 'us', mode: SpeechMode.clips);
-      expect(player.played.last, 'audio/numbers/one_us.wav');
-    });
-
-    test('phone groups are spoken as separate chunks', () async {
-      final player = _RecordingPlayer();
-      final speaker = NumberSpeaker(
-        player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-      );
-      final reading = NumberSpeller.read('+44 20 7946 0958', as: NumberCategory.phone)!;
-      await speaker.speak(reading.ukText, accent: 'uk', mode: SpeechMode.clips);
-
-      expect(player.played, [
-        'audio/numbers/plus_uk.wav',
-        'audio/numbers/four_uk.wav',
-        'audio/numbers/four_uk.wav',
-        'audio/numbers/two_uk.wav',
-        'audio/numbers/oh_uk.wav',
-        'audio/numbers/seven_uk.wav',
-        'audio/numbers/nine_uk.wav',
-        'audio/numbers/four_uk.wav',
-        'audio/numbers/six_uk.wav',
-        'audio/numbers/oh_uk.wav',
-        'audio/numbers/nine_uk.wav',
-        'audio/numbers/five_uk.wav',
-        'audio/numbers/eight_uk.wav',
-      ]);
-    });
-
-    test('the drill speaks every number, reporting progress, and stops on command', () async {
-      final player = _RecordingPlayer();
-      final speaker = NumberSpeaker(
-        player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-      );
-
-      final seen = <int>[];
-      await speaker.speakAll(
-        ['one', 'two', 'three'],
-        accent: 'us',
-        rate: 1.0,
-        gap: const Duration(milliseconds: 10),
-        onIndex: seen.add,
-        mode: SpeechMode.clips,
-      );
-      expect(seen, [0, 1, 2]);
-      expect(player.played, [
-        'audio/numbers/one_us.wav',
-        'audio/numbers/two_us.wav',
-        'audio/numbers/three_us.wav',
-      ]);
-
-      // 停止 must silence the current clip and drop the rest of the run.
-      player.played.clear();
-      final stopping = NumberSpeaker(
-        player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-      );
-      player.onPlay = (index) {
-        if (index == 1) stopping.cancel();
-      };
-      await stopping.speakAll(['one', 'two', 'three', 'four'], gap: const Duration(milliseconds: 10));
-      expect(player.played.length, 2, reason: 'playback stops after the clip in progress');
-      expect(player.stops, 1);
-    });
-
-    test('a word without a clip is skipped instead of mispronounced', () async {
-      final player = _RecordingPlayer();
-      final speaker = NumberSpeaker(
-        player: player,
-        resolver: (word, accent) async => word == 'one' ? 'audio/numbers/one_$accent.wav' : null,
-      );
-      await speaker.speak('one xyzzy two', accent: 'uk', mode: SpeechMode.clips);
-      expect(player.played, ['audio/numbers/one_uk.wav']);
-    });
-
-    test('the machine voice is chosen off the best engine that fits the accent', () {
-      const zira = SentenceVoice(
-          name: 'Zira Desktop', language: 'en-US', engine: VoiceEngine.sapi);
-      const mark = SentenceVoice(
-          name: 'Microsoft Mark', language: 'en-US', engine: VoiceEngine.oneCore);
-      const hazel = SentenceVoice(
-          name: 'Microsoft Hazel', language: 'en-GB', engine: VoiceEngine.oneCore);
-      const huihui = SentenceVoice(
-          name: 'Microsoft Huihui', language: 'zh-CN', engine: VoiceEngine.oneCore);
-
-      // The accent's own voice wins — but a modern engine wins over an old one.
-      expect(chooseSentenceVoice([zira, mark], 'us')?.name, 'Microsoft Mark');
-      expect(chooseSentenceVoice([zira, hazel], 'uk')?.name, 'Microsoft Hazel');
-      expect(chooseSentenceVoice([zira, hazel], 'us')?.name, 'Zira Desktop');
-
-      // No voice for the accent? Any English one, modern engine first, and the UI
-      // says the timbre differs while the wording stays accent-correct.
-      expect(chooseSentenceVoice([zira], 'uk')?.name, 'Zira Desktop');
-      final description = sentenceVoiceDescription(zira, 'uk');
-      expect(description, contains('本机没有英音语音'));
-      expect(description, contains('设置')); // how to install a better voice
-
-      // No English voice at all: nothing to speak with, the recordings take over.
-      expect(chooseSentenceVoice([huihui], 'us'), isNull);
-      expect(chooseSentenceVoice(const [], 'us'), isNull);
-    });
-
-    test('browser and Android voices follow the same accent rules, offline first', () {
-      const cloudUs = SentenceVoice(
-        name: 'Google US English',
-        language: 'en-US',
-        engine: VoiceEngine.browser,
-        offline: false,
-      );
-      const localGb = SentenceVoice(
-        name: 'Daniel',
-        language: 'en-GB',
-        engine: VoiceEngine.browser,
-      );
-      const localUs = SentenceVoice(
-        name: 'en-us-x-sfg#female_1-local',
-        language: 'en-US',
-        engine: VoiceEngine.androidTts,
-      );
-
-      expect(chooseSentenceVoice([cloudUs, localGb, localUs], 'us')?.name,
-          'en-us-x-sfg#female_1-local');
-      expect(chooseSentenceVoice([cloudUs, localGb, localUs], 'uk')?.name, 'Daniel');
-
-      // A cloud voice would go silent with the network unplugged, so the local
-      // voice wins even when it is not the accent the card asked for…
-      expect(chooseSentenceVoice([cloudUs, localGb], 'us')?.name, 'Daniel');
-      // …and it is only used when nothing local can speak English at all.
-      expect(chooseSentenceVoice([cloudUs], 'us')?.name, 'Google US English');
-      expect(sentenceVoiceDescription(cloudUs, 'uk'), contains('这条语音要联网'));
-    });
-
-    test('a sentence handed to an engine reads as one sentence', () {
-      // Engines take their prosody from punctuation, so a bare card value would
-      // be read flat.
-      expect(sentenceForSpeech('twenty-four'), 'Twenty-four.');
-      expect(sentenceForSpeech('  24  '), '24.');
-      expect(sentenceForSpeech('one hundred and five.'), 'One hundred and five.');
-      expect(sentenceForSpeech(''), '');
-    });
-
-    test('a spliced sentence is one clip, with the pauses inside it', () async {
-      final player = _RecordingPlayer(supportsSentences: true);
-      // Two words per group, 10 ms each, so the buffer alone proves the order,
-      // the pause a comma stands for, and that it is all one playback.
-      Uint8List clip(int marker) =>
-          encodeWav(Int16List.fromList(List.filled(240, marker)), sampleRate: 24000);
-      final splicer = SplicedSentence(
-        player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-        loader: (path) async => clip(path.contains('twenty') ? 100 : 200),
-      );
-
-      expect(await splicer.speak('twenty-four', accent: 'uk', rate: 1.0), isTrue);
-      expect(player.played, hasLength(1), reason: 'one clip, not one per word');
-      expect(player.buffers, hasLength(1));
-
-      final joined = decodeWav(player.buffers.single);
-      expect(joined.sampleRate, 24000);
-      // 240 + 240 samples, no pause: no comma in this sentence.
-      expect(joined.samples.length, 480);
-      expect(joined.samples.first, 100);
-      expect(joined.samples.last, 200);
-
-      // A comma becomes 200 ms of real silence *inside* the same clip.
-      expect(await splicer.speak('twenty, four', accent: 'uk', rate: 1.0), isTrue);
-      final withPause = decodeWav(player.buffers.last);
-      expect(withPause.samples.length, 480 + 4800);
-      expect(withPause.samples[240], 0, reason: 'silence where the comma was');
-      expect(withPause.samples[480 + 4799], 200);
-    });
-
-    test('a sentence without any clip is handed back to the recorded words', () async {
-      // No engine can read it — the player has no voice, there is no model, and
-      // this splicer has nothing to splice — so the words are played singly.
-      final player = _RecordingPlayer();
-      final splicer = SplicedSentence(
-        player: player,
-        resolver: (word, accent) async => null,
-        loader: (path) async => null,
-      );
-
-      expect(await splicer.speak('twenty-four', accent: 'uk', rate: 1.0), isFalse);
-      expect(player.played, isEmpty, reason: 'nothing to splice, nothing played');
-
-      // The speaker then says it word by word, which is the standing fallback.
-      final speaker = NumberSpeaker(
-        player: player,
-        engine: SentenceEngine.spliced,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-        splicer: splicer,
-      );
-      await speaker.speak('twenty-four', accent: 'uk');
-      expect(player.played, [
-        'audio/numbers/twenty_uk.wav',
-        'audio/numbers/four_uk.wav',
-      ]);
-    });
-
-    test('the selected engine is the one that speaks', () async {
-      final player = _RecordingPlayer(supportsSentences: true);
-      final splicer = SplicedSentence(
-        player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-        loader: (path) async =>
-            encodeWav(Int16List.fromList([7, 7, 7]), sampleRate: 24000),
-      );
-      final speaker = NumberSpeaker(
-        player: player,
-        engine: SentenceEngine.spliced,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-        splicer: splicer,
-      );
-
-      await speaker.speak('twenty-four', accent: 'uk');
-      expect(player.buffers, hasLength(1));
-      expect(player.sentences, isEmpty, reason: 'the system voice is not asked');
-
-      // Switching the engine at runtime switches the path.
-      speaker.engine = SentenceEngine.system;
-      await speaker.speak('twenty-four', accent: 'uk');
-      expect(player.sentences, ['twenty-four']);
-    });
-
     test('the PCM helpers keep 16-bit mono audio intact', () {
       final samples = Int16List.fromList([-32768, -1, 0, 1, 32767]);
       final decoded = decodeWav(encodeWav(samples, sampleRate: 24000));
@@ -1264,248 +810,30 @@ void main() {
       expect(PcmClip.silence(const Duration(milliseconds: 200), 24000).sampleCount, 4800);
     });
 
-    test('importing a Piper voice copies it in, whatever layout it arrives in', () async {
-      final root = Directory.systemTemp.createTempSync('piper_import');
-      addTearDown(() => root.deleteSync(recursive: true));
-
-      /// One voice, as the fetch tool writes it (plus a second accent's folder
-      /// which must be ignored when only one is asked for).
-      void voice(String accent, String modelName) {
-        final folder = Directory(p.join(root.path, 'source', 'piper', accent))
-          ..createSync(recursive: true);
-        File(p.join(folder.path, modelName)).writeAsBytesSync([1, 2, 3]);
-        File(p.join(folder.path, 'tokens.txt')).writeAsStringSync('a 1\n');
-        Directory(p.join(folder.path, 'espeak-ng-data')).createSync();
-        File(p.join(folder.path, 'espeak-ng-data', 'en_dict')).writeAsBytesSync([9]);
-      }
-
-      voice('uk', 'en_GB-alan-medium.onnx');
-      voice('us', 'en_US-lessac-medium.onnx');
-
-      final destination = Directory(p.join(root.path, 'store'));
-      final installed = await copyPiperModels(
-        source: p.join(root.path, 'source'),
-        destination: destination.path,
-      );
-
-      expect(installed, ['uk', 'us']);
-      for (final accent in ['uk', 'us']) {
-        final folder = Directory(p.join(destination.path, 'piper', accent));
-        // The canonical names, so every platform addresses the same paths.
-        expect(File(p.join(folder.path, 'model.onnx')).existsSync(), isTrue);
-        expect(File(p.join(folder.path, 'tokens.txt')).existsSync(), isTrue);
-        expect(Directory(p.join(folder.path, 'espeak-ng-data')).existsSync(), isTrue);
-        // …and the manifest the browser fetches.
-        expect(File(p.join(folder.path, 'files.txt')).readAsStringSync(),
-            contains('model.onnx'));
-      }
-
-      // A folder holding one voice directly: the accent comes from the file name.
-      final single = Directory(p.join(root.path, 'single'))..createSync();
-      File(p.join(single.path, 'en_GB-alan-medium.onnx')).writeAsBytesSync([1]);
-      File(p.join(single.path, 'tokens.txt')).writeAsStringSync('a 1\n');
-      Directory(p.join(single.path, 'espeak-ng-data')).createSync();
-      expect(
-        await copyPiperModels(source: single.path, destination: destination.path),
-        ['uk'],
-      );
-
-      // Nothing usable: no voice, no import.
-      final empty = Directory(p.join(root.path, 'empty'))..createSync();
-      expect(
-        await copyPiperModels(source: empty.path, destination: destination.path),
-        isEmpty,
-      );
-    });
-
-    test('a picked archive installs the voices it holds', () async {
-      final root = Directory.systemTemp.createTempSync('piper_zip_test');
-      addTearDown(() => root.deleteSync(recursive: true));
-
-      // Built the way tool/fetch_piper_models.py packs it: one folder per accent.
-      List<int> zipOf(List<String> entries) {
-        final archive = Archive();
-        for (final path in entries) {
-          archive.addFile(ArchiveFile(path, 4, utf8.encode('data')));
-        }
-        return ZipEncoder().encode(archive);
-      }
-
-      final installed = await installPiperArchiveIn(
-        zipOf([
-          'uk/en_GB-alan-medium.onnx',
-          'uk/tokens.txt',
-          'uk/espeak-ng-data/en_dict',
-          'us/en_US-lessac-medium.onnx',
-          'us/tokens.txt',
-          'us/espeak-ng-data/en_dict',
-          'readme.txt',
-        ]),
-        root.path,
-      );
-
-      expect(installed, ['uk', 'us']);
-      for (final accent in ['uk', 'us']) {
-        final folder = Directory(p.join(root.path, 'piper', accent));
-        expect(File(p.join(folder.path, 'model.onnx')).existsSync(), isTrue,
-            reason: 'the model keeps its canonical name');
-        expect(File(p.join(folder.path, 'tokens.txt')).existsSync(), isTrue);
-        expect(File(p.join(folder.path, 'espeak-ng-data', 'en_dict')).existsSync(), isTrue);
-      }
-
-      // An archive with no voice in it installs nothing.
-      expect(
-        await installPiperArchiveIn(zipOf(['readme.txt']), root.path),
-        isEmpty,
-      );
-    });
-
-    test('a number is not split into words when the chosen engine cannot read it', () async {
-      // The Android case: the phone's TTS has no English voice, so the engine the
-      // user picked answers false. Two-digit numbers must still come out as one
-      // clip — that is what regression-testing this is for.
-      final player = _RecordingPlayer(); // supportsSentences: false
-      final speaker = NumberSpeaker(
-        player: player,
-        engine: SentenceEngine.system,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-        splicer: SplicedSentence(
-          player: player,
-          resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-          loader: (path) async =>
-              encodeWav(Int16List.fromList(List.filled(240, 7)), sampleRate: 24000),
-        ),
-      );
-
-      await speaker.speak('twenty-four', accent: 'uk');
-
-      expect(speaker.spokenBy, SentenceEngine.spliced);
-      expect(player.buffers, hasLength(1), reason: 'one clip for the whole number');
-      expect(
-        player.played.where((entry) => entry.endsWith('.wav')),
-        isEmpty,
-        reason: 'no single-word playback: that is the bug this guards',
-      );
-    });
-
-    test('the chosen engine speaks first, the fallbacks only when it cannot', () async {
-      final player = _RecordingPlayer(supportsSentences: true);
-      final splicer = SplicedSentence(
-        player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-        loader: (path) async =>
-            encodeWav(Int16List.fromList(List.filled(240, 7)), sampleRate: 24000),
-      );
-      final speaker = NumberSpeaker(
-        player: player,
-        engine: SentenceEngine.system,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-        splicer: splicer,
-      );
-
-      await speaker.speak('twenty-four', accent: 'uk');
-      expect(speaker.spokenBy, SentenceEngine.system);
-      expect(player.sentences, hasLength(1));
-      expect(player.buffers, isEmpty, reason: 'nothing else was tried');
-
-      // The neural engine sits between the host voice and the recordings.
-      final mute = _RecordingPlayer();
-      final neutered = NumberSpeaker(
-        player: mute,
-        engine: SentenceEngine.system,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-        splicer: splicer,
-        piper: _StubPiper(),
-      );
-      await neutered.speak('twenty-four', accent: 'uk');
-      expect(neutered.spokenBy, SentenceEngine.piper);
-      expect(mute.buffers, hasLength(1), reason: 'the model spoke, not the clips');
-      expect(mute.played.where((entry) => entry.endsWith('.wav')), isEmpty);
-    });
-
     test('组内间隔 paces the numbers inside a row, and 0 keeps the row joined', () async {
       final rows = NumberTraining.generateRuns(
         digits: 2, count: 1, minLength: 3, maxLength: 3, random: Random(7));
       final row = rows.first.textsFor('us');
       final player = _RecordingPlayer(supportsSentences: true);
-      final voice = NumberSpeaker(player: player, resolver: _noClips);
+      final voice = NumberSpeaker(player: player, kokoro: _StubKokoro());
 
       await voice.speakRuns([row], accent: 'us', innerGap: Duration.zero);
-      expect(player.sentences, [row.join(', ')],
-          reason: '0 = 连读: the engine reads the whole row as one sentence');
+      expect(player.buffers, hasLength(1),
+          reason: '0 = 连读: the engine reads the whole row as one clip');
 
-      player.sentences.clear();
-      final watch = Stopwatch()..start();
+      player.buffers.clear();
       await voice.speakRuns(
         [row],
         accent: 'us',
         innerGap: const Duration(milliseconds: 200),
       );
-      final elapsed = watch.elapsed;
-      expect(player.sentences, row, reason: 'a gap means one utterance per number');
-      expect(elapsed.inMilliseconds, greaterThanOrEqualTo(200 * (row.length - 1)),
+      // One clip per row, with the pause baked in between the numbers: the
+      // stub renders one second per number, so the gaps add up audibly.
+      expect(player.buffers, hasLength(1),
+          reason: 'a gap means one clip with real silence between the numbers');
+      final seconds = decodeWav(player.buffers.single).duration.inMilliseconds;
+      expect(seconds, greaterThanOrEqualTo(3000 + 200 * (row.length - 1) - 50),
           reason: 'the slider has to be audible — this is the bug it had');
-    });
-
-    test('a Piper row is rendered up front so the 组内 gap is the gap', () async {
-      // The model is slow (about a second per number on a phone) and synthesizing
-      // between two numbers would stretch every pause by that cost. The row is
-      // therefore one clip whose silence is exactly the setting.
-      final player = _RecordingPlayer();
-      final piper = _StubPiper();
-      final speaker = NumberSpeaker(
-        player: player,
-        engine: SentenceEngine.piper,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-        piper: piper,
-      );
-
-      await speaker.speakRuns(
-        [
-          ['twenty-four', 'thirty-one'],
-        ],
-        accent: 'uk',
-        innerGap: const Duration(milliseconds: 200),
-      );
-
-      expect(player.buffers, hasLength(1), reason: 'the whole row is one clip');
-      expect(piper.rendered, ['Twenty-four.', 'Thirty-one.']);
-      // 22050 samples per part (the stub) + 200 ms of silence between them.
-      final clip = decodeWav(player.buffers.single);
-      expect(clip.sampleCount, 22050 * 2 + (22050 * 0.2).round());
-    });
-
-    test('a sentence goes to the system voice as one utterance', () async {
-      final player = _RecordingPlayer(supportsSentences: true);
-      final speaker = NumberSpeaker(player: player, resolver: _noClips);
-
-      await speaker.speak('one thousand two hundred and thirty-four', accent: 'us', rate: 0.8);
-
-      // One call, the whole sentence — not seven recorded words.
-      expect(player.sentences, ['one thousand two hundred and thirty-four']);
-      expect(player.sentenceAccents, ['us']);
-      expect(player.rates, [0.8],
-          reason: 'Android/Web/Piper take the slider value; only the Windows '
-              'voices apply the teaching anchor, inside their own file');
-      expect(player.played, isEmpty, reason: 'no clip playback when a voice exists');
-    });
-
-    test('a device without a voice reads the number continuously, not word by word', () async {
-      // The web build and phones whose TTS has no English answer false. The
-      // number must still come out as one clip — reading "twenty … one" instead
-      // is the bug this guards.
-      final player = _RecordingPlayer();
-      final speaker = NumberSpeaker(
-        player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-      );
-
-      await speaker.speak('twenty-one', accent: 'uk');
-
-      expect(player.sentences, ['twenty-one'], reason: 'the voice was tried first');
-      expect(speaker.spokenBy, SentenceEngine.spliced);
-      expect(player.buffers, isNotEmpty);
-      expect(player.played.where((entry) => entry.endsWith('.wav')), isEmpty);
     });
 
     test('日期 teaches every month and weekday as its own word', () {
@@ -1528,19 +856,10 @@ void main() {
         expect(card, isNotNull, reason: '$word is missing from 日期');
         expect(card!.value, isNotEmpty, reason: '$word teaches nothing');
         expect(card.hint, isNotEmpty, reason: '$word has no note');
-        // A word card is spoken as the word itself, and that word ships as a clip in
-        // both accents — otherwise the card would teach a word it cannot say.
+        // A word card is spoken as the word itself.
         final reading = NumberData.readingOf(card)!;
         expect(reading.ukText, word);
         expect(reading.usText, word);
-        expect(NumberAudio.hasClip(word), isTrue, reason: 'no clip for $word');
-        for (final accent in ['uk', 'us']) {
-          expect(
-            File('assets/${NumberAudio.assetPath(word, accent)}').existsSync(),
-            isTrue,
-            reason: '$word has no $accent recording',
-          );
-        }
       }
 
       // Months first, then the weekdays, each in calendar order: the list is what
@@ -1556,7 +875,7 @@ void main() {
 
     test('the drill speaks each number as a sentence and reports progress', () async {
       final player = _RecordingPlayer(supportsSentences: true);
-      final speaker = NumberSpeaker(player: player, resolver: _noClips);
+      final speaker = NumberSpeaker(player: player, kokoro: _StubKokoro());
 
       final seen = <int>[];
       await speaker.speakAll(
@@ -1567,216 +886,14 @@ void main() {
       );
 
       expect(seen, [0, 1, 2]);
-      expect(player.sentences, ['one', 'twice two', 'three times']);
-      expect(player.played, isEmpty);
+      expect(player.buffers, hasLength(3));
 
       // 停止 must cut the sentence in flight.
       player.onPlay = (_) {};
-      final stopping = NumberSpeaker(player: player, resolver: _noClips);
+      final stopping = NumberSpeaker(player: player, kokoro: _StubKokoro());
       await stopping.speakAll(['one', 'two'], gap: const Duration(milliseconds: 10));
       stopping.cancel();
       expect(player.stops, greaterThan(0));
-    });
-
-    test('clips mode never asks the voice, even when one exists', () async {
-      final player = _RecordingPlayer(supportsSentences: true);
-      final speaker = NumberSpeaker(
-        player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-      );
-
-      await speaker.speak('two', accent: 'us', mode: SpeechMode.clips);
-
-      expect(player.sentences, isEmpty);
-      expect(player.played, ['audio/numbers/two_us.wav']);
-    });
-
-    testWidgets('the numbers screen teaches, listens and drills', (tester) async {
-      SharedPreferences.setMockInitialValues(<String, Object>{});
-      final provider = NumbersProvider();
-
-      await tester.pumpWidget(
-        ChangeNotifierProvider<NumbersProvider>.value(
-          value: provider,
-          child: const MaterialApp(home: NumbersScreen()),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // 分类展示 is the landing section and carries the inventory.
-      expect(find.text('数字表达方式分类'), findsOneWidget);
-      expect(find.text('twelve'), findsWidgets); // 1–12 are listed one by one
-
-      // 自由输入 turns any number into a sentence.
-      await tester.tap(find.text('自由输入'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), '2026-10-08');
-      await tester.pumpAndSettle();
-      expect(find.textContaining('the eighth of October twenty twenty-six'), findsOneWidget);
-
-      // 数字训练 generates numbers that stay hidden until revealed.
-      await tester.tap(find.text('数字训练'));
-      await tester.pumpAndSettle();
-      // Every kind is offered as a chip, including the new listening drills.
-      for (final label in ['整数', '小数', '年份', '序数词', '分数', '百分数', '温度', '时刻', '货币', '日期', '电话号码', '混合']) {
-        expect(find.text(label), findsWidgets, reason: 'missing drill kind chip: $label');
-      }
-      // The loop switch sits with the playback buttons.
-      expect(find.text('循环'), findsOneWidget);
-
-      await tester.tap(find.text('生成一组'));
-      await tester.pumpAndSettle();
-      expect(provider.training, isNotEmpty);
-      expect(find.textContaining('数字已隐藏'), findsOneWidget);
-
-      await tester.tap(find.text('显示数字'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('数字已显示'), findsOneWidget);
-
-      // 整数 mode offers 多组连读: turning it on makes every row a run, and the
-      // batch is counted in 组, with a 组间 pause instead of a plain 间隔.
-      expect(find.text('多组连读'), findsOneWidget);
-      await tester.ensureVisible(find.byType(Switch));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byType(Switch));
-      await tester.pumpAndSettle();
-      expect(provider.runBatch, isTrue);
-      expect(find.text('组间'), findsOneWidget);
-      await tester.tap(find.text('生成一组'));
-      await tester.pumpAndSettle();
-      expect(provider.training, isNotEmpty);
-      expect(
-        provider.training.every((row) =>
-            row.numbers.length >= provider.runMin && row.numbers.length <= provider.runMax),
-        isTrue,
-      );
-      expect(find.textContaining('组 · 每组'), findsOneWidget);
-
-      // Another kind has no runs to offer, so the switch is not there at all.
-      final moneyChip = find.descendant(
-        of: find.byType(NumbersTrainingSection),
-        matching: find.text('货币'),
-      );
-      await tester.ensureVisible(moneyChip);
-      await tester.pumpAndSettle();
-      await tester.tap(moneyChip);
-      await tester.pumpAndSettle();
-      expect(find.text('多组连读'), findsNothing);
-      expect(provider.runBatch, isFalse);
-    });
-  });
-
-  group('Speech rate', () {
-    test('x1.0 on the slider is the teaching pace, not the voice native rate', () {
-      // A native speaker says the calibration phrase in 1548 ms; the drill runs
-      // it at 3100 ms because you are doing arithmetic in a second language.
-      expect(windowsEngineRateFor(1.0), 0.5);
-      expect(windowsEngineRateFor(NumbersLimits.minRate), closeTo(0.25, 1e-9));
-      expect(windowsEngineRateFor(NumbersLimits.maxRate), closeTo(0.75, 1e-9));
-      expect(windowsEngineRateFor(NumbersLimits.maxRate), lessThan(1.0),
-          reason: 'native speed must stay out of the drill range');
-    });
-
-    test('the teaching pace is the prosody floor, with no pauses needed', () {
-      // Anchoring regression: the old mapping asked for prosody 95-100% here.
-      final plan = speechPlanFor(windowsEngineRateFor(1.0), wordCount: 7);
-      expect(plan.prosodyPercent, oneCoreSteps.first.setting);
-      expect(plan.wordGapMs, 0);
-    });
-
-    test('below the prosody floor the shortfall is carried by pauses', () {
-      final slow = speechPlanFor(windowsEngineRateFor(NumbersLimits.minRate), wordCount: 7);
-      expect(slow.prosodyPercent, oneCoreSteps.first.setting,
-          reason: 'articulation is already at the floor');
-      expect(slow.wordGapMs, greaterThan(0));
-      expect(slow.wordGapMs, lessThanOrEqualTo(1200));
-    });
-
-    test('the pause makes up the missing time', () {
-      // floor = 2.0x the 1548 ms calibration phrase = 3096 ms; 0.25x asks for
-      // 6192 ms, so 3096 ms across 6 gaps = ~516 ms each.
-      expect(speechPlanFor(0.25, wordCount: 7).wordGapMs, inInclusiveRange(450, 580));
-    });
-
-    test('nothing gets faster as the slider rises', () {
-      var lastProsody = -1;
-      var lastGap = 1 << 30;
-      for (var ui = NumbersLimits.minRate;
-          ui <= NumbersLimits.maxRate + 1e-9;
-          ui += 0.05) {
-        final plan = speechPlanFor(windowsEngineRateFor(ui), wordCount: 7);
-        expect(plan.prosodyPercent, greaterThanOrEqualTo(lastProsody),
-            reason: 'rate $ui');
-        expect(plan.wordGapMs, lessThanOrEqualTo(lastGap), reason: 'rate $ui');
-        lastProsody = plan.prosodyPercent;
-        lastGap = plan.wordGapMs;
-      }
-    });
-
-    test('a one-word utterance has no gap to slow down with', () {
-      final plan = speechPlanFor(0.25, wordCount: 1);
-      expect(plan.wordGapMs, 0);
-      expect(plan.prosodyPercent, oneCoreSteps.first.setting);
-    });
-
-    test('SAPI runs off the same engine rate', () {
-      expect(sapiRate(0.5), -6);
-      expect(sapiRate(0.75), -2);
-      expect(sapiRate(0.25), sapiSteps.first.setting); // clamped at its floor
-    });
-
-    test('a stored zero rate cannot break the mapping', () {
-      expect(speechPlanFor(0, wordCount: 7).prosodyPercent, oneCoreSteps.first.setting);
-      expect(sapiRate(-2), sapiSteps.first.setting);
-    });
-
-    test('the speaker hands every engine the slider value unchanged', () async {
-      // Only the Windows voices need the teaching anchor, and they apply it
-      // themselves. Android's setSpeechRate, the browser's utterance.rate,
-      // Piper's speed and the player all take a plain multiplier of the voice's
-      // own natural pace: halving here as well made the phone drill crawl.
-      final player = _RecordingPlayer(supportsSentences: true);
-      final speaker = NumberSpeaker(player: player, resolver: _noClips);
-
-      await speaker.speak('two', accent: 'us', rate: 1.0);
-      expect(player.rates.single, 1.0, reason: 'x1.0 is the voice natural rate');
-
-      player.rates.clear();
-      await speaker.speak('two', accent: 'us', rate: NumbersLimits.minRate);
-      expect(player.rates.single, closeTo(NumbersLimits.minRate, 1e-9));
-    });
-
-    test('Piper is asked for the slider value as its speed', () async {
-      // The phone has no English system voice, so this is the path the drill
-      // takes there: halving it once more made x1.0 sound like a tape at half
-      // speed.
-      final piper = _StubPiper();
-      final speaker = NumberSpeaker(
-        player: _RecordingPlayer(),
-        resolver: _noClips,
-        piper: piper,
-      );
-
-      await speaker.speak('two', accent: 'us', rate: 1.0);
-      expect(piper.rates.single, 1.0, reason: 'x1.0 is Piper natural pace');
-
-      piper.rates.clear();
-      await speaker.speak('two', accent: 'us', rate: NumbersLimits.maxRate);
-      expect(piper.rates.single, closeTo(NumbersLimits.maxRate, 1e-9));
-    });
-
-    test('clips mode receives the slider value too', () async {
-      final player = _RecordingPlayer(supportsSentences: true);
-      final speaker = NumberSpeaker(
-        player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-      );
-
-      await speaker.speak('two', accent: 'us',
-          rate: NumbersLimits.maxRate, mode: SpeechMode.clips);
-
-      expect(player.played, ['audio/numbers/two_us.wav']);
-      expect(player.rates.single, closeTo(NumbersLimits.maxRate, 1e-9));
     });
 
     test('a rate stored before the re-anchoring keeps its pace', () async {
@@ -1806,144 +923,31 @@ void main() {
       // abandoned run — parked inside `playSpeechClip` — woke up, read "not
       // cancelled" and read its remaining words over the top of the new run.
       final player = _GatedPlayer();
-      final speaker = NumberSpeaker(
-        player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-      );
+      final speaker = NumberSpeaker(player: player, kokoro: _StubKokoro());
 
       player.hold();
-      final first = speaker.speak('one thousand', accent: 'us', mode: SpeechMode.clips);
+      final first = speaker.speak('one thousand', accent: 'us');
       await pumpEventQueue();
-      expect(player.played, ['audio/numbers/one_us.wav'],
-          reason: 'the first run should be parked on its first word');
+      expect(player.buffers, hasLength(1),
+          reason: 'the first run should be parked in its playback');
 
       speaker.cancel();
-      final second = speaker.speak('two', accent: 'us', mode: SpeechMode.clips);
+      final second = speaker.speak('two', accent: 'us');
       await pumpEventQueue();
-      expect(player.played, contains('audio/numbers/two_us.wav'));
 
       player.release();
       await Future.wait([first, second]);
 
-      expect(player.played, isNot(contains('audio/numbers/thousand_us.wav')),
-          reason: 'the cancelled run carried on instead of dropping out');
+      expect(player.buffers, hasLength(2),
+          reason: 'the cancelled run dropped out instead of carrying on');
     });
 
-    test('words still play in order when nothing is cancelled', () async {
-      // Guards the fix itself: staleness must not be confused with "a later word".
-      final player = _GatedPlayer();
-      final speaker = NumberSpeaker(
-        player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-      );
-
-      await speaker.speak('one thousand', accent: 'us', mode: SpeechMode.clips);
-
-      expect(player.played, [
-        'audio/numbers/one_us.wav',
-        'audio/numbers/thousand_us.wav',
-      ]);
-    });
-  });
-
-  group('Playback completion', () {
-    // The audio manager's wait, with the player replaced by two streams. The
-    // bug it guards: a completion for a source the player is *tearing down*
-    // arrives a few milliseconds after the next playback starts, and a wait that
-    // cannot tell it apart ends that playback almost immediately — heard as the
-    // opening of an utterance being clipped.
-    late StreamController<void> completions;
-    late StreamController<Duration> durations;
-
-    setUp(() {
-      completions = StreamController<void>.broadcast();
-      durations = StreamController<Duration>.broadcast();
-    });
-
-    tearDown(() async {
-      await completions.close();
-      await durations.close();
-    });
-
-    // The margins here are deliberately lopsided: a *stale* event is delivered
-    // immediately (elapsed ≈ 0 ms) against a threshold of hundreds of
-    // milliseconds, so a machine under load cannot make it look plausible. An
-    // earlier version waited 10 ms against a 60 ms threshold and failed whenever
-    // the test run was busy.
-    Future<bool> waitFor({
-      Duration minPlausible = const Duration(milliseconds: 200),
-      Duration durationWait = const Duration(milliseconds: 250),
-      Duration guard = const Duration(milliseconds: 400),
-      Duration Function(Duration?)? stallGuard,
-    }) =>
-        awaitPlayback(
-          completions: completions.stream,
-          durations: durations.stream,
-          start: () async {},
-          minPlausible: minPlausible,
-          durationWait: durationWait,
-          stallGuard: stallGuard ?? (_) => guard,
-        );
-
-    test('a completion that arrives too soon is not this playback finishing',
-        () async {
-      var done = false;
-      final wait = waitFor().then((value) => done = value);
-
-      // Delivered immediately: the previous source being torn down.
-      completions.add(null);
-      await Future<void>.delayed(const Duration(milliseconds: 40));
-      expect(done, isFalse,
-          reason: 'a completion this soon cannot be this playback finishing');
-
-      await Future<void>.delayed(const Duration(milliseconds: 250));
-      completions.add(null); // its own, plausible completion
-      expect(await wait, isTrue);
-    });
-
-    test('a plausible completion ends the wait', () async {
-      final wait = waitFor();
-      await Future<void>.delayed(const Duration(milliseconds: 250));
-      completions.add(null);
-      expect(await wait, isTrue);
-    });
-
-    test('the stall guard reports that nothing finished', () async {
-      expect(await waitFor(), isFalse);
-    });
-
-    test('a stalled wait stops listening, so it cannot steal the next one',
-        () async {
-      expect(await waitFor(), isFalse);
-      expect(completions.hasListener, isFalse,
-          reason: 'the abandoned wait leaked a subscription');
-      expect(durations.hasListener, isFalse);
-    });
-
-    test('the reported duration sizes the stall guard', () async {
-      Duration? seen;
-      final wait = waitFor(stallGuard: (reported) {
-        seen = reported;
-        return const Duration(milliseconds: 30);
-      });
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-      durations.add(const Duration(seconds: 2));
-      expect(await wait, isFalse);
-      expect(seen, const Duration(seconds: 2));
-    });
-  });
-
-  group('Playback state', () {
     test('the loop repeats the list until stopped', () async {
       final player = _RecordingPlayer(supportsSentences: false);
-      final speaker = NumberSpeaker(
-        player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-      );
+      final speaker = NumberSpeaker(player: player, kokoro: _StubKokoro());
       SharedPreferences.setMockInitialValues(<String, Object>{});
       final provider = NumbersProvider(speaker: speaker);
       await provider.initialize();
-      await provider.setSpeechMode(SpeechMode.clips);
       await provider.setDigits(1);
       await provider.setCount(1);
       await provider.setLoop(true);
@@ -1964,14 +968,10 @@ void main() {
 
     test('暂停 silences the drill and 继续 starts again from that row', () async {
       final player = _GatedPlayer();
-      final speaker = NumberSpeaker(
-        player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-      );
+      final speaker = NumberSpeaker(player: player, kokoro: _StubKokoro());
       SharedPreferences.setMockInitialValues(<String, Object>{});
       final provider = NumbersProvider(speaker: speaker);
       await provider.initialize();
-      await provider.setSpeechMode(SpeechMode.clips);
       await provider.setDigits(1);
       await provider.setCount(3);
       await provider.setGapMs(NumbersLimits.minGapMs);
@@ -1982,7 +982,7 @@ void main() {
       await pumpEventQueue();
       expect(provider.isPlaying, isTrue);
       final pausedAt = provider.playingIndex;
-      final playedBefore = player.played.length;
+      final playedBefore = player.buffers.length;
 
       provider.pausePlayback();
       expect(provider.isPaused, isTrue);
@@ -1999,7 +999,7 @@ void main() {
       expect(provider.isPlaying, isTrue);
       expect(provider.playingIndex, pausedAt,
           reason: 'picks up at the row that was interrupted');
-      expect(player.played.length, greaterThan(playedBefore),
+      expect(player.buffers.length, greaterThan(playedBefore),
           reason: 'that row is said again');
 
       player.release();
@@ -2010,14 +1010,10 @@ void main() {
 
     test('without the loop the drill plays one pass and ends', () async {
       final player = _RecordingPlayer(supportsSentences: false);
-      final speaker = NumberSpeaker(
-        player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-      );
+      final speaker = NumberSpeaker(player: player, kokoro: _StubKokoro());
       SharedPreferences.setMockInitialValues(<String, Object>{});
       final provider = NumbersProvider(speaker: speaker);
       await provider.initialize();
-      await provider.setSpeechMode(SpeechMode.clips);
       await provider.setDigits(1);
       await provider.setCount(1);
       provider.generateTraining();
@@ -2045,10 +1041,7 @@ void main() {
       // the shared "playing" flag — so the stop button greys out while the new
       // run is still speaking, i.e. exactly when you need to press it.
       final player = _GatedPlayer();
-      final speaker = NumberSpeaker(
-        player: player,
-        resolver: (word, accent) async => 'audio/numbers/${word}_$accent.wav',
-      );
+      final speaker = NumberSpeaker(player: player, kokoro: _StubKokoro());
       SharedPreferences.setMockInitialValues(<String, Object>{});
       final provider = NumbersProvider(speaker: speaker);
       await provider.initialize();

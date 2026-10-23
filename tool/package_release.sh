@@ -8,7 +8,7 @@
 #
 #   windows  build/windows/x64/runner/Release/tts-models/     (next to the exe)
 #   web      build/web/tts-models/                            (served with the site)
-#   apk      build/release/app-release.apk + piper.zip         (imported in-app)
+#   apk      build/release/app-<abi>-release.apk               (model bundled)
 #
 #   tool/package_release.sh windows        # or web / apk / all / install
 #   tool/package_release.sh all --no-build # only re-stage the models
@@ -53,27 +53,27 @@ case "$(uname -s)" in
 esac
 
 MODELS=tts-models
-ZIP=$MODELS/piper.zip
+ZIP=$MODELS/kokoro.zip
 ADB_BIN=${ADB:-adb}
 
 # 1. The models have to be on this machine before anything is packaged.
-if ! python tool/fetch_piper_models.py --check >/dev/null 2>&1; then
-  echo "Piper models are missing. Prepare them once (≈70 MB, kept out of git):" >&2
-  echo "  python tool/fetch_piper_models.py" >&2
+if ! python tool/fetch_kokoro_model.py --check >/dev/null 2>&1; then
+  echo "The Kokoro model is missing. Prepare it once (≈150 MB, kept out of git):" >&2
+  echo "  python tool/fetch_kokoro_model.py" >&2
   exit 2
 fi
 if [ ! -f "$ZIP" ]; then
-  echo "packing $ZIP for the Android import…"
-  python tool/fetch_piper_models.py --zip-only
+  echo "packing $ZIP for the Android bundle…"
+  python tool/fetch_kokoro_model.py --zip-only
 fi
 
 stage_models() {
   local destination="$1"
   rm -rf "$destination"
   mkdir -p "$destination"
-  # Only the voices: piper.zip is the Android import archive, not part of a
+  # Only the model files: kokoro.zip is the Android bundle, not part of a
   # desktop or web deployment.
-  cp -r "$MODELS/piper" "$destination/"
+  cp -r "$MODELS/kokoro" "$destination/"
 }
 
 build() {

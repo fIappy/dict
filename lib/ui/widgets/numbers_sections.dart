@@ -3,8 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../../core/numbers/number_data.dart';
 import '../../core/numbers/number_model.dart';
-import '../../core/numbers/number_speaker.dart';
-import '../../core/numbers/sentence_engine.dart';
 import '../../core/numbers/number_training.dart';
 import '../../providers/numbers_provider.dart';
 
@@ -712,9 +710,9 @@ class _NumbersTrainingSectionState extends State<NumbersTrainingSection> {
       _countController.text = '${provider.count}';
     }
 
-    // Which engine is available is asked once, on first paint of this section.
-    if (!provider.sentenceEngineChecked) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => provider.refreshSentenceEngineStatus());
+    // The model's presence is asked once, on first paint of this section.
+    if (!provider.kokoroChecked) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => provider.refreshKokoroStatus());
     }
 
     return Column(
@@ -969,81 +967,19 @@ class _NumbersTrainingSectionState extends State<NumbersTrainingSection> {
               ),
               onSelectionChanged: (selection) => provider.setAccent(selection.first),
             ),
-            // …and how the sentence is spoken: one utterance by the system voice,
-            // or the module's own recordings word by word.
-            SegmentedButton<SpeechMode>(
-              segments: [
-                for (final mode in SpeechMode.values)
-                  ButtonSegment(
-                    value: mode,
-                    label: Text(mode.labelZh, style: const TextStyle(fontSize: 11.5)),
-                  ),
-              ],
-              selected: {provider.speechMode},
-              showSelectedIcon: false,
-              style: const ButtonStyle(
-                visualDensity: VisualDensity.compact,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              onSelectionChanged: (selection) => provider.setSpeechMode(selection.first),
-            ),
-            // Which engine reads the whole sentence. 逐词拼读 plays the recordings
-            // itself, so the switch only appears in 整句朗读.
-            if (provider.speechMode == SpeechMode.sentence)
-              SegmentedButton<SentenceEngine>(
-                segments: [
-                  for (final engine in SentenceEngine.values.where((e) => e.selectable))
-                    ButtonSegment(
-                      value: engine,
-                      label: Text(engine.labelZh, style: const TextStyle(fontSize: 11.5)),
-                    ),
-                ],
-                selected: {provider.sentenceEngine},
-                showSelectedIcon: false,
-                style: const ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                onSelectionChanged: (selection) =>
-                    provider.setSentenceEngine(selection.first),
-              ),
           ],
         ),
         const SizedBox(height: 6),
         Row(
           children: [
-            Icon(
-              provider.speechMode == SpeechMode.clips
-                  ? Icons.graphic_eq_rounded
-                  : Icons.record_voice_over_rounded,
-              size: 14,
-              color: theme.hintColor,
-            ),
+            Icon(Icons.record_voice_over_rounded, size: 14, color: theme.hintColor),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                provider.speechMode == SpeechMode.clips
-                    ? '逐词拼读：${SpeechMode.clips.hint}'
-                    : '整句朗读 · ${provider.sentenceEngine.labelZh}：'
-                        '${provider.sentenceEngineStatus}',
+                '整句朗读 · Kokoro：${provider.kokoroStatus ?? '正在检测模型…'}',
                 style: TextStyle(fontSize: 11.5, color: theme.hintColor, height: 1.4),
               ),
             ),
-            // Android (and any platform where the files cannot simply be dropped
-            // next to the app) copies the voice in from a folder the user picks.
-            if (provider.speechMode == SpeechMode.sentence &&
-                provider.sentenceEngine == SentenceEngine.piper &&
-                !provider.piperModelReady &&
-                provider.canImportPiperModels)
-              TextButton.icon(
-                icon: const Icon(Icons.folder_open_rounded, size: 16),
-                label: const Text('安装模型…', style: TextStyle(fontSize: 12)),
-                onPressed: () async {
-                  final messenger = ScaffoldMessenger.of(context);
-                  final message = await provider.importPiperModels();
-                  messenger.showSnackBar(SnackBar(content: Text(message)));
-                },
-              ),
           ],
         ),
         const SizedBox(height: 12),
