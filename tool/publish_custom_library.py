@@ -24,6 +24,7 @@ import json
 import os
 import shutil
 import sys
+import tempfile
 
 LIBRARY = os.path.join('assets', 'seed', 'custom_home.json')
 DEFAULT_STORE = os.path.join(
@@ -83,7 +84,8 @@ def main():
     )
     version = int(library.get('version', 1)) + (1 if changed else 0)
     if changed:
-        shutil.copy(LIBRARY, LIBRARY + '.bak')
+        # Outside assets/: a .bak there would be bundled into every build.
+        shutil.copy(LIBRARY, os.path.join(tempfile.gettempdir(), 'custom_home.json.bak'))
     json.dump(
         {'version': version, 'groups': groups, 'texts': texts},
         open(LIBRARY, 'w', encoding='utf-8'),

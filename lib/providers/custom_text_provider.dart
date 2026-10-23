@@ -97,6 +97,9 @@ class CustomTextProvider extends ChangeNotifier {
         (remembered == ungroupedId || _groups.any((g) => g.id == remembered))) {
       _selectedGroupId = remembered;
     }
+    // The library merges into groups; landing on an empty 未分组 made it look
+    // like nothing had been imported.
+    _selectFirstWithContent();
     notifyListeners();
   }
 
@@ -116,13 +119,10 @@ class CustomTextProvider extends ChangeNotifier {
       final version = (data['version'] as num?)?.toInt() ?? 0;
       if (version <= merged) return;
 
-      final wasEmpty = _groups.isEmpty;
       final added = _mergeLibrary(data);
       await prefs.setInt(_seedVersionKey, version);
       if (added == 0) return;
-      if (wasEmpty && _groups.isNotEmpty) {
-        _selectedGroupId = _groups.first.id;
-      }
+      _selectFirstWithContent();
       notifyListeners();
       await _persistGroups();
       await _persistTexts();
@@ -158,6 +158,22 @@ class CustomTextProvider extends ChangeNotifier {
       }
     }
     return added;
+  }
+
+  /// Opens a group that actually holds something.
+  ///
+  /// The selected group is not persisted, so every launch starts at 未分组; with
+  /// the library merged that made the imported passages look missing until the
+  /// reader clicked a group. The first group with content wins, and 未分组 stays
+  /// the choice when nothing else has any.
+  void _selectFirstWithContent() {
+    if (countIn(_selectedGroupId) > 0) return;
+    for (final group in _groups) {
+      if (countIn(group.id) > 0) {
+        _selectedGroupId = group.id;
+        return;
+      }
+    }
   }
 
   void selectGroup(String groupId) {

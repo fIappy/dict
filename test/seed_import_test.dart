@@ -35,6 +35,23 @@ void main() {
     expect(again.allTexts, hasLength(provider.allTexts.length));
   });
 
+  test('the panel opens on a group that has content', () async {
+    // A store that remembers 未分组 (empty) while the library lives in groups:
+    // opening there showed an empty list even though everything was imported.
+    SharedPreferences.setMockInitialValues({
+      'flutter.custom_texts':
+          '[{"id":"a","body":"One.","title":"A","groupId":"g1","createdAt":"2026-01-01T00:00:00"}]',
+      'flutter.custom_groups': '[{"id":"g1","name":"Work"}]',
+      'flutter.custom_group': '__ungrouped__',
+      'flutter.custom_library_version': 999,
+    });
+    final provider = CustomTextProvider();
+    await provider.initialize();
+
+    expect(provider.selectedGroupId, 'g1');
+    expect(provider.visibleTexts.map((t) => t.title), ['A']);
+  });
+
   test('a local edit wins, and the rest of the library is still merged', () async {
     SharedPreferences.setMockInitialValues({
       'flutter.custom_texts':
