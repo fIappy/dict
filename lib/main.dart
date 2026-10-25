@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/platform/ai_window_launcher.dart';
 import 'core/audio/kokoro_voice.dart';
+import 'core/platform/window_frame.dart';
 import 'providers/custom_text_provider.dart';
 import 'providers/dictionary_provider.dart';
 import 'providers/ai_practice_provider.dart';
@@ -30,27 +31,34 @@ void main(List<String> args) async {
     return;
   }
 
+  // Put the window back where it was before the first frame, so it never shows
+  // at the runner's default size first.
+  await WindowFrame.restore();
+
   // One engine for the whole app: it owns a worker isolate with the model
   // loaded (~150 MB), so a second instance would double that.
   final voice = KokoroVoice();
 
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => SettingsProvider()),
-        ChangeNotifierProvider(create: (_) => DictionaryProvider()),
-        ChangeNotifierProvider(create: (_) => FavoritesProvider()),
-        ChangeNotifierProvider(create: (_) => HistoryProvider()),
-        ChangeNotifierProvider(create: (_) => FrequencyProvider()),
-        ChangeNotifierProvider(create: (_) => IpaProvider()),
-        ChangeNotifierProvider(create: (_) => AlphabetProvider()),
-        ChangeNotifierProvider(create: (_) => NumbersProvider(kokoro: voice)),
-        ChangeNotifierProvider(create: (_) => ThemesProvider()),
-        ChangeNotifierProvider(create: (_) => EntrySpeechProvider(kokoro: voice)),
-        ChangeNotifierProvider(create: (_) => CustomTextProvider()),
-        ChangeNotifierProvider(create: (_) => AiPracticeProvider()),
-      ],
-      child: const LocalDictApp(),
+    WindowFrameKeeper(
+      child: MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => SettingsProvider()),
+          ChangeNotifierProvider(create: (_) => DictionaryProvider()),
+          ChangeNotifierProvider(create: (_) => FavoritesProvider()),
+          ChangeNotifierProvider(create: (_) => HistoryProvider()),
+          ChangeNotifierProvider(create: (_) => FrequencyProvider()),
+          ChangeNotifierProvider(create: (_) => IpaProvider()),
+          ChangeNotifierProvider(create: (_) => AlphabetProvider()),
+          ChangeNotifierProvider(create: (_) => NumbersProvider(kokoro: voice)),
+          ChangeNotifierProvider(create: (_) => ThemesProvider()),
+          ChangeNotifierProvider(
+              create: (_) => EntrySpeechProvider(kokoro: voice)),
+          ChangeNotifierProvider(create: (_) => CustomTextProvider()),
+          ChangeNotifierProvider(create: (_) => AiPracticeProvider()),
+        ],
+        child: const LocalDictApp(),
+      ),
     ),
   );
 }

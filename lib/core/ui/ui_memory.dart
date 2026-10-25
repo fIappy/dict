@@ -15,6 +15,9 @@ class UiMemory {
   static const String ipaVariants = 'ui_ipa_variants';
   static const String letter = 'ui_alphabet_letter';
   static const String customGroup = 'ui_custom_group';
+  static const String customText = 'ui_custom_text';
+  static const String favoriteGroup = 'ui_favorite_group';
+  static const String themeScene = 'ui_theme_scene';
 
   static Future<int?> readInt(String key) async =>
       (await SharedPreferences.getInstance()).getInt(key);

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/database/favorites_dao.dart';
 import '../core/models/favorite_group.dart';
 import '../core/models/favorite_item.dart';
+import '../core/ui/ui_memory.dart';
 
 class FavoritesProvider extends ChangeNotifier {
   final FavoritesDao _dao = FavoritesDao();
@@ -26,6 +27,14 @@ class FavoritesProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     await refreshGroups();
+    // Reopen the group that was on screen; one deleted meanwhile falls back to
+    // 全部 rather than to a filter that can never match.
+    final remembered = await UiMemory.readString(UiMemory.favoriteGroup);
+    if (remembered != null &&
+        remembered.isNotEmpty &&
+        _groups.any((group) => group.id == remembered)) {
+      _selectedGroupId = remembered;
+    }
     await refreshFavorites();
     _isLoading = false;
     notifyListeners();
@@ -99,6 +108,7 @@ class FavoritesProvider extends ChangeNotifier {
 
   void selectGroup(String? groupId) {
     _selectedGroupId = groupId;
+    UiMemory.writeString(UiMemory.favoriteGroup, groupId ?? '');
     refreshFavorites();
   }
 
@@ -188,6 +198,7 @@ class FavoritesProvider extends ChangeNotifier {
     await _dao.deleteGroup(groupId);
     if (_selectedGroupId == groupId) {
       _selectedGroupId = null;
+      UiMemory.writeString(UiMemory.favoriteGroup, '');
     }
     await refreshGroups();
     await refreshFavorites();

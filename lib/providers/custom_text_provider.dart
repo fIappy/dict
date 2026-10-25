@@ -97,6 +97,16 @@ class CustomTextProvider extends ChangeNotifier {
         (remembered == ungroupedId || _groups.any((g) => g.id == remembered))) {
       _selectedGroupId = remembered;
     }
+    // …and the entry that was open inside it.
+    final openText = prefs.getString(UiMemory.customText);
+    if (openText != null && openText.isNotEmpty) {
+      for (final item in _texts) {
+        if (item.id == openText && groupIdOf(item) == _selectedGroupId) {
+          _selectedId = openText;
+          break;
+        }
+      }
+    }
     // The library merges into groups; landing on an empty 未分组 made it look
     // like nothing had been imported.
     if (_dropEmptyDuplicateGroups() > 0) await _persistGroups();
@@ -201,10 +211,10 @@ class CustomTextProvider extends ChangeNotifier {
 
   /// Opens a group that actually holds something.
   ///
-  /// The selected group is not persisted, so every launch starts at 未分组; with
-  /// the library merged that made the imported passages look missing until the
-  /// reader clicked a group. The first group with content wins, and 未分组 stays
-  /// the choice when nothing else has any.
+  /// The remembered group can be empty (its entries were deleted, or the group
+  /// was renamed away), and an empty pane reads as a lost library. The first
+  /// group with content wins, and 未分组 stays the choice when nothing else has
+  /// any.
   void _selectFirstWithContent() {
     if (countIn(_selectedGroupId) > 0) return;
     for (final group in _groups) {
@@ -220,11 +230,13 @@ class CustomTextProvider extends ChangeNotifier {
     _selectedGroupId = groupId;
     _selectedId = null;
     UiMemory.writeString(UiMemory.customGroup, groupId);
+    UiMemory.writeString(UiMemory.customText, '');
     notifyListeners();
   }
 
   void select(String? id) {
     _selectedId = id;
+    UiMemory.writeString(UiMemory.customText, id ?? '');
     notifyListeners();
   }
 
@@ -257,7 +269,10 @@ class CustomTextProvider extends ChangeNotifier {
 
   Future<void> remove(String id) async {
     _texts.removeWhere((item) => item.id == id);
-    if (_selectedId == id) _selectedId = null;
+    if (_selectedId == id) {
+      _selectedId = null;
+      UiMemory.writeString(UiMemory.customText, '');
+    }
     notifyListeners();
     await _persistTexts();
   }

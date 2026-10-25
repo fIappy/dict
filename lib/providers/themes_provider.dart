@@ -1,12 +1,14 @@
 import 'package:flutter/foundation.dart';
 
 import '../core/themes/theme_service.dart';
+import '../core/ui/ui_memory.dart';
 
 /// State of the 主题 module: which scene is open, what the search box holds, and
 /// which facets (人 / 事 / 物 …) the reader has opened.
 ///
-/// Nothing here is persisted — the scene list is meant to be browsed, and coming
-/// back to the top-level list on restart is the sane default.
+/// Only the open scene is persisted: the search box and the unfolded facets
+/// start empty, because a filter restored behind the reader's back looks like a
+/// missing scene.
 class ThemesProvider extends ChangeNotifier {
   /// Facets longer than this page; shorter ones render in one go. 通用高频's
   /// 情况 facet holds ~3.4k words, and handing that to a single `Wrap` stalls.
@@ -121,6 +123,13 @@ class ThemesProvider extends ChangeNotifier {
 
   Future<void> initialize() async {
     await _service.init();
+    // Reopen the scene that was on screen, unless the library dropped it.
+    final remembered = await UiMemory.readString(UiMemory.themeScene);
+    if (remembered != null &&
+        remembered.isNotEmpty &&
+        _service.scenes.any((scene) => scene.id == remembered)) {
+      _sceneId = remembered;
+    }
     _isLoading = false;
     notifyListeners();
   }
@@ -128,6 +137,7 @@ class ThemesProvider extends ChangeNotifier {
   void select(String sceneId) {
     if (_sceneId == sceneId) return;
     _sceneId = sceneId;
+    UiMemory.writeString(UiMemory.themeScene, sceneId);
     _query = '';
     _expandedFacets.clear();
     _facetPages.clear();
@@ -137,6 +147,7 @@ class ThemesProvider extends ChangeNotifier {
   void backToScenes() {
     if (_sceneId == null) return;
     _sceneId = null;
+    UiMemory.writeString(UiMemory.themeScene, '');
     _query = '';
     _expandedFacets.clear();
     _facetPages.clear();

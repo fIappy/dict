@@ -155,9 +155,13 @@ class _CustomDetailViewState extends State<CustomDetailView> {
   ///
   /// A TextField cannot colour part of its text, so while this passage is
   /// sounding the box becomes a reader that marks the sentence being read in
-  /// red; the moment playback stops the editable field is back. One scrollbar
-  /// either way: the explicit one replaces the framework's (which would be a
-  /// second bar on desktop), and the reader's viewport is the scrollable.
+  /// red; the moment playback stops the editable field is back.
+  ///
+  /// One scrollbar either way. A multiline [TextField] always gets the
+  /// framework's bar — [EditableText] calls `copyWith(scrollbars: true)` on
+  /// whatever behavior is in scope, so turning it off from outside does nothing
+  /// — which is why the passage is wrapped in [_NoFieldScrollbar] and draws its
+  /// own always-visible bar instead.
   Widget _buildBody(BuildContext context) {
     final speech = context.watch<EntrySpeechProvider>();
     final lines = splitSentences(_body.text);
@@ -187,7 +191,7 @@ class _CustomDetailViewState extends State<CustomDetailView> {
     }
 
     return ScrollConfiguration(
-      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+      behavior: const _NoFieldScrollbar(),
       child: Scrollbar(
         controller: _bodyScroll,
         thumbVisibility: true,
@@ -392,4 +396,22 @@ class _CustomDetailViewState extends State<CustomDetailView> {
       volume: settings.speechVolume,
     );
   }
+}
+
+/// Declines the framework scrollbar for its subtree.
+///
+/// [EditableText] forces `scrollbars: true` on the behavior it hands to its own
+/// scrollable, so `ScrollConfiguration.of(context).copyWith(scrollbars: false)`
+/// cannot suppress it. Overriding [buildScrollbar] can: the forced copy only
+/// adds the flag and delegates the drawing back here.
+class _NoFieldScrollbar extends MaterialScrollBehavior {
+  const _NoFieldScrollbar();
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) =>
+      child;
 }
