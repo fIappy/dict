@@ -1,5 +1,5 @@
 {
- "version": 2,
+ "version": 3,
  "groups": [
   {
    "id": "default",
@@ -8,7 +8,7 @@
    "color": 4282339765,
    "icon": null,
    "sort_order": 0,
-   "created_at": 1792114500900
+   "created_at": 1790677030385
   },
   {
    "id": "cet_core",
@@ -17,7 +17,7 @@
    "color": 4281236786,
    "icon": null,
    "sort_order": 1,
-   "created_at": 1792114500901
+   "created_at": 1790677030386
   },
   {
    "id": "gre_ielts",
@@ -26,7 +26,7 @@
    "color": 4293880832,
    "icon": null,
    "sort_order": 2,
-   "created_at": 1792114500902
+   "created_at": 1790677030387
   },
   {
    "id": "review",
@@ -35,7 +35,7 @@
    "color": 4290910299,
    "icon": null,
    "sort_order": 3,
-   "created_at": 1792114500903
+   "created_at": 1790677030388
   }
  ],
  "items": [
@@ -64,6 +64,71 @@
    "tags": "",
    "created_at": 1792723778187,
    "updated_at": 1792723778187
+  },
+  {
+   "id": "fav_1792675464426",
+   "word": "bench",
+   "group_id": "default",
+   "phonetic": "",
+   "definition_snippet": null,
+   "examples_snippet": null,
+   "note": "",
+   "dict_source": "Dictionary.com",
+   "tags": "",
+   "created_at": 1792675464426,
+   "updated_at": 1792675464426
+  },
+  {
+   "id": "fav_1792675543139",
+   "word": "hallway",
+   "group_id": "default",
+   "phonetic": "",
+   "definition_snippet": null,
+   "examples_snippet": null,
+   "note": "",
+   "dict_source": "Dictionary.com",
+   "tags": "",
+   "created_at": 1792675543139,
+   "updated_at": 1792675543139
+  },
+  {
+   "id": "fav_1792675862384",
+   "word": "flat",
+   "group_id": "default",
+   "phonetic": "",
+   "definition_snippet": null,
+   "examples_snippet": null,
+   "note": "",
+   "dict_source": "Dictionary.com",
+   "tags": "",
+   "created_at": 1792675862384,
+   "updated_at": 1792675862384
+  },
+  {
+   "id": "fav_1792676163481",
+   "word": "mat",
+   "group_id": "default",
+   "phonetic": "",
+   "definition_snippet": null,
+   "examples_snippet": null,
+   "note": "",
+   "dict_source": "Dictionary.com",
+   "tags": "",
+   "created_at": 1792676163481,
+   "updated_at": 1792676163481
+  },
+  {
+   "id": "fav_1792678630806",
+   "word": "curtain",
+   "group_id": "default",
+   "phonetic": "",
+   "definition_snippet": null,
+   "examples_snippet": null,
+   "note": "",
+   "dict_source": "Dictionary.com",
+   "tags": "",
+   "created_at": 1792678630806,
+   "updated_at": 1792678630806
   }
  ]
 }
