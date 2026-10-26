@@ -8,9 +8,8 @@ import '../../providers/themes_provider.dart';
 import 'ai_practice_screen.dart';
 import 'word_detail_screen.dart';
 
-/// 主题词汇: pick a situation (居家生活 / 校园学习 / 医疗健康 …), then read its
-/// vocabulary split into 人 / 事 / 物 / 动作 / 情况 / 虚拟, each facet in COCA
-/// frequency order.
+/// 主题词汇: pick a theme (通用 / 动作与变化 / 科学与技术 …), then read its words
+/// in COCA frequency order.
 class ThemesScreen extends StatefulWidget {
   final bool isPaneView;
   final void Function(String word)? onSelectWord;
@@ -161,14 +160,16 @@ class _ThemesScreenState extends State<ThemesScreen> {
               scene.label,
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
-            subtitle: Text(
-              scene.hint,
-              style: TextStyle(
-                fontSize: 11.5,
-                color: theme.hintColor,
-                height: 1.35,
-              ),
-            ),
+            subtitle: scene.hint.isEmpty
+                ? null
+                : Text(
+                    scene.hint,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: theme.hintColor,
+                      height: 1.35,
+                    ),
+                  ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -203,6 +204,32 @@ class _ThemesScreenState extends State<ThemesScreen> {
       );
     }
     final theme = Theme.of(context);
+    // A flat theme holds one group: its words are the page, with nothing to
+    // fold open first.
+    if (groups.length == 1) {
+      final group = groups.first;
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        children: [
+          if (provider.facetPageCount(group) > 1)
+            _facetPager(context, provider, group),
+          const SizedBox(height: 2),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final word in provider.facetWords(group))
+                ActionChip(
+                  label: Text(word, style: const TextStyle(fontSize: 12.5)),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  onPressed: () => _onWordTapped(context, word),
+                ),
+            ],
+          ),
+        ],
+      );
+    }
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
       itemCount: groups.length,

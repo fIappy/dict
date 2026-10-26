@@ -1,0 +1,1100 @@
+﻿== 器物与材料（1099 词）==
+477	paper	纸
+501	oil	油
+511	phone	电话
+516	picture	照片，图片
+519	piece	块
+587	material	材料
+730	box	盒子
+755	glass	玻璃
+811	card	卡片
+814	cell	细胞；单元
+829	ball	球
+895	bar	酒吧；条
+900	stuff	东西、物品（泛指、口语）；材料、原料 *
+910	bag	袋子
+915	surface	表面
+1042	object	物体
+1091	fan	风扇
+1103	stone	石头
+1132	screen	屏幕
+1136	gold	黄金
+1138	farm	农场
+1168	tool	工具
+1173	facility	设备
+1189	block	街区 *
+1223	equipment	设备
+1329	photo	相片
+1344	tape	胶带，磁带
+1373	plastic	塑料
+1410	pool	池
+1418	metal	金属
+1419	fat	脂肪
+1450	panel	面板；专家组
+1476	works	工厂；作品
+1497	desk	书桌
+1511	ring	戒指；环形
+1569	bottle	瓶子
+1627	chain	链
+1651	frame	框架，画框
+1678	telephone	电话
+1777	waste	废物，垃圾
+1885	cigarette	香烟
+1925	steel	钢铁
+1941	layer	层
+1969	sand	沙
+1994	pot	锅，罐
+2000	knife	小刀
+2017	dust	灰尘
+2032	iron	铁
+2113	wire	电线，金属丝 *
+2114	round	圆形；一轮
+2149	mixture	混合物
+2157	toy	玩具
+2176	silver	银
+2208	pan	平底锅
+2217	buck	元 *
+2237	wooden	木制的
+2245	tube	管
+2278	shell	壳，贝壳
+2303	ingredient	成分
+2306	fiber	纤维
+2319	gear	齿轮；装备
+2320	barrier	障碍
+2354	bell	铃
+2370	chamber	房间；腔室 *
+2373	string	细绳；一串
+2430	dirt	污垢
+2433	bullet	子弹
+2466	bench	长椅，工作台
+2472	deck	甲板
+2475	pole	杆，柱；极点；波兰人（Pole） *
+2491	platform	平台，站台
+2508	dna	脱氧核糖核酸
+2548	entrance	入口
+2553	net	网
+2562	mask	面具
+2586	segment	部分，片段
+2637	pipe	管
+2659	carbon	碳
+2665	tobacco	烟草
+2693	porch	门廊 *
+2704	pc	个人计算机
+2719	tent	帐篷
+2732	barrel	桶 *
+2773	workshop	车间；研讨会
+2778	motor	马达
+2793	cabin	小屋
+2814	shit	粪
+2836	shower	淋浴；阵雨
+2868	acid	酸
+2882	basket	篮
+2890	powder	粉
+2930	rope	绳
+2931	concrete	混凝土；具体的
+2935	brick	砖块
+2937	patch	补丁，小块
+2940	recording	录音
+2957	coal	煤 *
+2977	container	容器
+2989	rail	铁轨，栏杆 *
+3015	receiver	听筒；接收器
+3033	log	日志；原木
+3052	pump	泵
+3062	export	出口，出口商品
+3114	dose	剂量 *
+3139	lens	透镜，镜片；（照相机等的）镜头 *
+3165	crystal	水晶
+3170	pen	钢笔
+3191	mud	泥
+3192	infrastructure	基础设施
+3199	re	关于（re:） *
+3238	pad	垫子；便签本
+3254	particle	颗粒
+3334	fluid	液体
+3338	sodium	钠
+3345	hook	钩
+3350	exit	出口
+3354	pickup	皮卡（车）；接人
+3359	portfolio	作品集；投资组合；公事包 *
+3372	doll	洋娃娃 *
+3387	oxygen	氧
+3406	doorway	门口
+3419	envelope	信封
+3426	bath	浴缸；洗澡
+3456	candle	蜡烛
+3462	garbage	垃圾
+3474	starter	启动器；开胃菜
+3488	assembly	集会；组装
+3504	toilet	马桶；厕所
+3530	kit	成套工具，套件
+3552	diamond	钻石
+3554	import	进口，进口商品
+3558	cart	手推车；运货马车 *
+3584	output	输出
+3599	bow	弓
+3629	refrigerator	电冰箱
+3639	cage	笼
+3643	rack	架 *
+3692	clip	夹子；片段
+3721	aluminum	铝
+3732	loop	环，循环
+3742	jar	广口瓶
+3779	booth	摊位，隔间 *
+3780	helmet	头盔
+3791	cord	电线，绳 *
+3822	pin	大头针
+3829	purse	钱包 *
+3831	liquid	液体
+3845	filter	过滤器
+3867	dam	水坝 *
+3879	trash	垃圾
+3885	pencil	铅笔
+3887	spray	喷雾，喷洒
+3903	mill	磨坊、碾磨机；工厂（尤指纺织厂、造纸厂、钢厂） *
+3931	sack	麻布袋；大口袋 *
+3934	tray	托盘 *
+3948	aisle	过道 *
+3968	ladder	梯
+4029	debris	碎片 *
+4030	rod	竿 *
+4032	ash	灰
+4037	commodity	商品，货物；大宗商品 *
+4039	mineral	矿物 *
+4077	outlet	插座；出口
+4106	butt	屁股；烟蒂 *
+4136	brake	刹车
+4154	thread	线
+4166	regulator	调节器
+4182	fragment	碎片
+4183	screw	螺丝；拧
+4191	drill	钻头；操练 *
+4201	clay	黏土 *
+4202	balloon	气球
+4207	disc	圆盘；圆片 *
+4215	rubber	橡胶
+4234	marker	记号笔；标记
+4236	bucket	桶
+4240	marble	大理石 *
+4255	ribbon	丝带
+4293	tile	瓷砖 *
+4311	bolt	螺栓；门闩 *
+4312	cargo	货物
+4332	bronze	青铜 *
+4367	brass	黄铜 *
+4370	anchor	锚
+4376	videotape	录相磁带
+4408	locker	储物柜，带锁储物柜 *
+4433	suspension	悬挂 *
+4451	copper	铜 *
+4493	hydrogen	氢
+4518	junk	垃圾
+4524	stamp	邮票；印章
+4556	pipeline	管道
+4567	ink	墨水
+4585	condom	避孕套
+4600	pesticide	杀虫剂；农药 *
+4637	fountain	喷泉；源泉 *
+4652	graphic	图形；生动的
+4658	cane	手杖 *
+4685	banner	旗帜
+4702	bead	珠子
+4724	shotgun	霰弹枪
+4754	tub	桶、盆；（口）浴缸 *
+4762	tin	锡 *
+4764	lime	石灰 *
+4778	holder	支架；持有者
+4813	detector	探测器
+4837	modem	调制解调器
+4853	fireplace	壁炉
+4862	poison	毒药
+4890	microphone	麦克风
+4902	wallet	皮夹
+4905	scrap	碎片、小块；废料、废金属 *
+4927	calcium	钙
+4933	gravel	砾石，碎石（铺路用的粗砂石）；用碎石铺（路） *
+4935	textile	纺织品
+4949	skillet	（长柄）平底煎锅，煎锅（美式常用；英式多用 frying pan） *
+4955	mat	垫子，地垫（门口、浴室、瑜伽用的垫）；衬垫 *
+4971	crust	外壳；面包皮 *
+4977	umbrella	伞
+5005	cigar	雪茄
+5016	dioxide	二氧化物
+5031	fax	传真
+5070	machinery	机器
+5076	terminal	终端机
+5095	balcony	阳台 *
+5123	generator	发电机
+5148	laptop	笔记本电脑
+5155	setup	设置；装备
+5157	cone	圆锥体 *
+5165	nitrogen	氮 *
+5182	footage	影像素材
+5192	strap	带 *
+5218	valve	阀，阀门；（心脏、血管等的）瓣膜 *
+5252	lounge	休息室；闲逛 *
+5253	stool	凳子 *
+5270	linen	亚麻布 *
+5271	ozone	臭氧 *
+5279	recorder	录音机；记录员
+5291	hedge	树篱
+5298	appliance	家用电器
+5304	gauge	测量仪器（仪表、量规）；标准、尺度 *
+5340	mold	模具；霉
+5345	ramp	斜坡 *
+5347	mug	马克杯
+5350	controller	控制器
+5357	watercolor	水彩颜料
+5371	quilt	棉被 *
+5387	decoration	装饰
+5401	stereo	立体声音响；立体声的 *
+5402	velvet	天鹅绒 *
+5407	compost	堆肥 *
+5421	foam	泡沫 *
+5433	interface	界面
+5465	saddle	马鞍；（自行车、摩托车等的）车座 *
+5470	hose	水管 *
+5475	hammer	锤
+5503	coffin	棺材 *
+5517	magnet	磁铁
+5529	stripe	斑纹 *
+5547	reactor	反应堆
+5585	implant	植入物
+5603	flashlight	手电筒
+5613	cement	水泥 *
+5649	accessory	配件，饰品
+5665	backpack	远足用的背包
+5672	diesel	柴油
+5739	motif	图案，母题 *
+5763	cleaner	清洁剂；清洁工
+5764	hub	枢纽，中心 *
+5765	compartment	分隔间 *
+5792	firearm	火器
+5801	hurdle	障碍 *
+5803	canoe	独木舟 *
+5841	ivory	象牙 *
+5851	rag	碎布 *
+5855	stall	摊位，货摊 *
+5877	backdrop	背景幕、舞台后景；比喻义：（事件的）背景、大环境 *
+5881	modeling	建模；模特
+5888	shooter	射手
+5899	foil	箔 *
+5901	bearing	轴承；举止 *
+5903	bunker	掩体，沙坑 *
+5929	siren	警报器
+5992	granite	花岗岩
+6045	dice	骰子 *
+6058	ditch	沟渠 *
+6066	cushion	垫子 *
+6123	shipment	装运，货物
+6132	apparatus	装置 *
+6148	slack	松弛；懈怠 *
+6160	staple	主要产品；主食；订书钉 *
+6169	windshield	挡风玻璃
+6187	vase	花瓶
+6188	canopy	顶篷，树冠 *
+6190	staircase	楼梯
+6191	fixture	固定装置 *
+6199	merchandise	商品 *
+6222	membrane	薄膜 *
+6240	saucepan	深平底锅
+6262	antenna	（昆虫等的）触角；天线（复数常作 antennas） *
+6283	billboard	广告牌 *
+6299	napkin	餐巾 *
+6318	torch	火把，火炬；（英式）手电筒 *
+6342	platter	大浅盘 *
+6344	pearl	珍珠
+6349	sewage	污水；下水道污物 *
+6362	wax	蜡 *
+6367	crap	垃圾；胡扯 *
+6369	shovel	铲
+6372	puppet	傀儡
+6374	freezer	冷冻柜
+6379	filling	填充物；馅
+6387	throne	王座
+6391	diaper	尿布 *
+6398	glue	胶，胶水，黏合剂；粘合，粘贴 *
+6409	turbine	涡轮机 *
+6413	baggage	行李
+6446	formulation	制定；配方
+6447	diagram	图表
+6483	raft	筏
+6547	roadside	路旁
+6552	charcoal	木炭、炭；炭笔 *
+6570	sewer	下水道 *
+6574	slab	（厚而宽的）平板、板坯；（食物）一大块/厚片 *
+6594	capsule	胶囊
+6598	lever	杠杆、杠杆装置；（操纵用的）手柄、控制杆 *
+6650	rubble	碎石，瓦砾；（建筑倒塌后的）废墟 *
+6678	residue	残渣
+6697	facade	立面；表面 *
+6700	vent	排气口 *
+6710	loading	装载
+6711	binoculars	双筒望远镜 *
+6713	paste	糊状物，糨糊；（面团状的）糊 *
+6747	railing	栏杆 *
+6754	briefcase	公事包 *
+6755	pollutant	污染物质
+6774	maze	迷宫
+6789	snapshot	快照
+6814	parcel	包裹 *
+6823	ornament	装饰品 *
+6865	pedal	踏板
+6872	crate	板条箱 *
+6873	uranium	铀 *
+6879	ceramic	陶瓷的 *
+6914	aspirin	阿斯匹林
+6918	pier	码头 *
+6919	nickel	镍 *
+6926	tablet	药片；平板电脑
+6936	cardboard	薄纸板 
+6973	catalyst	触媒 *
+6982	grease	油脂
+7008	casting	铸件；选角 *
+7010	compass	指南针 *
+7019	podium	讲台，领奖台；（建筑）墩座，基座 *
+7021	hoop	箍，圈，环；（篮球）篮圈 *
+7029	neon	氖 *
+7048	gig	（音乐、喜剧等的）现场演出，专场演出；（零工经济中的）临时工作，零工 *
+7081	plow	犁
+7091	cooler	冷藏箱；冷却器
+7099	souvenir	纪念品 *
+7100	slate	板岩 *
+7105	plank	厚木板 *
+7123	headlight	前灯
+7153	petroleum	石油 *
+7172	poker	扑克；拨火棍 *
+7175	seam	缝合线
+7221	porcelain	瓷器 *
+7228	scanner	扫描仪
+7245	cassette	盒式磁带 *
+7248	lighter	打火机
+7249	carving	雕刻品 *
+7258	burner	燃烧器
+7267	paperback	平装本 *
+7273	plaster	石膏 *
+7295	stainless	不锈的；无瑕疵的 *
+7308	vapor	蒸汽，水汽；（物质的）气态，蒸气 *
+7313	rig	钻井平台；装置 *
+7318	mortar	砂浆；臼 *
+7323	asphalt	柏油 *
+7343	chimney	烟囱 *
+7344	lantern	灯笼 *
+7403	ethanol	乙醇 *
+7415	crane	起重机
+7416	coating	涂层 *
+7448	vault	金库；穹顶 *
+7461	nylon	尼龙 *
+7504	handkerchief	手帕
+7520	metallic	金属的；含金属的 *
+7578	toxin	毒素 *
+7612	seating	座位安排
+7619	rein	缰绳；（常复数）控制权、驾驭手段 *
+7638	helm	舵 *
+7642	cradle	摇篮 *
+7710	heater	加热器
+7734	gel	凝胶、胶体（如发胶、凝胶剂）；形成凝胶 *
+7748	buffer	缓冲器
+7751	handgun	手枪
+7786	hinge	铰链 *
+7789	graffiti	墙上乱写乱画的东西 *
+7806	wreckage	残骸 *
+7841	plumbing	管道设备
+7878	bunk	铺位 *
+7891	blender	搅拌机
+7896	scissors	剪刀 *
+7906	plywood	夹板 *
+7932	dye	染料，染液；给……染色，染 *
+7953	hardwood	硬木材
+7956	asbestos	石棉 *
+7960	blockbuster	大片，轰动之作 *
+7964	grit	砂砾；毅力 *
+7970	puddle	水坑 *
+7971	obstruction	障碍物 *
+7982	mailbox	邮筒
+7983	by-product	副产品
+7991	shutter	百叶窗；窗板 *
+8046	bouquet	花束 *
+8051	chalk	粉笔；白垩 *
+8055	pigment	色素；颜料（尤指不溶于水的着色物质） *
+8057	furnace	熔炉 *
+8063	gadget	小装置，小玩意
+8157	limestone	石灰石
+8161	portal	门户网站；入口
+8185	coil	（名词）线圈、卷；（动词）盘绕、卷成圈 *
+8213	replica	复制品 *
+8225	carton	硬纸盒 *
+8238	sponge	海绵 *
+8241	limo	豪华轿车（加长型） *
+8245	fridge	电冰箱
+8278	pouch	小袋 *
+8280	cupboard	碗橱 *
+8306	hanging	悬挂；绞刑 *
+8314	satin	缎子；（作定语）缎面的、光滑如缎的 *
+8330	placebo	安慰剂；起安慰作用的事物 *
+8352	lining	衬里 *
+8432	freshwater	淡水的 *
+8435	kite	风筝
+8457	sulfur	硫 *
+8467	chlorine	氯 *
+8497	casket	棺材，灵柩；小匣子（旧） *
+8506	mower	割草机
+8508	rusty	生锈的
+8511	limousine	豪华轿车，加长轿车 *
+8527	dryer	干衣机
+8528	foyer	（剧院、酒店、公寓等的）门厅，前厅，入口大厅 *
+8540	jug	（带把手和嘴的）大壶，罐；（美式英语）大罐 *
+8575	parachute	降落伞 *
+8579	precursor	先驱，前身 *
+8589	vinyl	乙烯基；乙烯基塑料（尤指唱片用 PVC 材料） *
+8597	treadmill	跑步机 *
+8614	partition	隔板；分割
+8630	silicon	硅 *
+8637	platinum	铂，白金；铂金色的 *
+8650	loaded	装载的；有钱的
+8660	armchair	扶手椅
+8663	bathtub	浴缸
+8664	walkway	走道
+8685	wallpaper	壁纸
+8689	oxide	氧化物 *
+8698	manure	粪肥 *
+8727	wreath	花环、花冠（环形装饰，用花、叶、枝条编成）；花圈（尤指丧葬用） *
+8730	enclosure	围栏 *
+8731	disposable	一次性的，用完即弃的；可自由支配的（收入） *
+8739	typewriter	打字机
+8775	soundtrack	配乐
+8777	condominium	公寓（产权房） *
+8781	decor	装饰风格 *
+8782	wiring	线路 *
+8862	mike	麦克风；偷懒（罕） *
+8863	yeast	酵母 *
+8864	powdered	粉状的
+8887	emblem	徽章，象征 *
+8890	gateway	门户；出入口 *
+8935	denim	斜纹粗棉布 *
+8949	infusion	注入，灌输（思想、资金、活力等）；浸泡，泡制 *
+8968	shampoo	洗发水
+8970	mosaic	马赛克 *
+8972	chandelier	枝形吊灯 *
+9026	stairway	楼梯
+9030	dope	毒品；笨蛋 *
+9064	handmade	手工的
+9095	slug	蛞蝓；子弹；猛击 *
+9096	ho	妓女（俚）
+9108	minivan	小型厢式旅行车，多功能休旅车（北美常用）；小型客货两用车 *
+9117	polymer	聚合物 *
+9124	rust	锈
+9125	nicotine	尼古丁 *
+9127	conglomerate	企业集团
+9153	packing	包装
+9164	projector	投影仪
+9205	contaminant	污染物 *
+9235	plaid	格子花呢（尤指苏格兰格子布）；格子花呢的、方格花纹的 *
+9242	wrench	扳手；猛拧 *
+9245	pixel	像素
+9270	zinc	锌 *
+9293	gritty	有砂砾的 *
+9310	pentagon	五边形；五角大楼（美国国防部） *
+9311	cellphone	手机
+9316	biomass	生物量；生物质 *
+9324	cubicle	（办公室、图书馆等处用隔板隔出的）小隔间，格子间；更衣室的小隔间 *
+9335	pedestal	（雕像、柱子等的）基座，底座；引申为备受推崇的地位 *
+9338	cot	行军床，简易床；婴儿床（英） *
+9343	scroll	卷轴
+9384	rafter	椽 *
+9394	lotion	护肤液 *
+9421	bumper	（汽车前后的）保险杠；丰盛的、创纪录的（作形容词时） *
+9434	electrode	电极 *
+9472	syringe	注射器 *
+9489	hearth	壁炉边 *
+9504	faucet	水龙头 *
+9510	shard	（陶瓷、玻璃、金属等的）碎片，破片；也可指考古中的陶片 *
+9523	wrapper	包装纸
+9538	doorstep	门阶
+9553	kettle	水壶 *
+9556	saucer	茶碟 *
+9585	second-hand	二手的
+9589	funnel	漏斗 *
+9624	vial	小瓶 *
+9660	boiler	锅炉；热水器 *
+9677	gutter	排水沟 *
+9678	leash	皮带（牵狗用） *
+9682	pane	窗玻璃 *
+9698	stairwell	楼梯井 *
+9727	plutonium	钚 *
+9752	mulch	（园艺）覆盖物，护根物；（作动词）给……覆盖护根物 *
+9795	trappings	服饰，装饰 *
+9796	dagger	匕首 *
+9799	revolver	左轮手枪 *
+9800	sweatshirt	圆领运动衫
+9819	overlapping	重叠
+9827	hem	下摆，褶边 *
+9830	dugout	防空壕 *
+9835	padded	有衬垫的
+9839	shortcut	捷径
+9846	timer	计时器
+9850	repository	储藏库，仓库
+9859	collage	拼贴画 *
+9866	shingle	（屋顶、外墙用的）木瓦，墙面板；小卵石 *
+9868	canister	罐 *
+9878	showroom	展厅
+9909	methane	甲烷 *
+9912	bedding	床上用品，寝具（床单、被套、枕套等）；铺垫物 *
+9917	throttle	节流阀，油门（控制发动机进气/供油量的装置）；使节流、抑制 *
+9931	antioxidant	抗氧化剂 *
+9945	bookshelf	书架
+9952	bulldozer	推土机 *
+9954	graphite	石墨 *
+9967	headset	头戴式耳机；头戴式送受话器（含麦克风） *
+9976	titanium	钛 *
+9982	handcuff	手铐（常用复数 handcuffs）；给……戴手铐 *
+9990	galley	（古代）桨帆船、单层甲板大帆船；（船/飞机上的）厨房 *
+10026	barricade	路障 *
+10063	ax	斧头
+10081	sunscreen	防晒霜 *
+10085	slit	裂缝 *
+10101	eyepiece	目镜 *
+10102	axe	斧
+10109	parchment	羊皮纸 *
+10113	oily	油质的
+10115	flagship	旗舰 *
+10154	wad	一叠，一团 *
+10174	tablecloth	台布 *
+10177	accelerator	油门；加速器
+10194	bale	（棉花、干草等压紧捆扎的）大包，捆；打成大包 *
+10235	antidote	解毒剂；抗毒药 *
+10249	labyrinth	迷宫 *
+10253	headphone	耳机
+10254	lcd	液晶显示器
+10291	dashboard	仪表板
+10311	prosthesis	假肢；假体（人造身体部件） *
+10317	crutch	拐杖 *
+10322	solvent	溶剂 *
+10363	depot	仓库，库房；（公共汽车）车库，车辆段 *
+10364	easel	画架 *
+10365	stretcher	担架 *
+10368	coupling	联结，结合；耦合 *
+10379	tripod	三脚架；（摄影、测绘用的）三脚支架 *
+10382	glucose	葡萄糖 *
+10426	wicker	柳条 *
+10434	dishwasher	洗碗机
+10438	ipod	苹果公司音乐播放器
+10452	nitrate	硝酸盐 *
+10466	mast	船桅，桅杆；〈集合名词〉橡树、山毛榉等的果实（橡子、栗子等，作猪饲料） *
+10481	alloy	合金 *
+10496	ore	矿石 *
+10507	doorbell	门铃
+10512	handbag	手提包
+10535	helium	氦 *
+10551	fencing	击剑；栅栏 *
+10592	opium	鸦片 *
+10603	tar	焦油，沥青（黏稠黑色物质）；涂焦油于 *
+10612	sludge	污泥 *
+10625	latch	门闩 *
+10637	bullpen	（美）牛栏，公牛圈；（棒球）投手练习区，牛棚 *
+10645	flannel	法兰绒 *
+10658	incense	香 *
+10664	plush	长毛绒制的 *
+10671	nonstick	（锅具等）不粘的，防粘的 *
+10681	chrome	铬 *
+10699	amino	氨基的；含氨基的 *
+10744	fender	挡泥板 *
+10752	resin	树脂 *
+10759	conduit	管道，导管（输送水、电线的管子）；(喻) 渠道，中介 *
+10760	teddy	泰迪熊；睡衣 *
+10761	mammogram	乳房X光检查
+10765	ashtray	烟灰缸 *
+10776	arcade	游戏厅；拱廊 *
+10785	morgue	太平间，停放待辨认或待解剖尸体的场所；（喻）资料库，冷清的场所 *
+10788	sill	窗台，窗台板；（门等的）门槛，底框 *
+10810	magnesium	镁 *
+10837	tubing	管材；管料 *
+10841	dynamite	炸药 *
+10850	detour	绕路 *
+10861	potassium	钾 *
+10887	engraving	雕刻
+10945	casing	外壳；套管 *
+10947	sandstone	砂岩
+10949	wand	魔杖 *
+10958	dumbbell	哑铃
+10978	brim	帽檐，边 *
+10984	crayon	蜡笔 *
+10985	baton	指挥棒 *
+10996	rotor	转子 *
+10998	handlebar	车把
+11040	sham	赝品，假货
+11065	emerald	祖母绿，绿宝石；翠绿色（的） *
+11067	passageway	通道
+11095	firewood	木柴
+11105	moderator	主持人；调解人
+11134	tarp	防水布 *
+11138	propeller	螺旋桨 *
+11153	ammonia	氨，氨气；氨水（ammonia water/solution） *
+11157	connector	连接器
+11198	bookcase	书架
+11207	pinnacle	顶峰
+11217	pendulum	钟摆
+11219	silicone	硅树脂
+11239	detergent	洗涤剂
+11240	aperture	光圈；孔径
+11241	ta	谢谢（英口语）
+11260	peg	木钉，挂钩
+11262	sheath	鞘
+11283	utensil	器皿
+11292	countertop	台面
+11307	stucco	粉饰灰泥
+11328	binder	活页夹；黏合剂
+11330	skewer	烤肉签
+11376	launcher	发射器
+11378	acrylic	丙烯酸的
+11382	arsenic	砷
+11405	waxed	上过蜡的
+11416	tabletop	桌面
+11417	microprocessor	微处理器
+11420	windmill	风车
+11433	venom	毒液
+11474	cork	软木塞
+11477	teapot	茶壶
+11484	reflector	反射镜
+11499	inhibitor	抑制剂
+11500	camcorder	摄录像机
+11522	loudspeaker	扬声器
+11526	layered	层状的
+11538	simulator	模拟器
+11540	chime	钟声
+11577	contraceptive	避孕剂
+11604	cobalt	钴
+11609	holster	手枪皮套
+11679	led	发光二极管；带领
+11689	marquee	招牌；大帐篷
+11772	cadmium	镉
+11773	figurine	小雕像
+11815	axle	轴
+11820	urn	瓮
+11826	stripper	脱衣舞女；剥离剂
+11832	muck	淤泥，脏东西
+11862	sprinkler	洒水器
+11863	wiry	瘦而结实的
+11865	scuba	自携式水中呼吸器
+11866	linoleum	油地毡
+11882	polyester	聚酯
+11895	kiosk	报刊亭；自助终端
+11912	intercom	对讲机
+11931	pendant	吊坠
+11935	radiator	暖气装置
+11942	monoxide	一氧化物
+11944	skylight	天窗
+11954	spade	铲子
+11964	nozzle	喷嘴
+11966	cashmere	开司米（羊绒）
+11992	fiberglass	玻璃纤维
+11995	veneer	饰面薄板
+11997	wastewater	废水
+12002	siding	侧线
+12003	chassis	底盘
+12009	fore	前部，前
+12012	crepe	绉丝
+12046	veranda	阳台
+12049	mantel	壁炉架
+12051	spatula	刮刀
+12057	kerosene	煤油
+12071	clipboard	有纸夹的写字板
+12074	rna	核糖核酸
+12087	starch	淀粉
+12110	tnt	梯恩梯
+12111	heavy-duty	重型的
+12119	saxophone	萨克斯管
+12138	wafer	薄酥饼
+12163	bathrobe	浴衣
+12174	hydrocarbon	碳氢化合物
+12200	tombstone	墓石
+12218	padding	垫充
+12220	piping	管道，配管
+12222	spire	尖塔
+12227	substrate	底层
+12232	coffer	保险箱，金库
+12248	rusted	生锈的
+12255	cooker	锅，炉灶
+12257	alcove	凹室
+12270	spoke	轮辐
+12294	latex	乳胶
+12306	toothpick	牙签
+12324	bran	糠
+12342	tweed	花呢
+12357	screwdriver	螺丝起子
+12391	filament	细丝
+12446	herbicide	除草剂
+12449	rung	梯级
+12461	mouthpiece	话筒；代言人
+12505	visor	帽檐，遮阳板
+12528	coke	可乐；焦炭
+12531	wrapping	用于包裹的材料
+12537	horseshoe	马蹄铁
+12541	pager	传呼机
+12544	scaffolding	脚手架
+12554	cpu	中央处理器
+12555	ruby	红宝石
+12572	turquoise	绿松石
+12635	buzzer	蜂鸣器
+12651	flask	细颈瓶
+12670	entrant	参赛者，新加入者
+12685	sawdust	锯屑
+12692	rainwater	雨水
+12704	felt	毛毡
+12706	toothpaste	牙膏
+12735	pail	桶
+12757	floorboard	一块地板
+12758	windowsill	窗台
+12770	headdress	头饰
+12833	overload	超载
+12836	airlock	气闸
+12845	peat	泥煤
+12852	payload	有效载荷
+12854	streetlight	街灯
+12855	phosphorus	磷
+12859	turret	炮塔；角楼
+12871	effluent	废水，污水
+12891	diaphragm	横膈膜；隔膜
+12918	husk	外壳
+12922	stubble	胡茬；残茬
+12932	insecticide	杀虫剂
+12965	jukebox	自动唱机
+12966	doorknob	球形门拉手
+12968	balm	镇痛软膏
+12979	oar	桨
+13043	dung	粪
+13053	eyeglass	眼镜
+13069	duffel	粗呢袋
+13073	contraption	外形奇怪的机器
+13074	starboard	右舷
+13081	vestibule	前庭
+13099	netting	网
+13120	soot	煤烟
+13174	sash	腰带；窗框
+13197	noose	绞索
+13215	removable	可移去的
+13223	compressor	压缩机
+13225	filler	填充物
+13240	bleach	漂白剂
+13267	audiotape	录音磁带
+13281	blower	鼓风机
+13297	gauze	纱布
+13323	ballast	压载物
+13336	mainframe	主机
+13341	corral	畜栏
+13349	carpeting	地毯料
+13382	leaky	有漏洞的
+13388	masonry	砖石工程
+13390	sonar	声纳
+13395	propane	丙烷
+13426	adobe	土坯
+13436	rubbish	废物
+13437	shale	页岩
+13453	bayonet	刺刀
+13460	toaster	烤面包机
+13466	steely	钢铁般的
+13473	drapery	帷幔，窗帘
+13474	incinerator	焚烧炉
+13481	cameo	刻有浮雕的宝石或贝壳
+13483	cobblestone	圆石
+13498	hemp	大麻
+13499	furrow	犁沟
+13549	suede	绒面革
+13555	polygraph	测谎仪
+13613	cluttered	杂乱的
+13620	piston	活塞
+13645	cleat	楔子
+13646	woodwork	木制品
+13668	scalpel	解剖刀
+13669	paraphernalia	随身用具
+13678	incubator	孵化器
+13681	twine	麻绳
+13700	scrapbook	剪贴簿
+13701	varnish	清漆
+13728	cast-iron	铸铁的
+13741	boater	船夫；平顶草帽
+13742	filth	污秽
+13747	slat	条板
+13762	tongs	钳子
+13790	gurney	轮床
+13803	converter	转换器
+13809	isotope	同位素
+13813	terra-cotta	赤陶
+13822	pivot	支点；核心
+13825	aerosol	气雾剂
+13856	awning	遮篷
+13857	entanglement	纠缠；牵连
+13874	garland	花环
+13889	hopper	料斗
+13972	dumpster	废料箱
+13973	chloride	氯化物
+13977	amplifier	放大器
+13988	hoe	锄头
+13998	iodine	碘
+13999	broiler	烤炉；肉鸡
+14001	pike	长矛
+14009	stainless-steel	不锈钢
+14010	particulate	微粒
+14013	gourd	葫芦
+14034	thermostat	恒温器
+14035	ready-made	现成的
+14039	telegraph	电报
+14043	bulkhead	舱壁
+14050	scoreboard	记分板
+14067	roofing	屋顶材料
+14068	glassy	玻璃般的
+14082	canteen	食堂；水壶
+14129	sickle	镰刀
+14145	circuitry	电路
+14169	headstone	墓石
+14180	grille	格栅
+14203	fleece	羊毛
+14224	jigsaw	拼图；线锯
+14236	saber	军刀
+14246	slime	黏液
+14253	sampler	采样器
+14258	packaged	包装过的
+14269	lithium	锂
+14296	springboard	跳板
+14314	projectile	抛射物
+14319	catheter	导管
+14323	pulley	滑轮
+14328	machete	大砍刀
+14329	chariot	二轮战车
+14342	silt	淤泥
+14380	dispenser	分配器
+14394	lifeboat	救生艇
+14411	router	路由器
+14466	inset	插入物
+14476	overhang	悬垂部分
+14488	handiwork	手工制品
+14519	semi-automatic	半自动的
+14559	yoke	轭
+14566	tanned	晒黑的
+14575	silverware	银器
+14623	ventilator	通风设备
+14652	catwalk	天桥，T台
+14662	brine	盐水
+14695	corduroy	灯芯绒
+14702	curbside	路边
+14703	kiln	窑
+14728	woolly	羊毛制的
+14736	sauna	桑拿浴
+14746	gelatin	明胶
+14772	skiff	小艇
+14776	respirator	呼吸器
+14781	abrasive	磨料；粗糙的
+14787	barometer	气压计
+14794	snippet	片段
+14796	litmus	石蕊
+14806	goblet	高脚杯
+14815	lubricant	润滑剂
+14816	fuselage	机身
+14830	milling	碾磨
+14839	gunpoint	枪口
+14860	spool	线轴
+14880	pvc	聚氯乙烯
+14893	cam	凸轮
+14896	forgery	伪造品
+14900	glider	滑翔机
+14906	silo	筒仓
+14913	matte	哑光的
+14957	entryway	入口通道
+14964	rudder	舵
+14972	cornstarch	玉米淀粉
+14976	lsd	迷幻剂烈性麻醉药
+14982	paneling	镶板
+14994	quartz	石英
+14998	eraser	橡皮擦
+15033	feces	粪
+15036	woolen	羊毛的
+15050	duplication	重复，复制
+15096	newsprint	新闻纸
+15110	sheaf	束
+15114	ointment	软膏
+15131	pda	个人数字助手
+15138	repellent	驱虫剂；防水布
+15140	standby	备用；待命
+15185	ether	醚
+15201	supercomputer	巨型计算机
+15206	wheelbarrow	手推车
+15239	clothesline	晒衣绳
+15243	bedspread	床罩
+15270	halter	缰绳；吊带衫
+15278	satchel	挎包
+15280	transducer	换能器
+15303	clapboard	护墙板
+15385	tusk	象牙，獠牙
+15405	snowshoe	雪鞋
+15409	topsoil	表土
+15410	headboard	床头板
+15415	phosphate	磷酸盐
+15424	gunpowder	火药
+15443	thermos	热水瓶
+15469	stilt	高跷
+15473	chromium	铬
+15502	shoddy	劣质的
+15545	knitting	编织
+15550	peptide	肽
+15563	brownstone	褐砂石
+15601	firecracker	爆竹
+15629	wristwatch	手表
+15631	hilt	剑柄
+15643	adhesive	粘合剂
+15645	amalgam	汞合金
+15649	articulated	铰接式的
+15654	disinfectant	消毒剂
+15657	preservative	防腐剂
+15710	actuator	执行器
+15730	sapphire	蓝宝石
+15742	allergen	过敏原
+15753	toolbox	工具箱
+15785	wharf	码头
+15810	cusp	尖端；转折点
+15813	knapsack	背包
+15837	wayside	路旁
+15854	inlaid	嵌入的
+15881	shipwreck	沉船；海难
+15896	wired	接线的；亢奋的
+15899	lance	长矛
+15910	microchip	微型集成电路片
+15915	chiffon	雪纺绸
+15926	mallet	木槌
+15927	wick	灯芯
+15947	lacquer	漆
+15973	transformer	变压器
+15975	transom	气窗，横梁
+15988	goo	粘性物
+15991	sieve	筛子
+16002	sandbag	沙袋
+16004	custom-made	定做的
+16006	hardcover	硬封面的书
+16012	bandanna	印花大手帕
+16019	patina	铜绿
+16064	gizmo	小发明
+16119	flint	打火石
+16125	breech	后膛
+16149	trinket	小件饰物
+16154	candlestick	烛台
+16167	notepad	记事本
+16169	saltwater	盐水的
+16183	silken	丝的
+16201	gilt	镀金
+16204	trawl	拖网
+16218	hatchet	斧头
+16226	darkroom	暗房
+16234	cyanide	氰化物
+16235	cauldron	大锅
+16243	harem	后宫；闺房
+16245	blown	吹制的；喘不过气
+16255	bleached	漂白的
+16256	beehive	蜂窝
+16303	alum	明矾
+16311	swab	药签，拭子
+16317	paving	铺路材料
+16346	impurity	杂质
+16382	radon	氡
+16387	recliner	躺椅
+16389	pliers	钳子
+16398	anvil	铁砧
+16404	headband	发带
+16416	dioxin	二噁英
+16433	chalkboard	黑板
+16434	pillowcase	枕套
+16441	strainer	滤网
+16443	gumbo	秋葵汤
+16446	cleanser	清洁剂
+16453	scaffold	脚手架
+16455	wrought-iron	熟铁
+16462	receptacle	插座；容器
+16465	analyzer	分析仪
+16470	stethoscope	听诊器
+16474	mausoleum	陵墓
+16475	reusable	可以再度使用的
+16477	snowman	雪人
+16492	earthen	土制的
+16506	turntable	转盘；唱机
+16511	astrodome	天体观测窗
+16524	handset	听筒；手机
+16528	cfc	氯氟烃（CFC）
+16544	tightrope	钢丝绳
+16545	smokestack	烟囱
+16554	untapped	未开发的
+16568	storeroom	储藏室
+16577	tiled	用砖瓦覆盖的
+16580	mortuary	停尸间
+16597	driftwood	漂流木
+16613	crypt	地下室；地穴
+16631	pneumatic	充气的
+16634	gazebo	凉亭
+16649	cobweb	蜘蛛网
+16652	sequin	亮片
+16653	blacktop	沥青
+16656	shanty	棚屋
+16660	crock	陶罐
+16663	sari	纱丽
+16684	archway	拱门
+16685	ark	方舟
+16698	scarecrow	稻草人
+16706	gong	铜锣
+16725	earphone	耳机
+16728	washcloth	洗脸巾
+16787	brainchild	创意成果
+16790	turpentine	松节油
+16821	slush	雪泥，泥浆
+16830	facsimile	传真；摹本
+16833	photocopy	影印
+16834	settee	长靠背椅
+16865	flipper	脚蹼；鳍
+16867	hologram	全息照相图
+16872	jade	玉
+16873	defibrillator	除颤器
+16919	multipurpose	多用途的
+16943	chainsaw	链锯
+16957	amulet	护身符
+16984	gravestone	墓石
+16996	monolith	巨型独石
+16997	detritus	碎石
+17030	effigy	画像，模拟像
+17036	clockwork	钟表装置
+17039	assistive	辅助的
+17053	damper	减震器；扫兴的人
+17064	double-edged	双刃的
+17065	dilution	稀释
+17083	extinguisher	灭火器
+17084	workhorse	主力，骨干
+17094	sideboard	餐具柜
+17112	burlap	粗麻布
+17134	fragmentary	碎片的
+17168	cellophane	玻璃纸
+17180	clipper	剪刀；快船
+17182	sandpaper	砂纸
+17219	jetty	突堤
+17232	lightbulb	灯泡
+17242	spectrometer	分光计
+17243	wok	炒锅
+17245	corkscrew	拔塞钻
+17292	perforation	穿孔
+17309	quill	羽毛笔
+17351	glassware	玻璃器具
+17354	joystick	操纵杆
+17358	joist	托梁
+17367	methadone	美沙酮
+17368	sandbox	沙箱
+17374	stirrup	马镫
+17381	regalia	盛装；徽记
+17397	bulwark	舷墙；堡垒
+17404	paintbrush	画笔
+17424	peroxide	过氧化物
+17428	adornment	装饰品
+17439	copier	复印机
+17441	rigging	索具
+17464	pewter	白镴
+17466	bridle	马勒
+17473	stiletto	短剑
+17475	keypad	键盘，按键
+17533	counterweight	配重
+17538	dais	讲台
+17598	elixir	灵丹妙药
+17604	prong	叉状物
+17621	banister	栏杆的支柱

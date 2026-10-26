@@ -1,0 +1,267 @@
+﻿== 性质与状态（一般性质与状态）（266 词）==
+148	great	很好的，巨大的
+422	strong	强壮的，强烈的
+463	full	充满的
+596	current	当前的
+615	private	私人的
+795	entire	整个的
+913	tough	艰难的，坚韧的
+1302	active	活跃的
+1749	careful	小心的
+1847	weak	虚弱的
+2126	so-called	所谓的
+2154	pure	纯的
+2660	closer	更近的
+3267	drunk	喝醉了的
+3284	endless	无尽的
+3497	dynamic	动态的
+3581	talented	有天赋的
+3795	anonymous	匿名的
+3807	fixed	固定的
+3824	passing	路过的；短暂的
+3849	accessible	可到达的，易得到的
+3854	dried	干的，干燥的
+3901	innovative	革新的
+3941	emerging	新兴的
+3988	informal	非正式的
+4171	fragile	易碎的；脆弱的 *
+4994	passive	被动的
+5106	feminine	女性的
+5168	integral	不可或缺的；构成整体的 *
+5231	static	静态的
+5251	prepared	准备好的
+5428	abandoned	被抛弃的
+5430	straightforward	直接的，简单的
+5474	renewed	重新开始的，恢复的
+5530	foremost	最著名的，首要的
+5541	improving	改进中的
+5690	marked	显著的，明显的
+5713	sustained	持续的
+5836	messy	凌乱的
+5854	expanded	扩充的
+5895	flawed	有缺陷的
+5908	accepted	公认的
+5909	animated	动画的；活跃的
+5912	composite	合成的 *
+5915	enduring	持久的
+5917	unlimited	无限的
+5947	scarce	稀少的，缺乏的；难得的 *
+5950	pervasive	普遍的 *
+5951	prevailing	普遍的，占优势的
+5993	battered	破损的，磨损的；被殴打的；裹面糊炸的 *
+6026	reflective	反思的；反射的
+6028	finished	完成的
+6094	incomplete	不完全的
+6140	prevalent	普遍的
+6157	apt	恰当的；易于…的
+6176	susceptible	易受影响的
+6284	substantive	实质性的，重大的；有实质内容的 *
+6313	tangible	可触摸的，有形的；切实的 *
+6339	would-be	想要成为的，准…
+6400	unified	统一的
+6412	focal	焦点的
+6504	alternate	交替的
+6527	chaotic	混乱的
+6545	intrinsic	内在的
+6592	accidental	意外的
+6640	real-life	现实生活中的
+6853	residual	剩余的，残留的 *
+6992	struggling	挣扎的，艰难的
+7006	durable	持久的
+7009	shaky	摇晃的，不稳的 *
+7062	unseen	未被看见的
+7069	twisted	扭曲的
+7103	exhausted	筋疲力尽的
+7109	brand-new	崭新的
+7137	uneven	不平的，不均衡的
+7180	carved	雕刻的
+7192	pivotal	关键的，至关重要的；枢轴的 *
+7197	ubiquitous	无所不在的 *
+7220	systemic	系统性的
+7266	pristine	崭新的，完好如初的；原始纯净的 *
+7290	adaptive	适应性强的
+7307	superficial	肤浅的
+7345	packed	拥挤的，装满的
+7402	structured	结构化的
+7423	unfinished	未完成的
+7429	irregular	不规则的
+7529	accustomed	习惯的
+7686	rampant	猖獗的 *
+7695	nonexistent	不存在的
+7720	unchanged	无变化的
+7752	covert	隐蔽的
+7792	restricted	受限制的
+7805	mundane	平凡的，单调乏味的；现世的 *
+7823	all-purpose	通用的
+7836	outright	完全的，彻底的；直率的 *
+7858	obsolete	过时的，被淘汰的；废弃不用的 *
+7926	indispensable	不可缺少的 *
+7987	untouched	未触摸过的
+7988	lavish	大量的，丰盛的；奢华的，铺张的 *
+8021	luxurious	豪华的
+8034	irresistible	不可抵抗的
+8035	phenomenal	非凡的，惊人的
+8036	damned	该死的（加强语气）
+8112	brisk	轻快的，活跃的
+8122	open-ended	开放式的
+8150	clumsy	笨拙的；不得体的；粗笨的 *
+8154	expansive	广阔的，广泛的
+8239	powerless	无力的
+8262	cracked	有裂缝的
+8281	unnoticed	不被注意的
+8309	conspicuous	显眼的，引人注目的；明显的 *
+8393	tangled	纠缠的 *
+8412	motionless	不动的
+8419	stuck	卡住的，困住的
+8448	limiting	限制的
+8568	finite	有限的
+8619	reserved	矜持的；预订的
+8658	devoid	全无的 *
+8681	leftover	残余的 *
+8712	holistic	整体的，全面的 *
+8714	discrete	离散的；分开的，各自独立的 *
+8720	exaggerated	夸大的 *
+8758	hard-core	铁杆的，核心的；露骨的；强硬的 *
+8766	worn	磨损的；用旧的；疲惫的 *
+8767	unavailable	得不到的
+8884	forceful	有力的
+8898	thriving	兴旺的 *
+8903	adjustable	可调节的
+8917	stationary	不动的 *
+8919	palpable	可触摸的，可感知的；明显可觉的 *
+8928	stern	严厉的
+8930	engaging	动人的 *
+8974	precarious	不稳定的 *
+8995	folding	可折叠的
+9059	innate	先天的 *
+9067	fragmented	支离破碎的；碎片化的 *
+9076	unresolved	未解决的；悬而未决的 *
+9078	adept	熟练的 *
+9133	sealed	密封的
+9195	unintended	无意的，非故意的
+9221	hardy	耐寒的，强健的
+9228	unused	未使用的
+9287	taut	拉紧的，绷紧的；（气氛）紧张的 *
+9299	tattered	破烂的 *
+9392	measured	审慎的，有分寸的；有规律的 *
+9452	funky	时髦怪趣的；放克的 *
+9457	erratic	不稳定的，反复无常的；难以预测的 *
+9460	resilient	有弹性的，能恢复原状的；适应力强的 *
+9652	unprepared	无准备的
+9857	tenuous	薄弱的，牵强的；稀薄的 *
+9907	usable	可用的
+9962	gaping	张开的，豁开的；目瞪口呆的 *
+10170	pointless	无意义的，没必要的
+10275	unconditional	无条件的
+10376	staunch	坚定的，忠诚的 *
+10392	real-world	存在于现实世界的
+10459	unmarked	无标记的
+10710	impersonal	非个人的，客观冷静的；缺乏人情味的 *
+10722	seamless	无缝的
+11016	swinging	摇摆的；时髦活跃的；性观念开放的 *
+11090	unforgettable	忘不了的
+11104	overriding	最重要的，压倒性的
+11189	floppy	松软的，耷拉的；软盘 *
+11220	bumpy	颠簸的，崎岖不平的；波折不断的 *
+11247	tumultuous	动荡的，喧闹的 *
+11282	entrenched	根深蒂固的 *
+11490	idiosyncratic	独特的，特有的 *
+11621	lax	松懈的，不严格的 *
+11714	undisturbed	未被扰乱的
+11717	weakest	弱的
+11793	personalized	个人化的
+11798	replete	充满的，充盈的；饱足的 *
+11819	wacky	古怪的 *
+11823	heterogeneous	异质的，混杂的；多样的 *
+11845	sheltered	受庇护的
+11900	unrestricted	无限制的
+11933	stout	结实的 *
+11961	leisurely	悠闲的
+11963	uncontrolled	不受抑制的
+12115	unbroken	未破损的
+12123	limitless	无限的
+12140	mellow	柔和的，圆润的 *
+12189	inactive	不活动的
+12268	impenetrable	不可穿透的，难以理解的 *
+12442	intangible	无形的，触摸不到的；难以明了的 *
+12490	unchecked	未加抑制的 *
+12506	privy	知情的；私人的（古）；厕所（古） *
+12564	rife	流行的 *
+12571	unspeakable	说不出的
+12603	manly	有男子气概的
+12619	innocuous	无害的；无恶意的；无关痛痒的 *
+12640	crippling	造成严重损害的；使残废的 *
+12708	agile	敏捷的；灵活应变的；机敏的 *
+12739	grueling	极其耗费精力的；令人疲惫不堪的 *
+12762	frayed	磨损散线的；（神经）紧绷的 *
+12851	searing	灼热的；剧烈的；尖锐的 *
+12886	uninterrupted	不间断的
+12939	antiquated	陈旧的 *
+12987	irrespective	无论的（irrespective of） *
+12996	painstaking	煞费苦心的
+13108	inflatable	可充气的
+13126	nimble	敏捷的 *
+13143	tenacious	紧握的；顽强的，坚持不懈的 *
+13179	attached	附加的
+13201	grandiose	宏伟的；浮夸的，不切实际的 *
+13252	restrained	克制的
+13290	wobbly	摇晃的，不稳的；发颤的 *
+13340	emblematic	象征的 *
+13424	invincible	不能征服的 *
+13586	left-handed	左撇子的
+13907	defunct	已废止的，不复存在的；报废的 *
+13916	onerous	繁重的 *
+13924	indelible	难以消除的；不可磨灭的 *
+14062	cracking	极好的（英式口语）；开裂 *
+14131	undetected	未被发现的
+14168	ever-present	始终存在的
+14177	disordered	混乱的
+14195	boundless	无限的
+14215	weakened	虚弱的
+14218	amorphous	无定形的 *
+14285	unending	无穷尽的
+14301	unannounced	未经宣布的
+14336	impressed	印象深刻的，钦佩的 *
+14381	unfettered	自由自在的 *
+14400	boisterous	喧闹的，吵闹的；猛烈的 *
+14537	extrinsic	外在的 *
+14583	bereft	丧失的，失去的；缺乏的 *
+14587	indeterminate	不明确的 *
+14631	superfluous	多余的 *
+14672	at-large	在逃的；全区的；作为整体的 *
+14721	settled	已解决的，定居的 *
+14737	unattended	无人看管的
+14765	ordered	有序的，井然有序的
+14859	foundational	基础的
+14970	unsteady	不稳的，摇晃的；颤抖的 *
+15010	immobile	不动的 *
+15040	bottomless	无底的
+15115	unbridled	无节制的，肆无忌惮的；未套缰辔的 *
+15123	free-standing	独立的 *
+15158	anomalous	不规则的 *
+15166	liberated	被解放的；思想开明的 *
+15203	gratuitous	无端的，不必要的 *
+15247	unitary	统一的；单元的；中央集权的 *
+15276	overblown	夸大的，言过其实的；开败的 *
+15287	monotonous	单调的 *
+15288	unwritten	非书面的
+15289	tried	经过试验的；可靠的
+15332	self-imposed	自愿接受的 *
+15382	unbalanced	不平衡的
+15523	checkered	盛衰无常的 *
+15537	inflexible	不灵活的，顽固的
+15580	undiscovered	未发现的
+15637	unyielding	不易弯曲的；不屈的，不让步的 *
+15777	unplanned	无计划的
+15993	extraneous	无关的，多余的 *
+16013	unwavering	不动摇的 *
+16082	unchanging	不变的
+16429	unsettled	未解决的，不安定的 *
+16473	unopened	没有开的
+16776	empty-handed	空手的
+16895	teenaged	十几岁的
+17338	girlish	少女似的
+17364	immutable	不可变的
+17448	uncharacteristic	无典型特征的
+17489	unoccupied	空着的
+17617	old-style	旧式的

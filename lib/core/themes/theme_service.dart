@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-/// One facet of a scene — 人 / 事 / 物 / 动作 / 情况 / 虚拟.
+/// One slice of a scene. The curated COCA taxonomy is flat, so a scene holds a
+/// single group; the type stays because the JSON contract carries groups and a
+/// future taxonomy may split a theme again.
 class ThemeGroup {
   const ThemeGroup({required this.id, required this.label, required this.words});
 
@@ -14,7 +16,7 @@ class ThemeGroup {
   final List<String> words;
 }
 
-/// A situation the vocabulary belongs to — 居家生活, 校园学习, 医疗健康…
+/// A theme the vocabulary belongs to — 通用, 动作与变化, 科学与技术…
 class ThemeScene {
   const ThemeScene({
     required this.id,
@@ -41,31 +43,23 @@ class ThemeScene {
   }
 }
 
-class ThemeFacet {
-  const ThemeFacet({required this.id, required this.label});
-
-  final String id;
-  final String label;
-}
-
-/// Loads `assets/data/themes.json`, which `tool/build_themes.dart` builds from
-/// the curated lexicon in `tool/themes_lexicon.json` and the COCA frequency list.
+/// Loads `assets/data/themes.json`, which `tool/build_themes.py` builds from the
+/// curated files in `tool/coca_theme/` and the COCA frequency list.
 ///
-/// The build step validates every curated word against COCA and sorts each facet
-/// by frequency, so this class only parses — no ordering happens here.
+/// The build step validates every curated word against COCA and writes each
+/// theme in frequency order, so this class only parses — no ordering happens
+/// here.
 class ThemeService {
   static final ThemeService _instance = ThemeService._();
   factory ThemeService() => _instance;
   ThemeService._();
 
   List<ThemeScene> _scenes = const [];
-  List<ThemeFacet> _facets = const [];
   String _source = '';
   bool _loaded = false;
 
   bool get isLoaded => _loaded;
   List<ThemeScene> get scenes => _scenes;
-  List<ThemeFacet> get facets => _facets;
 
   /// Where the words came from, e.g. "COCA 20200 words" — shown in the UI so the
   /// list is never mistaken for something the dictionary supplied.
@@ -86,10 +80,6 @@ class ThemeService {
       final raw = await rootBundle.loadString('assets/data/themes.json');
       final data = jsonDecode(raw) as Map<String, dynamic>;
       _source = (data['source'] ?? '') as String;
-      _facets = [
-        for (final facet in (data['facets'] ?? const []) as List)
-          ThemeFacet(id: facet['id'] as String, label: facet['label'] as String),
-      ];
       _scenes = [
         for (final scene in (data['scenes'] ?? const []) as List)
           ThemeScene(

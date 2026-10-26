@@ -1,0 +1,787 @@
+﻿== 通用（功能词与常用副词）（786 词）==
+1	the	（定冠词）这/那
+2	be	是
+3	and	和
+4	of	……的
+5	a	一个
+6	in	在……里
+7	to	到，向
+8	have	有
+9	it	它
+10	i	我
+11	that	那个
+12	for	为了
+13	you	你
+14	he	他
+15	with	和……一起
+16	on	在……上
+17	do	做
+19	this	这个
+20	they	他们
+21	at	在
+22	but	但是
+23	we	我们
+24	his	他的
+25	from	从
+26	not	不
+27	n't	不（not 的缩写）
+28	by	由，通过
+29	she	她
+30	or	或者
+31	as	作为，如同
+32	what	什么
+34	their	他们的
+35	can	能
+36	who	谁
+38	if	如果
+39	would	将会
+40	her	她的
+41	all	全部
+42	my	我的
+44	about	关于
+47	up	向上
+50	there	那里
+52	so	所以
+54	when	当……时
+55	which	哪一个
+56	them	他们
+57	some	一些
+58	me	我
+61	out	向外
+62	into	进入
+65	him	他
+66	your	你的
+68	could	能够
+70	than	比
+72	other	其他
+73	how	如何
+74	then	然后
+75	its	它的
+76	our	我们的
+79	these	这些
+84	also	也
+86	because	因为
+89	no	不
+92	here	这里
+96	well	好
+97	only	仅仅
+98	those	那些
+100	very	非常
+101	even	甚至
+103	any	任何
+106	through	穿过
+107	us	我们
+112	may	可能
+113	after	在……之后
+114	should	应该
+117	over	在……之上
+119	still	仍然
+124	too	也，太
+128	never	从不
+130	between	在……之间
+132	really	真正地
+133	something	某事
+146	why	为什么
+157	where	在哪里
+160	every	每个
+163	might	可能
+167	against	反对
+169	such	这样的
+170	again	再次
+176	each	每个
+181	during	在……期间
+187	off	离开，关掉
+188	always	总是
+200	without	没有
+201	before	在……之前
+204	must	必须
+206	under	在……下
+225	though	虽然
+232	far	远的
+235	both	两者都
+239	since	自从
+242	around	周围
+247	away	离开
+248	until	直到
+252	often	经常
+253	yet	然而
+257	among	在……之中
+258	ever	曾经
+262	however	然而
+269	almost	几乎
+277	once	一次
+292	nothing	没有什么
+297	whether	是否
+299	together	一起
+304	anything	任何事物
+324	within	在……之内
+339	himself	他自己
+346	across	穿过
+347	although	尽管
+352	maybe	也许
+353	toward	朝向
+357	everything	一切
+361	including	包括
+364	actually	实际上
+366	probably	大概
+378	oh	哦（感叹词）
+386	someone	某人
+388	behind	在……后面
+395	yeah	是
+401	perhaps	也许
+405	else	其他
+410	sometimes	有时
+412	along	沿着
+414	themselves	他们自己
+473	especially	尤其
+485	whose	谁的
+487	everyone	每个人
+510	itself	它本身
+512	either	任一的
+515	quite	相当
+534	simply	简单地
+549	nearly	几乎
+602	anyone	任何人
+606	myself	我自己
+612	per	每一
+623	quickly	很快地
+635	upon	在……之上
+646	near	接近
+677	despite	尽管
+680	thus	如此
+682	beyond	在远处
+711	whatever	无论什么
+715	particularly	特别
+727	herself	她自己
+733	pretty	相当
+736	everybody	每个人
+745	outside	外面
+764	ok	好
+779	indeed	的确
+789	rather	宁可
+831	yourself	你自己
+840	onto	在...之上
+873	inside	在里面
+887	throughout	到处
+898	instead	作为替代
+903	somebody	某人
+919	whom	谁
+925	ahead	领先
+961	nor	也不
+992	fast	很快地
+993	alone	独自地
+1029	directly	直接地
+1038	absolutely	完全地
+1051	therefore	因此
+1057	please	请
+1059	completely	完全地
+1077	am	是（be 单数第一人称）
+1086	generally	通常
+1104	slowly	慢慢地
+1195	highly	高度地，非常
+1198	mostly	大多，主要地
+1205	unless	除非
+1247	anybody	任何人
+1259	anyway	无论如何
+1272	apparently	显然；表面上
+1275	twice	两次
+1290	hey	嗨
+1349	fully	完全地
+1429	increasingly	越来越
+1432	somewhere	到某处
+1446	carefully	小心地
+1474	straight	直的；直接地
+1481	okay	好
+1488	somehow	不知何故
+1510	being	存在
+1524	basically	基本上
+1527	anymore	再也不
+1530	possibly	可能
+1548	truly	真实地
+1570	hardly	几乎不
+1580	ought	应该
+1601	ourselves	我们自己
+1614	neither	皆不
+1650	forth	向前
+1653	except	除
+1673	entirely	完全
+1690	aside	在一边
+1691	anywhere	无论何处
+1701	somewhat	有点，稍微
+1712	totally	完全地
+1736	everywhere	各处
+1763	apart	分开地，相隔
+1766	barely	几乎不
+1769	beneath	在...下方
+1770	beside	在旁边
+1778	merely	只 *
+1793	towards	向
+1807	unfortunately	不幸地
+1825	closely	紧密地
+1831	virtually	几乎，实际上
+1898	deeply	深刻地
+1926	regarding	关于
+1964	shall	将
+2031	elsewhere	在别处
+2034	moreover	而且
+2038	essentially	本质上
+2041	vs	对
+2065	whenever	不论何时
+2105	heavily	很重地
+2107	approximately	大约
+2123	strongly	强有力地
+2200	literally	字面地；确实地
+2251	rapidly	飞快地
+2291	via	经由
+2296	nevertheless	然而
+2301	normally	通常，正常地
+2343	personally	亲自地
+2382	ie	即（i.e.）
+2425	whereas	然而 *
+2441	gently	温和地
+2499	regularly	有规则地
+2504	partly	部分地
+2509	potentially	可能地
+2528	originally	最初，原本
+2567	regardless	不管
+2587	nowhere	无处
+2604	mm-hmm	嗯
+2630	depending	取决于
+2658	briefly	简短地
+2667	besides	而且
+2727	etc	及其他
+2797	yours	你的
+2801	versus	对 *
+2846	furthermore	此外
+2876	repeatedly	重复地
+2883	ah	啊
+2920	nonetheless	不过
+2985	surprisingly	使人惊奇
+3009	lightly	轻轻地
+3010	concerning	关于
+3048	greatly	很
+3135	seemingly	看来似乎
+3150	frankly	坦白地
+3180	consistently	坚固
+3214	hence	因此
+3273	wherever	无论哪里
+3313	commonly	一般
+3353	altogether	完全地
+3369	firmly	坚固
+3374	amid	在其间
+3390	provided	倘若 *
+3396	hers	她的
+3427	thereby	因此
+3454	huh	哼
+3469	automatically	自动地
+3524	readily	容易地，欣然
+3577	officially	正式地
+3600	ours	我们的
+3610	tightly	紧紧地
+3631	thoroughly	彻底地 *
+3681	afterward	之后
+3688	alongside	在旁边
+3722	whoever	任何人
+3751	incredibly	难以置信地，极其 *
+3767	presumably	大概，想必 *
+3788	actively	活跃地
+3792	fortunately	幸运地
+3834	consequently	所以
+3852	partially	部分地
+3868	reportedly	据报道 *
+3938	uh	嗯啊
+3951	exclusively	专门地，独占地
+3954	openly	公开地
+3987	likewise	同样地
+4002	strictly	严格地
+4008	supposedly	据说，据称
+4043	faster	加快
+4049	deliberately	故意地
+4094	considerably	相当多地 *
+4099	inevitably	不可避免地 *
+4104	allegedly	据称 *
+4118	solely	仅仅
+4159	privately	私下地，私人地
+4164	routinely	例行地，经常
+4218	freely	自由地
+4220	steadily	稳定地
+4231	ironically	讽刺地 *
+4241	substantially	大幅地，基本上 *
+4286	terribly	可怕地
+4292	seldom	很少
+4304	till	直到 *
+4335	nationwide	全国范围地
+4368	considering	考虑到
+4387	aboard	在船上
+4465	reasonably	适度地
+4510	purely	纯粹地
+4521	poorly	差地，不佳
+4540	remarkably	显著地，非常 *
+4563	positively	积极地，肯定地 *
+4592	explicitly	明确地
+4627	notably	尤其，显著地 *
+4698	freshly	刚刚，新鲜地
+4759	theirs	他们的
+4801	separately	分别地
+4810	statistically	统计上
+4844	namely	即 *
+4849	overhead	在头顶上
+4857	formally	正式地 *
+4866	undoubtedly	无疑
+4888	utterly	完全地 *
+4898	accordingly	相应地 *
+4908	wildly	狂野地，极其
+4914	evenly	均匀地 *
+4963	afterwards	然后
+5004	aloud	出声地
+5033	underneath	在下面
+5083	neatly	整洁地
+5160	locally	当地，本地
+5163	uh-huh	啊哈
+5210	predominantly	主要地
+5223	additionally	另外
+5224	finely	精细地 *
+5333	overly	过度地
+5335	albeit	尽管 *
+5338	individually	个别地
+5353	whatsoever	任何（用于强调否定）
+5358	secretly	秘密地
+5411	broadly	广泛地，大致
+5552	visually	视觉上
+5569	evidently	明显地
+5615	morally	道德上
+5655	ya	你（口语） *
+5689	profoundly	深深地 *
+5707	randomly	随机地
+5720	radically	根本地 *
+5757	critically	关键地；批判地
+5852	promptly	迅速地，及时地
+5896	backwards	向后
+5935	fastest	最快地
+5946	arguably	可以说 *
+5971	casually	随意地
+6007	wholly	完全地
+6053	overwhelmingly	压倒性地
+6060	comfortably	舒适地
+6063	secondly	其次
+6081	loosely	松弛地 *
+6115	heck	见鬼（委婉语） *
+6141	scarcely	几乎不 *
+6146	extensively	广泛地
+6175	indirectly	间接地
+6181	vigorously	有力地，起劲地 *
+6206	accidentally	意外地，不小心
+6247	invariably	总是，一贯地
+6256	reluctantly	不情愿地 *
+6439	extraordinarily	非凡地，极其
+6442	um	嗯
+6452	whoa	哇（惊叹） *
+6459	voluntarily	自愿地 *
+6509	negatively	否定地
+6515	hmm	嗯（沉吟）
+6520	enormously	极大地 *
+6541	awhile	一会儿 *
+6550	unexpectedly	出乎意料地
+6559	cautiously	慎重地
+6571	eagerly	急切地
+6620	vastly	大大地 *
+6638	collectively	集体地 *
+6639	systematically	有系统地
+6705	oneself	自己
+6739	gosh	天哪
+6760	inherently	本质上 *
+6803	politely	有礼貌地
+6804	thinly	薄薄地，稀疏地
+6826	intentionally	故意地 *
+6869	fiercely	猛烈地
+6895	amongst	在…之中
+7077	distinctly	清楚地，明显 *
+7112	conversely	相反 *
+7113	narrowly	勉强地，狭窄地
+7146	consciously	有意识地 *
+7215	luckily	幸运地
+7253	decidedly	明确地，果断地
+7260	patiently	耐心地
+7349	ye	你们（古体）
+7459	mildly	轻微地，温和地 *
+7503	yep	是（口语）
+7509	whereby	借此，凭此 *
+7510	bitterly	苦涩地，激烈地 *
+7512	curiously	好奇地
+7517	alas	唉 *
+7579	drastically	大幅地，急剧地 *
+7617	eh	嗯？（疑问叹词）
+7645	uniquely	独特地
+7668	incidentally	顺便说一句 *
+7685	exceptionally	异常地，格外
+7740	frantically	拼命地，慌乱地 *
+7745	endlessly	不断地
+7780	internally	内部地
+7811	lest	以免 *
+7843	tremendously	极大地 *
+7867	jointly	共同地 *
+7900	admittedly	诚然，无可否认 *
+7929	intently	专注地 *
+8039	peacefully	平静地
+8045	inadvertently	无意中 *
+8073	wisely	聪明地
+8129	ostensibly	表面上 *
+8156	instinctively	本能地 *
+8217	firsthand	亲身，第一手 *
+8244	preferably	最好，更可取
+8265	hastily	匆忙地 *
+8271	famously	著名地 *
+8273	willingly	自愿地 *
+8287	vividly	生动地 *
+8327	ordinarily	通常 *
+8459	intimately	亲密地，密切地 *
+8480	subtly	微妙地 *
+8496	plainly	清楚地 *
+8549	apiece	各，每个 *
+8560	implicitly	含蓄地，隐含地 *
+8561	prominently	显著地 *
+8562	unto	到，向（古体） *
+8599	faintly	微弱地 *
+8645	nope	不（口语）
+8688	visibly	明显地
+8736	kinda	有点儿（口语） *
+8740	amidst	在…之中 *
+8783	insofar	就…而言 *
+8811	anyhow	无论如何
+8861	markedly	显著地
+8865	thy	你的（古体） *
+8914	immensely	极大地 *
+8961	brutally	残忍地
+8987	passionately	热情地
+9040	dearly	非常；深情地 *
+9044	favorably	有利地，赞许地 *
+9062	sincerely	真诚地
+9100	understandably	可以理解地
+9144	notoriously	出名地（多含贬义） *
+9183	thoughtfully	体贴地；若有所思地 *
+9207	brilliantly	出色地
+9236	notwithstanding	尽管 *
+9291	unanimously	一致地 *
+9321	principally	主要地 *
+9341	relentlessly	无情地，不停地 *
+9354	alternatively	或者，作为替代 *
+9385	paradoxically	矛盾地 *
+9393	boldly	大胆地 *
+9395	delicately	微妙地，轻柔地 *
+9404	forcefully	有力地，强硬地 *
+9417	downright	完全地，十足地 *
+9425	tentatively	试探性地，暂定地 *
+9442	awkwardly	笨拙地
+9483	whichever	无论哪个
+9485	kindly	好意地；请
+9490	emphatically	强调地，坚决地 *
+9587	overboard	落水；过火 *
+9607	exceedingly	极其
+9658	cheerfully	高高兴兴地
+9661	powerfully	有力地
+9704	alternately	交替地 *
+9761	infinitely	无限地
+9770	warmly	亲切地
+9776	upwards	向上
+9792	chiefly	主要地 *
+9849	mistakenly	错误地
+9867	knowingly	故意地；知情地
+9870	strikingly	显著地 *
+9874	spontaneously	自发地 *
+9887	richly	丰富地
+9922	uniformly	一致地 *
+10046	urgently	急切地
+10098	quicker	更快地
+10110	noticeably	明显地 *
+10119	acutely	敏锐地；剧烈地 *
+10152	aw	哎呀（感叹）
+10191	modestly	谦逊地，适度地 *
+10216	briskly	轻快地 *
+10289	conveniently	方便地
+10306	hugely	极大地
+10344	solidly	牢固地，稳健地
+10370	reliably	可靠地
+10375	predictably	不出所料地
+10389	prematurely	过早地 *
+10398	miraculously	奇迹般地 *
+10417	weakly	微弱地
+10437	impatiently	不耐烦地
+10463	aptly	恰当地 *
+10480	bye-bye	再见
+10490	densely	浓密地
+10529	gingerly	小心翼翼地 *
+10557	mysteriously	神秘地
+10585	grossly	严重地，极其 *
+10598	meticulously	一丝不苟地 *
+10613	y'all	你们（口语） *
+10634	midway	中途 *
+10665	aha	啊哈
+10667	conceivably	可以想象地 *
+10702	wherein	在其中 *
+10798	onward	向前 *
+10811	bluntly	坦率地 *
+10818	solemnly	庄严地
+10875	decisively	果断地
+10886	impossibly	不可能地
+10888	grimly	严峻地 *
+10912	alright	好，没问题 *
+10929	horribly	可怕地
+10952	disproportionately	不成比例地 *
+11006	purposely	故意地
+11045	marginally	略微，边缘地 *
+11051	respectfully	尊敬地
+11098	securely	安全地
+11099	blindly	盲目地
+11142	tragically	悲惨地 *
+11163	thereof	由此，其 *
+11167	helplessly	无能为力地
+11168	excessively	过度地 *
+11169	symbolically	象征性地
+11229	adversely	不利地
+11245	sweetly	甜美地
+11293	overtly	明显地 *
+11301	selectively	有选择地
+11320	pointedly	尖锐地；有意地
+11343	uncomfortably	不舒适地
+11390	lastly	最后
+11401	aback	向后（take aback 使吃惊） *
+11402	deftly	灵巧地 *
+11415	keenly	敏锐地；热切地 *
+11441	unwittingly	无意中 *
+11442	fondly	深情地 *
+11467	chronically	长期地 *
+11546	manually	手动地
+11555	therein	在其中 *
+11619	dutifully	尽职地 *
+11674	mmm	嗯（沉吟）
+11688	variously	以各种方式
+11697	effortlessly	轻松地
+11699	gravely	严肃地；严重地 *
+11702	perpetually	永恒地 *
+11742	afar	在远处 *
+11804	intrinsically	本质上 *
+11825	magically	神奇地
+11873	nah	不（口语） *
+11875	unquestionably	毫无疑问地
+11899	forcibly	强制地
+11907	stubbornly	倔强地 *
+11910	constitutionally	宪法上；体质上 *
+11918	doubly	加倍地
+11955	vehemently	激烈地 *
+11968	minimally	最低限度地
+11994	discreetly	谨慎地 *
+12008	responsibly	负责地
+12017	eerily	怪异地 *
+12045	idly	闲着，漫无目的地 *
+12079	coincidentally	巧合地
+12097	unbelievably	难以置信地
+12104	hotly	激烈地 *
+12188	methodically	有条不紊地
+12196	expressly	明确地 *
+12249	madly	发狂地
+12282	oops	哎哟
+12283	convincingly	令人信服地 *
+12297	vis-a-vis	与…相对，关于 *
+12300	skillfully	熟练地
+12344	hurriedly	仓促地
+12430	painstakingly	煞费苦心地 *
+12433	eloquently	雄辩地 *
+12438	wearily	疲倦地 *
+12492	diligently	勤奋地 *
+12568	miserably	非常不幸地 *
+12575	ethically	道德上 *
+12648	purposefully	有目的地 *
+12716	grudgingly	勉强地 *
+12754	developmentally	发育上 *
+12785	terminally	末端地；晚期
+12813	playfully	开玩笑地 *
+12848	duly	适当地，按时 *
+12860	coolly	冷静地 *
+12862	conspicuously	显著地 *
+12864	cleverly	聪明地
+12915	infrequently	不常 *
+12921	externally	在外部
+12923	sparsely	稀疏地
+12946	fatally	致命地
+12961	truthfully	诚实地
+12984	yup	是的
+12989	characteristically	典型地
+13015	anonymously	匿名地
+13078	absently	心不在焉地 *
+13092	exquisitely	精巧地 *
+13113	jokingly	开玩笑地 *
+13119	coldly	冷淡地 *
+13123	inextricably	无法摆脱地 *
+13183	blankly	茫然地 *
+13202	unequivocally	明确无误地 *
+13229	inexplicably	莫名其妙地 *
+13260	conceptually	概念上 *
+13285	definitively	最终，决定性地 *
+13309	undeniably	确凿无疑地 *
+13339	unduly	过分地 *
+13357	single-handedly	独自地
+13365	rationally	理性地 *
+13398	thickly	厚厚地，浓密地
+13401	intuitively	直觉地
+13475	uh-oh	呃喔
+13523	philosophically	哲学上
+13580	spectacularly	壮观地，惊人地 *
+13607	tenderly	温柔地
+13696	exponentially	指数级地
+13709	wryly	讥讽地，苦笑地 *
+13714	earnestly	诚挚地 *
+13793	defiantly	挑衅地 *
+13797	forwards	向前
+13807	expertly	熟练地 *
+13808	whomever	无论谁
+13818	graciously	亲切地，优雅地 *
+13848	blatantly	公然，明目张胆地 *
+13931	sternly	严厉地 *
+13951	eternally	永恒地 *
+13984	involuntarily	不由自主地 *
+13996	busily	忙碌地
+14002	inexorably	不可阻挡地 *
+14052	rigorously	严格地 *
+14077	mightily	极大地 *
+14087	resolutely	坚决地
+14143	intermittently	间歇地 *
+14154	adamantly	坚决地 *
+14161	concurrently	同时地 *
+14205	triumphantly	胜利地 *
+14212	wholeheartedly	全心全意地 *
+14270	steeply	陡峭地，急剧地
+14272	sh	嘘
+14284	arbitrarily	任意地
+14291	succinctly	简洁地 *
+14299	structurally	结构上
+14349	ruefully	懊悔地 *
+14402	passively	被动地
+14403	deceptively	看似…实则 *
+14407	ominously	不祥地 *
+14418	underly	构成…基础（underlie） *
+14463	smartly	利落地；时髦地
+14493	abundantly	大量地 *
+14524	dryly	干巴巴地，冷淡地 *
+14528	persistently	坚持地
+14535	functionally	功能上 *
+14543	digitally	数字化地
+14568	unintentionally	无意中
+14607	elaborately	精心地
+14630	unmistakably	显而易见地 *
+14633	graphically	图像上；生动地 *
+14642	starkly	鲜明地；完全 *
+14659	purportedly	据称 *
+14669	lazily	懒洋洋地
+14677	eminently	非常，极 *
+14715	cleanly	干净地
+14729	fervently	热烈地 *
+14744	incessantly	不断地 *
+14775	belatedly	姗姗来迟地 *
+14795	uncontrollably	无法控制地
+14798	heartily	尽情地，热诚地
+14856	popularly	普遍地 *
+14892	metaphorically	比喻地 *
+14895	shh	嘘
+14914	carelessly	粗心地
+14917	categorically	断然地，绝对地 *
+14936	figuratively	比喻地 *
+15064	massively	大规模地 *
+15068	hesitantly	迟疑地
+15187	seamlessly	无缝地 *
+15198	artfully	巧妙地 *
+15213	sporadically	零星地 *
+15217	astray	迷路地，走偏 *
+15232	precariously	摇摇欲坠地 *
+15242	mercifully	仁慈地 *
+15338	candidly	率直地 *
+15377	lavishly	奢华地，慷慨地 *
+15419	hah	哈
+15427	intricately	错综复杂地 *
+15433	supremely	极其
+15436	peculiarly	奇怪地，独特地
+15463	surreptitiously	秘密地 *
+15470	whereupon	于是，随后 *
+15487	regrettably	遗憾的是
+15495	profusely	大量地 *
+15510	jeez	呀
+15516	inasmuch	因为（inasmuch as） *
+15539	nominally	名义上 *
+15578	sheepishly	窘迫地，羞怯地 *
+15633	organically	有机地
+15652	intensively	密集地，集中地 *
+15679	afield	远离（far afield） *
+15684	viciously	凶狠地 *
+15738	needlessly	不必要地
+15787	sparingly	少量地，节省地 *
+15789	materially	实质上 *
+15842	recklessly	鲁莽地 *
+15946	conclusively	确凿地 *
+15981	twofold	两倍地 *
+16027	justifiably	无可非议地 *
+16046	singularly	异常地，独特地 *
+16058	blithely	轻快地，漫不经心 *
+16063	tirelessly	不知疲倦地
+16073	willfully	故意地 *
+16109	distinctively	独特地 *
+16115	habitually	习惯性地 *
+16133	snugly	舒适地 *
+16143	stunningly	惊人地 *
+16145	foolishly	愚笨地
+16157	irrevocably	不可撤销地 *
+16161	whence	从何处 *
+16220	steadfastly	坚定不移地 *
+16223	amply	充足地 *
+16238	cruelly	残忍地
+16252	sarcastically	讽刺地 *
+16284	hysterically	歇斯底里地 *
+16286	uncharacteristically	一反常态地 *
+16315	aimlessly	漫无目的地 *
+16385	upriver	向上游 *
+16407	clumsily	笨拙地 *
+16410	qualitatively	质量上，定性上 *
+16508	instantaneously	瞬间地
+16522	admirably	极好地 *
+16534	humanly	人力所能及地
+16542	crudely	粗糙地，粗鲁地 *
+16567	expectantly	期待地
+16595	cooperatively	合作地
+16599	correspondingly	相应地
+16627	amok	狂暴地（run amok） *
+16669	indiscriminately	不加区分地
+16674	sensibly	明智地
+16693	you-all	你们（口语）
+16702	precipitously	陡然，急剧地 *
+16718	uncertainly	不确定地
+16747	superbly	极好地 *
+16765	savagely	野蛮地 *
+16809	astride	跨着 *
+16819	approvingly	赞许地 *
+16824	suitably	合适地
+16862	unabashedly	毫不掩饰地 *
+16884	breathlessly	气喘吁吁地 *
+16905	startlingly	惊人地 *
+16910	vitally	至关重要地 *
+16939	unknowingly	无意中 *
+17004	humbly	谦逊地 *
+17035	deliciously	美味地
+17075	alarmingly	让人担忧地 *
+17164	unconditionally	无条件地
+17188	whilst	当…时（英式） *
+17190	apologetically	抱歉地
+17224	energetically	精力充沛地 *
+17236	hereby	特此，以此 *
+17286	rudely	无礼地
+17295	attentively	专注地 *
+17360	impeccably	完美地 *
+17361	abnormally	异常地
+17386	unevenly	不均匀地 *
+17432	erroneously	错误地 *
+17462	ugh	呃（厌恶）
+17468	ruthlessly	无情地 *
+17476	summarily	即刻；概括地
+17486	superficially	表面上 *
+17502	handily	轻而易举地 *
+17506	reflexively	反射性地 *
+17515	covertly	隐蔽地 *
+17540	naw	不（俚语）
+17600	spatially	空间上 *

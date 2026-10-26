@@ -3,60 +3,57 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:local_dict/core/themes/theme_service.dart';
 import 'package:local_dict/providers/dictionary_provider.dart';
 import 'package:local_dict/providers/themes_provider.dart';
 import 'package:local_dict/ui/screens/themes_screen.dart';
 
+/// COCA's file spells a few contractions with a doubled apostrophe (`n''t`);
+/// the theme files spell them properly.
+String normalize(String word) => word.replaceAll("''", "'");
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  // The providers remember where the reader was; without the plugin behind
+  // SharedPreferences every initialize() would throw.
+  setUp(() => SharedPreferences.setMockInitialValues({}));
 
   /// The frequency file's line order is the rank the generator sorts by.
   Map<String, int> cocaRanks() {
     final ranks = <String, int>{};
     final lines = File('coca-20000.txt').readAsLinesSync();
     for (var i = 0; i < lines.length; i++) {
-      final word = lines[i].trim().toLowerCase();
+      final word = normalize(lines[i].trim().toLowerCase());
       if (word.isNotEmpty) ranks.putIfAbsent(word, () => i + 1);
     }
     return ranks;
   }
 
   group('Theme data', () {
-    test('the asset loads with usable scenes and facets', () async {
+    test('the asset loads as one flat group per theme', () async {
       final service = ThemeService();
       await service.init();
 
       expect(service.isLoaded, isTrue);
-      expect(service.scenes.length, greaterThanOrEqualTo(20),
-          reason: 'the module is meant to cover modern life end to end');
-      expect(service.totalWords, greaterThan(1000));
-      expect(
-        service.facets.map((f) => f.label),
-        containsAll(<String>['人', '事', '物', '动作', '情况', '虚拟']),
-      );
+      expect(service.scenes.length, 39,
+          reason: 'the curated taxonomy has 39 themes');
+      expect(service.totalWords, 17630);
       for (final scene in service.scenes) {
         expect(scene.label, isNotEmpty);
-        expect(scene.groups, isNotEmpty, reason: '${scene.id} has no facets');
-        for (final group in scene.groups) {
-          expect(group.words, isNotEmpty, reason: '${scene.id}/${group.id}');
-          expect(
-            group.words.every((w) => w.isNotEmpty && w == w.toLowerCase()),
-            isTrue,
-            reason: '${scene.id}/${group.id} has a malformed word',
-          );
+        expect(scene.id, matches(RegExp(r'^t\d{2}$')));
+        expect(scene.groups, hasLength(1),
+            reason: '${scene.id} is flat: one group of words');
+        expect(scene.count, scene.groups.single.words.length,
+            reason: '${scene.id} count drifted');
+        expect(scene.words.length, scene.count);
+        for (final word in scene.groups.single.words) {
+          expect(word, isNotEmpty);
+          expect(word, word.toLowerCase(),
+              reason: '${scene.id}: "$word" is not lower case');
         }
-      }
-    });
-
-    test('each scene count matches its facets', () async {
-      final service = ThemeService();
-      await service.init();
-      for (final scene in service.scenes) {
-        final actual = scene.groups.fold<int>(0, (sum, g) => sum + g.words.length);
-        expect(scene.count, actual, reason: '${scene.id} count drifted');
-        expect(scene.words.length, actual);
       }
     });
 
@@ -66,51 +63,49 @@ void main() {
       await service.init();
 
       for (final scene in service.scenes) {
-        for (final group in scene.groups) {
-          var previous = 0;
-          for (final word in group.words) {
-            final rank = ranks[word];
-            expect(rank, isNotNull, reason: '${scene.id}/${group.id}: "$word" is not COCA');
-            expect(rank!, greaterThan(previous),
-                reason: '${scene.id}/${group.id}: "$word" is out of frequency order');
-            previous = rank;
-          }
+        var previous = 0;
+        for (final word in scene.words) {
+          final rank = ranks[word];
+          expect(rank, isNotNull, reason: '${scene.id}: "$word" is not COCA');
+          expect(rank!, greaterThan(previous),
+              reason: '${scene.id}: "$word" is out of frequency order');
+          previous = rank;
         }
       }
     });
 
-    test('every COCA word is placed', () async {
-      // The acceptance criterion for full coverage: the 17,634 de-duplicated
-      // COCA headwords are all reachable from a scene. Adding a COCA word
-      // without classifying it fails here.
+    test('the themes partition the vocabulary', () async {
+      final service = ThemeService();
+      await service.init();
+      final seen = <String>{};
+      for (final scene in service.scenes) {
+        for (final word in scene.words) {
+          expect(seen.add(word), isTrue,
+              reason: '"$word" sits in ${scene.id} and somewhere else');
+        }
+      }
+      expect(seen.length, service.totalWords);
+    });
+
+    test('the themes cover the COCA headwords', () async {
       final ranks = cocaRanks();
       final service = ThemeService();
       await service.init();
-      final placed = <String>{for (final scene in service.scenes) ...scene.words};
+      final placed = {for (final scene in service.scenes) ...scene.words};
 
-      // totalWords counts *placements* (a word may sit in up to 3 scenes), so
-      // it is >= the distinct count, not equal to it.
-      expect(placed.length, ranks.length);
-      expect(service.totalWords, greaterThanOrEqualTo(ranks.length));
-      final missing =
-          ranks.keys.where((word) => !placed.contains(word)).toList()..sort();
-      expect(missing, isEmpty, reason: 'unclassified: ${missing.take(20).toList()}');
-    });
-
-    test('no facet repeats a word', () async {
-      final service = ThemeService();
-      await service.init();
-      for (final scene in service.scenes) {
-        for (final group in scene.groups) {
-          expect(group.words.toSet().length, group.words.length,
-              reason: '${scene.id}/${group.id} lists a word twice');
-        }
-      }
+      // Four COCA entries never made it into the curation — two slash pairs and
+      // two spellings that the files fold into their neighbours. They are the
+      // only gaps the source data has, so a new gap means words were dropped.
+      const known = {'and/or', 'his/her', 'he/she', 'sauté'};
+      final missing = ranks.keys.where((word) => !placed.contains(word)).toSet();
+      expect(missing.difference(known), isEmpty,
+          reason: 'unclassified: ${missing.difference(known)}');
+      expect(missing, containsAll(known));
     });
   });
 
   group('Themes provider', () {
-    test('opening a scene filters its words and going back clears it', () async {
+    test('opening a theme shows its words and going back clears it', () async {
       final provider = ThemesProvider();
       await provider.initialize();
       expect(provider.isLoading, isFalse);
@@ -119,15 +114,14 @@ void main() {
       final scene = provider.scenes.first;
       provider.select(scene.id);
       expect(provider.selectedScene?.id, scene.id);
-      expect(provider.visibleGroups, isNotEmpty);
+      expect(provider.visibleGroups, hasLength(1));
       expect(provider.visibleWordCount, scene.count);
 
-      provider.select(scene.id);
       provider.backToScenes();
       expect(provider.selectedScene, isNull);
     });
 
-    test('the search box narrows scenes, then words inside one', () async {
+    test('the search box narrows themes, then words inside one', () async {
       final provider = ThemesProvider();
       await provider.initialize();
 
@@ -136,89 +130,64 @@ void main() {
 
       provider.setQuery('hospital');
       expect(provider.visibleScenes, isNotEmpty,
-          reason: 'a word should find the scenes that hold it');
+          reason: 'a word should find the themes that hold it');
 
       final scene = provider.visibleScenes.first;
       provider.select(scene.id);
-      expect(provider.query, isEmpty, reason: 'opening a scene clears the query');
+      expect(provider.query, isEmpty, reason: 'opening a theme clears the query');
 
       provider.setQuery('zzzznotaword');
       expect(provider.visibleGroups, isEmpty);
       expect(provider.visibleWordCount, 0);
     });
 
-    test('facets start folded and toggle open', () async {
+    test('a theme longer than a page pages at 50 words', () async {
       final provider = ThemesProvider();
       await provider.initialize();
-      final scene = provider.scenes.first;
+      // 器物与材料 holds 1099 words — the longest theme.
+      final scene = provider.scenes.reduce(
+          (a, b) => a.count >= b.count ? a : b);
       provider.select(scene.id);
-
-      expect(provider.visibleGroups.length, greaterThan(1));
-      for (final group in provider.visibleGroups) {
-        expect(provider.isFacetExpanded(group.id), isFalse,
-            reason: 'a scene opens with its facet headers, not a wall of words');
-      }
-
-      final first = provider.visibleGroups.first;
-      provider.toggleFacet(first.id);
-      expect(provider.isFacetExpanded(first.id), isTrue);
-      provider.toggleFacet(first.id);
-      expect(provider.isFacetExpanded(first.id), isFalse);
-
-      provider.toggleFacet(first.id);
-      provider.backToScenes();
-      provider.select(scene.id);
-      expect(provider.isFacetExpanded(first.id), isFalse,
-          reason: 'a fresh scene starts folded again');
-    });
-
-    test('a long facet pages at 50 words, a short one does not', () async {
-      final provider = ThemesProvider();
-      await provider.initialize();
-      provider.select(provider.scenes.first.id);
-
-      final groups = provider.visibleGroups;
-      final long = groups.reduce((a, b) => a.words.length >= b.words.length ? a : b);
-      final short = groups.reduce((a, b) => a.words.length <= b.words.length ? a : b);
+      final group = provider.visibleGroups.single;
       const size = ThemesProvider.facetPageSize;
 
-      expect(long.words.length, greaterThan(ThemesProvider.facetPageThreshold));
-      expect(provider.facetPageCount(long), (long.words.length + size - 1) ~/ size);
-      expect(provider.facetWords(long).length, size);
-      expect(provider.visibleGroups.firstWhere((g) => g.id == long.id).words.length,
-          long.words.length, reason: 'the facet header keeps the full count');
+      expect(group.words.length, greaterThan(ThemesProvider.facetPageThreshold));
+      expect(provider.facetPageCount(group),
+          (group.words.length + size - 1) ~/ size);
+      expect(provider.facetWords(group), hasLength(size));
+      expect(provider.visibleWordCount, group.words.length,
+          reason: 'the header keeps the full count');
 
-      expect(provider.facetPageCount(short), 1);
-      expect(provider.facetWords(short), short.words);
-
-      final head = provider.facetWords(long).first;
-      provider.setFacetPage(long, 1);
-      expect(provider.facetPage(long), 1);
-      expect(provider.facetWords(long).first, isNot(head));
-      expect(provider.facetWords(long).first, long.words[size]);
+      final head = provider.facetWords(group).first;
+      provider.setFacetPage(group, 1);
+      expect(provider.facetPage(group), 1);
+      expect(provider.facetWords(group).first, group.words[size]);
+      expect(provider.facetWords(group).first, isNot(head));
     });
 
-    test('searching a scene opens the facets that matched', () async {
+    test('the shortest theme pages too, and its last page holds the rest',
+        () async {
       final provider = ThemesProvider();
       await provider.initialize();
-      provider.select(provider.scenes.first.id);
-      final probe = provider.visibleGroups.first.words.first;
-      provider.setQuery(probe.substring(0, 3));
+      // The smallest theme (天文与宇宙, 75 words) still exceeds one page — every
+      // theme in the taxonomy does — so the last page is a partial slice.
+      final scene = provider.scenes.reduce(
+          (a, b) => a.count <= b.count ? a : b);
+      provider.select(scene.id);
+      final group = provider.visibleGroups.single;
+      const size = ThemesProvider.facetPageSize;
 
-      expect(provider.visibleGroups, isNotEmpty);
-      for (final group in provider.visibleGroups) {
-        expect(provider.isFacetExpanded(group.id), isTrue,
-            reason: 'a hit hidden behind a folded header reads as no hit');
-      }
+      expect(provider.facetPageCount(group), 2);
+      expect(provider.facetWords(group).length, size);
+      provider.setFacetPage(group, 1);
+      expect(provider.facetWords(group).length, group.words.length - size);
     });
   });
 
   group('Themes screen', () {
-    testWidgets('lists scenes, then shows facets and words', (tester) async {
+    Future<ThemesProvider> pumpScreen(WidgetTester tester) async {
       final provider = ThemesProvider();
       await provider.initialize();
-      final first = provider.scenes.first;
-
       await tester.pumpWidget(
         MultiProvider(
           providers: [
@@ -229,80 +198,49 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      return provider;
+    }
+
+    testWidgets('lists the themes and opens one to its words', (tester) async {
+      final provider = await pumpScreen(tester);
+      final first = provider.scenes.first;
 
       expect(find.text(first.label), findsWidgets);
       await tester.tap(find.text(first.label).first);
       await tester.pumpAndSettle();
 
-      expect(provider.selectedScene, isNotNull);
-      final facet = provider.visibleGroups.first;
-      expect(find.text(facet.label), findsWidgets);
-      await tester.tap(find.text(facet.label).first);
-      await tester.pumpAndSettle();
-      expect(find.text(facet.words.first), findsWidgets);
+      expect(provider.selectedScene?.id, first.id);
+      // Flat themes show their words immediately — there is no facet to unfold.
+      expect(find.byType(ActionChip), findsWidgets);
+      expect(find.text(first.words.first), findsWidgets);
     });
 
-    testWidgets('facets fold, and a long facet pages in place', (tester) async {
-      final provider = ThemesProvider();
-      await provider.initialize();
-      provider.select(provider.scenes.first.id);
-      final groups = provider.visibleGroups;
-      final long = groups.reduce((a, b) => a.words.length >= b.words.length ? a : b);
-
-      await tester.pumpWidget(
-        MultiProvider(
-          providers: [
-            ChangeNotifierProvider<ThemesProvider>.value(value: provider),
-            ChangeNotifierProvider(create: (_) => DictionaryProvider()),
-          ],
-          child: const MaterialApp(home: ThemesScreen(isPaneView: true)),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      for (final group in groups) {
-        expect(find.text(group.label), findsWidgets);
-      }
-      expect(find.byType(ActionChip), findsNothing, reason: 'all facets start folded');
-
+    testWidgets('the longest theme pages in place', (tester) async {
+      final provider = await pumpScreen(tester);
+      final long = provider.scenes.reduce((a, b) => a.count >= b.count ? a : b);
       await tester.tap(find.text(long.label).first);
       await tester.pumpAndSettle();
-      expect(provider.isFacetExpanded(long.id), isTrue);
-      expect(find.byType(ActionChip), findsWidgets);
-      expect(find.text('第 1 / ${provider.facetPageCount(long)} 页'), findsOneWidget);
+
+      final group = provider.visibleGroups.single;
+      final pages = provider.facetPageCount(group);
+      expect(pages, greaterThan(5));
+      expect(find.text('第 1 / $pages 页'), findsOneWidget);
 
       await tester.tap(find.byTooltip('下一页'));
       await tester.pumpAndSettle();
-      expect(provider.facetPage(long), 1);
-      expect(find.text('第 2 / ${provider.facetPageCount(long)} 页'), findsOneWidget);
-
-      await tester.tap(find.text(long.label).first);
-      await tester.pumpAndSettle();
-      expect(find.byType(ActionChip), findsNothing, reason: 'folding hides the words');
+      expect(provider.facetPage(group), 1);
+      expect(find.text('第 2 / $pages 页'), findsOneWidget);
+      expect(provider.facetWords(group).first, group.words[ThemesProvider.facetPageSize]);
     });
 
     testWidgets('the page label jumps to a typed page', (tester) async {
-      final provider = ThemesProvider();
-      await provider.initialize();
-      provider.select(provider.scenes.first.id);
-      final long = provider.visibleGroups
-          .reduce((a, b) => a.words.length >= b.words.length ? a : b);
-      final pages = provider.facetPageCount(long);
-      expect(pages, greaterThan(5), reason: 'needs a facet long enough to jump in');
-
-      await tester.pumpWidget(
-        MultiProvider(
-          providers: [
-            ChangeNotifierProvider<ThemesProvider>.value(value: provider),
-            ChangeNotifierProvider(create: (_) => DictionaryProvider()),
-          ],
-          child: const MaterialApp(home: ThemesScreen(isPaneView: true)),
-        ),
-      );
-      await tester.pumpAndSettle();
-
+      final provider = await pumpScreen(tester);
+      final long = provider.scenes.reduce((a, b) => a.count >= b.count ? a : b);
       await tester.tap(find.text(long.label).first);
       await tester.pumpAndSettle();
+
+      final group = provider.visibleGroups.single;
+      final pages = provider.facetPageCount(group);
       await tester.tap(find.text('第 1 / $pages 页'));
       await tester.pumpAndSettle();
 
@@ -310,9 +248,10 @@ void main() {
       await tester.tap(find.text('跳转'));
       await tester.pumpAndSettle();
 
-      expect(provider.facetPage(long), 4);
+      expect(provider.facetPage(group), 4);
       expect(find.text('第 5 / $pages 页'), findsOneWidget);
-      expect(provider.facetWords(long).first, long.words[ThemesProvider.facetPageSize * 4]);
+      expect(provider.facetWords(group).first,
+          group.words[ThemesProvider.facetPageSize * 4]);
     });
   });
 }

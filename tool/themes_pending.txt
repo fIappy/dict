@@ -1,4 +1,0 @@
-# Words with no placement yet, in COCA frequency order.
-# Take the next 400 lines, classify them, and write
-# tool/themes_batches/NNN.txt. Rerun to shrink this list.
-# Remaining: 0 (0 batches)

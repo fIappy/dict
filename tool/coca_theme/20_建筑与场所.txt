@@ -1,0 +1,268 @@
+﻿== 建筑与场所（267 词）==
+127	state	州，状态
+168	place	地方
+205	home	家
+268	city	城市
+314	office	办公室
+404	field	田地，领域
+449	town	城镇
+461	building	建筑物
+470	position	位置
+488	center	中心
+490	site	地点；场地
+525	wall	墙
+532	north	北方
+547	source	来源
+582	south	南方
+608	west	西方
+622	top	顶部
+674	scene	场景
+728	region	区域
+813	seat	座位
+842	direction	方向
+882	edge	边缘
+905	hotel	旅馆
+1018	corner	角落
+1073	camp	营地
+1110	park	公园
+1111	spot	地点；斑点
+1126	village	村庄
+1143	district	区域；街区
+1211	shop	商店
+1216	border	边界
+1280	construction	建设；建筑
+1292	location	地点
+1361	bottom	底部
+1427	urban	都市的
+1521	bridge	桥
+1531	trend	趋势
+1571	setting	环境；设置
+1590	zone	区域
+1657	hall	大厅
+1726	tip	提示；尖端
+1801	gate	门
+1921	housing	住房，住宅 *
+1922	post	柱子；邮件
+2011	foundation	基础
+2151	tower	塔
+2270	origin	起源
+2360	fence	栅栏
+2383	resort	度假胜地
+2534	stair	楼梯
+2539	headquarters	总部
+2545	shelter	避难所 *
+2612	lawn	草坪
+2698	reservation	预订；保留
+2701	mall	购物中心
+2757	horizon	地平线
+2759	downtown	市中心的
+2980	architect	建筑师
+3013	northwest	西北
+3075	suburban	郊外的
+3077	interior	内部
+3078	corridor	走廊
+3103	architecture	建筑学
+3123	suburb	郊区
+3153	hallway	走廊
+3408	elevator	电梯
+3412	statue	雕像
+3543	ranch	牧场 *
+3570	monument	纪念碑
+3606	barn	谷仓
+3642	homeland	祖国
+3802	casino	赌场 *
+3814	midst	中间
+3815	alley	小巷 *
+3830	shed	棚屋；脱落
+3857	backyard	后院
+3886	frontier	边疆；前沿
+4047	cemetery	墓地
+4071	refuge	避难所
+4123	palace	宫殿
+4155	landmark	地标
+4193	mansion	豪宅
+4196	cottage	小屋
+4197	driveway	车道
+4329	warehouse	仓库
+4406	dome	圆顶
+4617	motel	汽车旅馆
+4635	architectural	有关建筑的
+4676	countryside	乡村
+4677	hut	小屋 *
+4808	hometown	故乡
+5009	haven	避风港 *
+5086	playground	游乐场；操场
+5121	courtyard	庭院
+5133	castle	城堡
+5276	battlefield	战场
+5376	tract	大片；地带
+5425	tomb	坟墓
+5434	bookstore	书店
+5533	tee	球座；T恤
+5536	den	兽穴；书房
+5550	arch	拱门
+5559	pasture	牧场
+5641	terrace	露台 *
+5721	archive	档案馆
+5741	pavement	人行道
+5991	paradise	天堂
+5998	broadway	百老汇大街
+6000	desktop	桌面
+6012	lodge	小屋
+6047	patio	露台 *
+6077	salon	沙龙，美容院 *
+6223	cafeteria	自助餐厅
+6286	precinct	选区；警区
+6390	orchard	果园 *
+6403	sideline	边线；副业
+6410	condo	公寓 *
+6415	shack	简陋小屋 *
+6512	spa	温泉；水疗
+6537	pub	酒馆 *
+6580	crest	山顶；波峰
+6635	inn	旅馆 *
+6753	cellar	地窖 *
+6861	loft	阁楼
+6991	silhouette	剪影
+7061	clearing	空地；清理
+7148	plaza	广场
+7243	subdivision	分区；细分
+7246	dwelling	住处 *
+7268	boutique	精品小店 *
+7316	nightclub	夜总会
+7347	dorm	宿舍
+7369	clubhouse	俱乐部会所
+7406	farmhouse	农舍
+7485	outskirts	近郊
+7591	hemisphere	半球
+7676	farmland	农田
+7677	municipality	自治市
+7742	exterior	外部
+7776	aerospace	航空航天
+7799	forefront	最前沿
+7814	inner-city	市中心的；贫民区的
+7815	tavern	酒馆 *
+7880	bedside	床边
+7965	vantage	有利位置
+8001	ballroom	舞厅 *
+8049	enclave	飞地
+8177	outpost	前哨
+8208	drugstore	药房
+8240	towering	高耸的
+8295	refinery	精炼厂
+8372	fairway	球道；航道
+8408	locus	中心；位置
+8411	vicinity	附近
+8433	skyline	天际线
+8494	auditorium	礼堂 *
+8550	slum	贫民窟
+8651	checkpoint	检查站
+8692	locale	场所
+8694	diocese	主教教区
+8792	vineyard	葡萄园 *
+8810	waterfront	滨水区
+8855	graveyard	墓地
+8938	villa	别墅
+9141	township	乡镇
+9168	hospice	临终关怀机构 *
+9188	aquarium	水族馆 *
+9296	saloon	酒馆 *
+9428	storefront	店面
+9448	skyscraper	摩天楼
+9545	bungalow	平房 *
+9723	dormitory	宿舍
+9855	locality	地点
+9860	underside	底部
+9911	whereabouts	下落
+9994	itinerary	行程
+10013	high-rise	高层建筑
+10124	campsite	营地
+10270	birthplace	诞生地
+10315	boulevard	林荫大道 *
+10428	restroom	洗手间
+10495	pavilion	亭子 *
+10567	grassland	草原
+10576	borough	自治市镇
+10627	stratum	阶层；地层
+10731	hangar	飞机库 *
+10755	battleground	战场
+10801	metropolis	大都市
+10822	campground	露营场所
+11188	lighthouse	灯塔
+11277	nook	角落；幽静处
+11431	marina	游艇码头
+11508	upside	好处；上面
+11534	borderline	边界线；临界
+11595	lodging	住宿
+11611	brothel	妓院
+11849	tropics	热带地区
+11913	single-family	独户
+11938	shipyard	造船厂
+11970	apex	顶点
+12083	backside	背面；屁股
+12114	hilltop	小山顶
+12116	confluence	汇流处
+12198	cornfield	玉米田
+12437	dilapidated	破败的
+12484	boardwalk	木板路
+12523	open-air	户外的
+12643	foothold	立足处
+12694	commune	公社； commune
+12769	boardroom	会议室
+12834	biosphere	生物圈
+12846	monolithic	巨石的；单一的
+12853	tenement	廉租公寓
+13109	lander	着陆器
+13165	newsstand	报摊
+13186	edifice	大厦
+13218	wasteland	荒地
+13249	schoolhouse	校舍
+13300	escalator	自动扶梯
+13315	trailhead	小道的起点
+13571	mecca	麦加
+13816	cologne	科隆；古龙水
+14042	commons	公共用地
+14076	second-floor	〈美〉二楼
+14116	bazaar	集市
+14146	quadrant	象限
+14282	hatchery	孵卵处
+14303	encampment	露营
+14306	zenith	顶点
+14385	alleyway	小巷
+14415	hangout	常去的地方
+14417	kennel	狗舍
+14472	manor	庄园
+14516	windowless	无窗的
+14517	hostel	青年旅舍
+14613	midpoint	中点
+14645	slaughterhouse	屠宰场
+14665	barbershop	理发店
+14710	airspace	空域
+14720	shuttered	关闭的
+14750	schoolyard	校园
+14753	earshot	听力所及之范围
+14756	citywide	全市的
+14992	environs	周边地区
+14993	big-city	大城市
+15074	amphitheater	圆形剧场
+15200	provenance	出处
+15339	moat	护城河
+15392	epicenter	震中
+15596	dungeon	地牢
+15687	outhouse	户外厕所
+15870	archdiocese	大主教之管区
+15901	lair	兽穴
+15971	hideaway	隐匿处
+16103	john	厕所（俚）
+16151	cul-de-sac	死巷
+16351	steeple	尖塔
+16516	suburbia	郊区
+16520	foundry	铸造厂
+16609	derelict	废弃的
+16962	hideout	隐匿处
+17005	junkyard	废品场
+17144	mete	分配（mete out）
+17167	hinterland	内地
+17371	inferno	火海
+17452	piazza	广场
+17625	glade	林间空地
