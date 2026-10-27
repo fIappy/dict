@@ -121,10 +121,17 @@ String reflowPassage(String body) {
     index++;
   }
 
-  final cues = <String>[
-    for (var i = index; i < lines.length; i++)
-      if (lines[i].trim().isNotEmpty) lines[i].trim(),
-  ];
+  // A blank line is a paragraph break in the hand-written passages; keep it
+  // rather than running the two paragraphs together.
+  final cues = <String>[];
+  for (var i = index; i < lines.length; i++) {
+    if (lines[i].trim().isEmpty) {
+      if (cues.isNotEmpty && cues.last.isNotEmpty) cues.add('');
+      continue;
+    }
+    cues.add(lines[i].trim());
+  }
+  if (cues.isNotEmpty && cues.last.isEmpty) cues.removeLast();
 
   final sentences = <String>[];
   final buffer = StringBuffer();
@@ -136,19 +143,38 @@ String reflowPassage(String body) {
     if (sentence.isNotEmpty) sentences.add(sentence);
   }
 
+  final rule = RegExp(r'^[-=_*~]{3,}$');
   for (final cue in cues) {
+    if (rule.hasMatch(cue)) {
+      // A "----" divider stays a line of its own instead of swallowing the next
+      // sentence.
+      flush();
+      sentences.add(cue);
+      lastCue = '';
+      continue;
+    }
+    if (cue.isEmpty) {
+      // Paragraph break: end the sentence here and leave the blank line in.
+      flush();
+      sentences.add('');
+      lastCue = '';
+      continue;
+    }
     if (buffer.isNotEmpty && _startsNewSentence(cue)) {
       // A capital letter alone does not start a sentence: not after a cue that
       // cannot end one, and not into a "sentence" of two words, which in these
       // scripts is always a fragment ("And by learning" / "I don't mean…").
       final closes = !_cannotEnd.contains(_lastWord(lastCue));
       // "And phrases" is the tail of a list, not a sentence: a conjunction cue
-      // of one or two words never opens one.
+      // of one or two words never opens one. Symmetrically, a sentence that so
+      // far is a conjunction plus a couple of words ("And by learning") is
+      // still a fragment.
       final shortConjunction = _commaConjunctions.contains(_firstWord(cue)) &&
           _wordCount(cue) <= 2;
-      if (closes && !shortConjunction && _wordCount(buffer.toString()) >= 4) {
-        flush();
-      }
+      final sofar = buffer.toString();
+      final fragment =
+          _commaConjunctions.contains(_firstWord(sofar)) && _wordCount(sofar) <= 3;
+      if (closes && !shortConjunction && !fragment) flush();
     }
     if (buffer.isNotEmpty) {
       final joined = buffer.toString();
@@ -156,7 +182,7 @@ String reflowPassage(String body) {
       // cue does not earn a comma.
       final needsComma = _commaConjunctions.contains(_firstWord(cue)) &&
           _wordCount(joined) >= 6 &&
-          _wordCount(cue) >= 3;
+          _wordCount(cue) >= 4;
       buffer.write(needsComma ? ', ' : ' ');
       buffer.write(_lowerContinuing(cue));
     } else {
@@ -167,6 +193,10 @@ String reflowPassage(String body) {
   }
   flush();
 
+  // Trailing blank entries would show up as empty lines at the end.
+  while (sentences.isNotEmpty && sentences.last.isEmpty) {
+    sentences.removeLast();
+  }
   return [if (title.isNotEmpty) title.first, ...sentences].join('\n');
 }
 

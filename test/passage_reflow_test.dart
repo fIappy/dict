@@ -25,6 +25,22 @@ void main() {
     expect(out, contains('And by learning I don’t mean memorizing.'));
   });
 
+  test('a fragment group collapses into one sentence', () {
+    const body = 'Lesson 03\n'
+        'is a question\n'
+        'And in negative\n'
+        'we add “not”\n'
+        'after “are”\n'
+        'and after “am”\n'
+        'For example\n'
+        'These cars are not cheap';
+    expect(reflowPassage(body), 'Lesson 03\n'
+        'Is a question.\n'
+        'And in negative we add “not” after “are” and after “am”.\n'
+        'For example.\n'
+        'These cars are not cheap.');
+  });
+
   test('a clause joined by "and" gets a comma; a list does not', () {
     const body = 'Lesson 09\n'
         'I turned on my computer and opened Chrome\n'

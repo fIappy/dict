@@ -26,9 +26,6 @@ int _sentences(String body) => splitSentences(body).length;
 
 /// Before/after sentence counts and line counts for one passage.
 ({int sentencesBefore, int sentencesAfter, bool changed}) _measure(String body) {
-  if (!looksLikeSubtitleCues(body)) {
-    return (sentencesBefore: _sentences(body), sentencesAfter: _sentences(body), changed: false);
-  }
   final reflowed = reflowPassage(body);
   return (
     sentencesBefore: _sentences(body),
@@ -37,8 +34,31 @@ int _sentences(String body) => splitSentences(body).length;
   );
 }
 
+/// Chapters of the subtitle script: `# ----- Title -----` then one cue per line.
+Map<String, List<String>> _readSource(String path) {
+  final chapters = <String, List<String>>{};
+  final header = RegExp(r'^# -{5} (.+?) -{5}\s*$');
+  String? title;
+  for (final raw in File(path).readAsLinesSync()) {
+    final match = header.firstMatch(raw);
+    if (match != null) {
+      title = match.group(1)!.trim();
+      chapters[title] = <String>[];
+      continue;
+    }
+    if (raw.startsWith('#')) continue;
+    final line = raw.trim();
+    if (title != null && line.isNotEmpty) chapters[title]!.add(line);
+  }
+  return chapters;
+}
+
 void main(List<String> args) {
   final dryRun = args.contains('--dry-run');
+  final sourceIndex = args.indexOf('--from-source');
+  final source = sourceIndex >= 0 && sourceIndex + 1 < args.length
+      ? _readSource(args[sourceIndex + 1])
+      : const <String, List<String>>{};
 
   final store = jsonDecode(File(_storePath).readAsStringSync()) as Map<String, dynamic>;
   final texts = (jsonDecode(store[_storeKey] as String? ?? '[]') as List)
@@ -47,8 +67,15 @@ void main(List<String> args) {
   var changed = 0;
   var sentencesBefore = 0;
   var sentencesAfter = 0;
+  var rebuilt = 0;
   for (final text in texts) {
-    final body = text['body'] as String? ?? '';
+    final title = (text['title'] as String? ?? '').trim();
+    var body = text['body'] as String? ?? '';
+    final cues = source[title];
+    if (cues != null) {
+      body = '$title\n${cues.join('\n')}';
+      rebuilt++;
+    }
     final measure = _measure(body);
     sentencesBefore += measure.sentencesBefore;
     sentencesAfter += measure.sentencesAfter;
@@ -56,8 +83,8 @@ void main(List<String> args) {
     changed++;
     text['body'] = reflowPassage(body);
   }
-  stdout.writeln('store: ${texts.length} passages, $changed reflowed, '
-      'sentences $sentencesBefore -> $sentencesAfter');
+  stdout.writeln('store: ${texts.length} passages, $rebuilt rebuilt from source, '
+      '$changed reflowed, sentences $sentencesBefore -> $sentencesAfter');
 
   final seedFile = File(_seedPath);
   final seed = jsonDecode(seedFile.readAsStringSync()) as Map<String, dynamic>;
@@ -65,8 +92,15 @@ void main(List<String> args) {
   var seedChanged = 0;
   var seedBefore = 0;
   var seedAfter = 0;
+  var seedRebuilt = 0;
   for (final text in seedTexts) {
-    final body = text['body'] as String? ?? '';
+    final title = (text['title'] as String? ?? '').trim();
+    var body = text['body'] as String? ?? '';
+    final cues = source[title];
+    if (cues != null) {
+      body = '$title\n${cues.join('\n')}';
+      seedRebuilt++;
+    }
     final measure = _measure(body);
     seedBefore += measure.sentencesBefore;
     seedAfter += measure.sentencesAfter;
@@ -74,8 +108,8 @@ void main(List<String> args) {
     seedChanged++;
     text['body'] = reflowPassage(body);
   }
-  stdout.writeln('seed: ${seedTexts.length} passages, $seedChanged reflowed, '
-      'sentences $seedBefore -> $seedAfter');
+  stdout.writeln('seed: ${seedTexts.length} passages, $seedRebuilt rebuilt, '
+      '$seedChanged reflowed, sentences $seedBefore -> $seedAfter');
 
   if (dryRun) {
     final sample = seedTexts.firstWhere(
