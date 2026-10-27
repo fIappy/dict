@@ -1,5 +1,7 @@
+import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_dict/core/custom/custom_text.dart';
+import 'package:local_dict/core/custom/playback_order.dart';
 import 'package:local_dict/providers/custom_text_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -149,11 +151,37 @@ void main() {
       await provider.add(body: 'Three.', groupId: work.id);
 
       provider.selectGroup(work.id);
-      expect(provider.playbackQueue.map((e) => e.text), ['One.', 'Two.', 'Three.']);
-      expect(provider.playbackQueue.every((e) => !e.isPhrase), isTrue);
+      final queue = provider.queueFor(PlaybackOrder.sequential);
+      expect(queue.map((e) => e.text), ['One.', 'Two.', 'Three.']);
+      expect(queue.every((e) => !e.isPhrase), isTrue);
 
       provider.selectGroup(CustomTextProvider.ungroupedId);
-      expect(provider.playbackQueue.single.text, 'in charge of');
+      expect(provider.queueFor(PlaybackOrder.sequential).single.text, 'in charge of');
+    });
+
+    test('shuffle reorders the articles, never their sentences', () async {
+      final provider = CustomTextProvider();
+      await provider.initialize();
+      final group = await provider.addGroup('随机');
+      await provider.add(body: 'A1. A2.', groupId: group!.id);
+      await provider.add(body: 'B1. B2.', groupId: group.id);
+      await provider.add(body: 'C1. C2.', groupId: group.id);
+      provider.selectGroup(group.id);
+
+      final ordered = provider.queueFor(PlaybackOrder.sequential);
+      final shuffled = provider.queueFor(PlaybackOrder.shuffle, random: Random(7));
+
+      // Same lines, and each article still reads top to bottom: every chunk of
+      // two starts a new article.
+      expect(shuffled.map((e) => e.text).toSet(), ordered.map((e) => e.text).toSet());
+      expect(shuffled.length, ordered.length);
+      for (var i = 0; i < shuffled.length; i += 2) {
+        expect(shuffled[i + 1].text, endsWith('2.'));
+        expect(shuffled[i].text.substring(0, 1), shuffled[i + 1].text.substring(0, 1));
+      }
+      final firstLetters =
+          [for (var i = 0; i < shuffled.length; i += 2) shuffled[i].text.substring(0, 1)];
+      expect(firstLetters, isNot(['A', 'B', 'C']));
     });
 
     test('updating the group moves the entry without touching the body', () async {

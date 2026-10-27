@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/ai/ai_config.dart';
 import '../core/ai/passage_style.dart';
 import '../core/audio/speech_engine.dart';
+import '../core/custom/playback_order.dart';
 
 class SettingsProvider extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
@@ -16,6 +17,7 @@ class SettingsProvider extends ChangeNotifier {
   String _aiModel = 'gpt-4o-mini';
   AiReasoningEffort _aiReasoningEffort = AiReasoningEffort.low;
   bool _speechLoop = false;
+  PlaybackOrder _speechOrder = PlaybackOrder.sequential;
   SpeechEngine _speechEngine = SpeechEngine.kokoro;
   double _speechVolume = 1.0;
   int _passageLength = 140;
@@ -42,6 +44,7 @@ class SettingsProvider extends ChangeNotifier {
   /// 循环播放, shared by every multi-line player (dictionary order play,
   /// AI cards, custom passages).
   bool get speechLoop => _speechLoop;
+  PlaybackOrder get speechOrder => _speechOrder;
 
   /// How long the reader wants generated passages, in words.
   int get passageLength => _passageLength;
@@ -72,6 +75,7 @@ class SettingsProvider extends ChangeNotifier {
     _aiApiKey = prefs.getString('ai_api_key') ?? '';
     _aiModel = prefs.getString('ai_model') ?? 'gpt-4o-mini';
     _speechLoop = prefs.getBool('speech_loop') ?? false;
+    _speechOrder = PlaybackOrder.fromName(prefs.getString('speech_order'));
     _speechEngine = SpeechEngine.byName(prefs.getString('speech_engine'));
     _speechVolume = (prefs.getDouble('speech_volume') ?? 1.0).clamp(0.0, 1.0);
     _passageLength = prefs.getInt('passage_length') ?? 140;
@@ -121,6 +125,14 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('speech_loop', value);
+  }
+
+  Future<void> setSpeechOrder(PlaybackOrder order) async {
+    if (order == _speechOrder) return;
+    _speechOrder = order;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('speech_order', order.name);
   }
 
   Future<void> setPassageLength(int words) async {

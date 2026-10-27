@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/custom/custom_text.dart';
+import '../core/custom/playback_order.dart';
 import '../core/mdx/entry_speech.dart';
 import '../core/ui/ui_memory.dart';
 
@@ -73,13 +75,22 @@ class CustomTextProvider extends ChangeNotifier {
     return null;
   }
 
-  /// Everything the 顺序播放 button reads: the open group's entries in list
-  /// order, each already split into its sentences.
-  List<EntryUtterance> get playbackQueue => [
-        for (final item in visibleTexts)
-          for (final line in item.utterances)
-            EntryUtterance(text: line, isPhrase: false),
-      ];
+  /// Everything the 顺序播放 / 随机播放 button reads: the open group's entries,
+  /// each already split into its sentences.
+  ///
+  /// [order] only reorders the articles - the sentences of one article always
+  /// stay in reading order, so a shuffled run never mixes two passages.
+  List<EntryUtterance> queueFor(PlaybackOrder order, {Random? random}) {
+    final items = [...visibleTexts];
+    if (order == PlaybackOrder.shuffle) {
+      items.shuffle(random ?? Random());
+    }
+    return [
+      for (final item in items)
+        for (final line in item.utterances)
+          EntryUtterance(text: line, isPhrase: false),
+    ];
+  }
 
   Future<void> initialize() async {
     if (_initialized) return;

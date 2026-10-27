@@ -5,6 +5,7 @@ import '../../core/custom/custom_text.dart';
 import '../../core/mdx/entry_speech.dart';
 import '../../providers/custom_text_provider.dart';
 import '../../providers/entry_speech_provider.dart';
+import '../../core/custom/playback_order.dart';
 import '../../providers/settings_provider.dart';
 import 'custom_detail_view.dart';
 import '../widgets/speech_controls.dart';
@@ -272,8 +273,9 @@ class CustomScreen extends StatelessWidget {
 
   Widget _buildBottomBar(BuildContext context, CustomTextProvider provider) {
     final speech = context.watch<EntrySpeechProvider>();
+    final settings = context.watch<SettingsProvider>();
     final theme = Theme.of(context);
-    final queue = provider.playbackQueue;
+    final queue = provider.queueFor(settings.speechOrder);
     final playing = speech.isPlaying;
     final index = speech.currentIndex;
 
@@ -294,7 +296,7 @@ class CustomScreen extends StatelessWidget {
               label: Text(
                 playing
                     ? '停止 ${index == null ? '' : '${index + 1}/${speech.items.length}'}'.trimRight()
-                    : '顺序播放 ${queue.length} 句',
+                    : '${settings.speechOrder.label}播放 ${queue.length} 句',
               ),
               onPressed: queue.isEmpty
                   ? null
@@ -305,6 +307,22 @@ class CustomScreen extends StatelessWidget {
                       }
                       _playQueue(context, queue);
                     },
+            ),
+          ),
+          IconButton(
+            tooltip: settings.speechOrder == PlaybackOrder.shuffle
+                ? '播放顺序：随机（点按改为顺序）'
+                : '播放顺序：顺序（点按改为随机）',
+            icon: Icon(
+              settings.speechOrder == PlaybackOrder.shuffle
+                  ? Icons.shuffle_rounded
+                  : Icons.format_list_numbered_rounded,
+              size: 18,
+            ),
+            onPressed: () => settings.setSpeechOrder(
+              settings.speechOrder == PlaybackOrder.shuffle
+                  ? PlaybackOrder.sequential
+                  : PlaybackOrder.shuffle,
             ),
           ),
           FilledButton.icon(
@@ -328,8 +346,11 @@ class CustomScreen extends StatelessWidget {
   }
 
   void _play(BuildContext context, List<CustomText> items) {
+    final order = context.read<SettingsProvider>().speechOrder;
+    final ordered = [...items];
+    if (order == PlaybackOrder.shuffle) ordered.shuffle();
     _playQueue(context, [
-      for (final item in items)
+      for (final item in ordered)
         for (final line in item.utterances)
           EntryUtterance(text: line, isPhrase: false),
     ]);
