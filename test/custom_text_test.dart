@@ -183,6 +183,30 @@ void main() {
           [for (var i = 0; i < shuffled.length; i += 2) shuffled[i].text.substring(0, 1)];
       expect(firstLetters, isNot(['A', 'B', 'C']));
     });
+    test('queueFrom plays from startIndex and tags utterances with itemId and sentenceIndex', () async {
+      final provider = CustomTextProvider();
+      await provider.initialize();
+      final group = await provider.addGroup('测试');
+      await provider.add(body: 'A1. A2.', groupId: group!.id);
+      final b = await provider.add(body: 'B1. B2.', groupId: group.id);
+      final c = await provider.add(body: 'C1. C2.', groupId: group.id);
+      provider.selectGroup(group.id);
+
+      final queue = provider.queueFrom(1, PlaybackOrder.sequential);
+      expect(queue.map((e) => e.text), ['B1.', 'B2.', 'C1.', 'C2.']);
+      expect(queue[0].itemId, b.id);
+      expect(queue[0].sentenceIndex, 0);
+      expect(queue[1].itemId, b.id);
+      expect(queue[1].sentenceIndex, 1);
+      expect(queue[2].itemId, c.id);
+      expect(queue[2].sentenceIndex, 0);
+      expect(queue[3].itemId, c.id);
+      expect(queue[3].sentenceIndex, 1);
+
+      final shuffled = provider.queueFrom(1, PlaybackOrder.shuffle, random: Random(7));
+      expect(shuffled.take(2).map((e) => e.text), ['B1.', 'B2.']);
+      expect(shuffled.map((e) => e.text).toSet(), {'A1.', 'A2.', 'B1.', 'B2.', 'C1.', 'C2.'});
+    });
 
     test('updating the group moves the entry without touching the body', () async {
       final provider = CustomTextProvider();
@@ -220,6 +244,20 @@ void main() {
     test('a position past the end still yields the last sentence', () {
       expect(sentencesFrom(body, body.length + 50), ['I sat down.']);
     });
+    test('sentencesFromWithIndex returns the start sentence index in the passage', () {
+      final res0 = sentencesFromWithIndex(body, 3);
+      expect(res0.startIndex, 0);
+      expect(res0.sentences.first, 'I put my bag down.');
+
+      final res1 = sentencesFromWithIndex(body, body.indexOf('I turned'));
+      expect(res1.startIndex, 1);
+      expect(res1.sentences.first, 'I turned on the light.');
+
+      final res2 = sentencesFromWithIndex(body, body.indexOf('I sat'));
+      expect(res2.startIndex, 2);
+      expect(res2.sentences, ['I sat down.']);
+    });
+
 
     test('ranges cover the text without overlapping', () {
       final ranges = sentenceRanges(body);

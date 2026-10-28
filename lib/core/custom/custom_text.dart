@@ -182,21 +182,30 @@ List<String> splitSentences(String body) => [
         body.substring(range.start, range.end),
     ];
 
+/// The sentence that contains [offset] and every sentence after it, along
+/// with the 0-based index of the first sentence in [splitSentences] order.
+({int startIndex, List<String> sentences}) sentencesFromWithIndex(
+    String body, int offset) {
+  final ranges = sentenceRanges(body);
+  if (ranges.isEmpty) return (startIndex: 0, sentences: const <String>[]);
+  final at = offset.clamp(0, body.length);
+  var index = ranges.indexWhere((range) => at < range.end);
+  if (index < 0) index = ranges.length - 1;
+  return (
+    startIndex: index,
+    sentences: [
+      for (var i = index; i < ranges.length; i++)
+        body.substring(ranges[i].start, ranges[i].end),
+    ],
+  );
+}
+
 /// The sentence that contains [offset] and every sentence after it.
 ///
 /// This is what "read from here" needs: a click anywhere inside a sentence
 /// starts that sentence, not the next one.
-List<String> sentencesFrom(String body, int offset) {
-  final ranges = sentenceRanges(body);
-  if (ranges.isEmpty) return const [];
-  final at = offset.clamp(0, body.length);
-  var index = ranges.indexWhere((range) => at < range.end);
-  if (index < 0) index = ranges.length - 1;
-  return [
-    for (var i = index; i < ranges.length; i++)
-      body.substring(ranges[i].start, ranges[i].end),
-  ];
-}
+List<String> sentencesFrom(String body, int offset) =>
+    sentencesFromWithIndex(body, offset).sentences;
 
 bool _isSpace(int code) =>
     code == 0x20 || code == 0x09 || code == 0x0A || code == 0x0D;

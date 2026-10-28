@@ -9,7 +9,12 @@ import 'package:html/parser.dart' as html_parser;
 /// English, and both would be read out if the markup were passed through
 /// verbatim. [text] is therefore the English line only, whitespace-collapsed.
 class EntryUtterance {
-  const EntryUtterance({required this.text, required this.isPhrase});
+  const EntryUtterance({
+    required this.text,
+    required this.isPhrase,
+    this.itemId,
+    this.sentenceIndex,
+  });
 
   /// English text, ready for speech synthesis.
   final String text;
@@ -17,17 +22,28 @@ class EntryUtterance {
   /// True for a 词语搭配 line, false for an example sentence.
   final bool isPhrase;
 
+  /// Optional ID of the item this utterance belongs to (e.g. [CustomText.id]).
+  final String? itemId;
+
+  /// Optional 0-based index of this sentence within the parent item.
+  final int? sentenceIndex;
+
   @override
   bool operator ==(Object other) =>
-      other is EntryUtterance && other.text == text && other.isPhrase == isPhrase;
+      other is EntryUtterance &&
+      other.text == text &&
+      other.isPhrase == isPhrase &&
+      other.itemId == itemId &&
+      other.sentenceIndex == sentenceIndex;
 
   @override
-  int get hashCode => Object.hash(text, isPhrase);
+  int get hashCode => Object.hash(text, isPhrase, itemId, sentenceIndex);
 
   @override
-  String toString() => '${isPhrase ? 'phrase' : 'sentence'}: $text';
+  String toString() =>
+      '${isPhrase ? 'phrase' : 'sentence'}: $text'
+      '${itemId != null ? ' (item: $itemId, #$sentenceIndex)' : ''}';
 }
-
 /// Elements whose text is *not* part of what the entry says: the Chinese
 /// translation, the source book, the 〔keyword〕 label, the 中文显隐 button, and
 /// the audio bar at the top of an SIO record.

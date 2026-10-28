@@ -80,16 +80,46 @@ class CustomTextProvider extends ChangeNotifier {
   ///
   /// [order] only reorders the articles - the sentences of one article always
   /// stay in reading order, so a shuffled run never mixes two passages.
-  List<EntryUtterance> queueFor(PlaybackOrder order, {Random? random}) {
+  List<EntryUtterance> queueFor(PlaybackOrder order, {Random? random}) =>
+      queueFrom(0, order, random: random);
+
+  /// Builds the playback queue starting at [startIndex] in the open group.
+  ///
+  /// In sequential mode, this walks from [startIndex] through the remaining
+  /// entries to the end of the group. In shuffle mode, [startIndex] plays
+  /// first, followed by the rest of the entries in random order.
+  List<EntryUtterance> queueFrom(
+    int startIndex,
+    PlaybackOrder order, {
+    Random? random,
+  }) {
     final items = [...visibleTexts];
+    if (startIndex < 0 || startIndex >= items.length) return const [];
+
+    List<CustomText> ordered;
     if (order == PlaybackOrder.shuffle) {
-      items.shuffle(random ?? Random());
+      final rest = [
+        for (var i = 0; i < items.length; i++)
+          if (i != startIndex) items[i],
+      ]..shuffle(random ?? Random());
+      ordered = [items[startIndex], ...rest];
+    } else {
+      ordered = items.sublist(startIndex);
     }
-    return [
-      for (final item in items)
-        for (final line in item.utterances)
-          EntryUtterance(text: line, isPhrase: false),
-    ];
+
+    final result = <EntryUtterance>[];
+    for (final item in ordered) {
+      final sentences = item.utterances;
+      for (var sIdx = 0; sIdx < sentences.length; sIdx++) {
+        result.add(EntryUtterance(
+          text: sentences[sIdx],
+          isPhrase: false,
+          itemId: item.id,
+          sentenceIndex: sIdx,
+        ));
+      }
+    }
+    return result;
   }
 
   Future<void> initialize() async {

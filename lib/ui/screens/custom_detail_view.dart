@@ -162,11 +162,28 @@ class _CustomDetailViewState extends State<CustomDetailView> {
   /// whatever behavior is in scope, so turning it off from outside does nothing
   /// — which is why the passage is wrapped in [_NoFieldScrollbar] and draws its
   /// own always-visible bar instead.
-  Widget _buildBody(BuildContext context) {
+  int? _speakingSentenceIndex(List<String> lines, CustomText? item) {
     final speech = context.watch<EntrySpeechProvider>();
-    final lines = splitSentences(_body.text);
-    final speaking = speech.isReading(lines) ? speech.currentIndex : null;
+    if (!speech.isPlaying) return null;
+    if (item != null) {
+      final index = speech.sentenceIndexFor(item.id);
+      if (index != null) return index;
+    }
+    final current = speech.currentUtterance;
+    if (current != null &&
+        current.sentenceIndex != null &&
+        current.sentenceIndex! < lines.length &&
+        current.text == lines[current.sentenceIndex!]) {
+      return current.sentenceIndex;
+    }
+    if (speech.isReading(lines)) return speech.currentIndex;
+    return null;
+  }
 
+  Widget _buildBody(BuildContext context) {
+    final item = _storedItem;
+    final lines = splitSentences(_body.text);
+    final speaking = _speakingSentenceIndex(lines, item);
     if (speaking != null) {
       final theme = Theme.of(context);
       return Container(
@@ -179,6 +196,7 @@ class _CustomDetailViewState extends State<CustomDetailView> {
         child: ScrollConfiguration(
           behavior: const ScrollBehavior(),
           child: SingleChildScrollView(
+            controller: _bodyScroll,
             child: AnnotatedText(
               _body.text,
               themeWords: const {},
@@ -225,11 +243,13 @@ class _CustomDetailViewState extends State<CustomDetailView> {
   /// The sentence sounding right now, in red — the same mark the lists use.
   Widget _buildSpeakingLine(BuildContext context) {
     final speech = context.watch<EntrySpeechProvider>();
+    final item = _storedItem;
     final lines = splitSentences(_body.text);
-    final index = speech.isReading(lines) ? speech.currentIndex : null;
+    final index = _speakingSentenceIndex(lines, item);
     if (index == null || index >= lines.length) return const SizedBox.shrink();
+    final currentText = speech.currentUtterance?.text ?? lines[index];
     return Text(
-      '正在朗读 ${index + 1}/${lines.length}：${lines[index]}',
+      '正在朗读 ${index + 1}/${lines.length}：$currentText',
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
@@ -385,9 +405,41 @@ class _CustomDetailViewState extends State<CustomDetailView> {
     final speech = context.read<EntrySpeechProvider>();
     final lines = splitSentences(_body.text);
     if (lines.isEmpty) return;
+    final item = _storedItem;
     final settings = context.read<SettingsProvider>();
+    final customProvider = context.read<CustomTextProvider>();
+
+    // If viewing a saved entry in the open group without unsaved edits,
+    // play from this entry onwards in the group according to speechOrder:
+    if (item != null && _body.text == item.body) {
+      final items = customProvider.visibleTexts;
+      final idx = items.indexWhere((it) => it.id == item.id);
+      if (idx != -1) {
+        final queue = customProvider.queueFrom(idx, settings.speechOrder);
+        speech.playAll(
+          queue,
+          rate: settings.speechRate,
+          gap: settings.sentenceGap,
+          accent: accentForLanguage(settings.ttsLanguage),
+          loop: settings.speechLoop,
+          engine: settings.speechEngine,
+          volume: settings.speechVolume,
+        );
+        return;
+      }
+    }
+
+    // Otherwise (unsaved edits or new entry), play the editor's text:
     speech.playAll(
-      [for (final line in lines) EntryUtterance(text: line, isPhrase: false)],
+      [
+        for (var i = 0; i < lines.length; i++)
+          EntryUtterance(
+            text: lines[i],
+            isPhrase: false,
+            itemId: item?.id,
+            sentenceIndex: i,
+          ),
+      ],
       rate: settings.speechRate,
       gap: settings.sentenceGap,
       accent: accentForLanguage(settings.ttsLanguage),

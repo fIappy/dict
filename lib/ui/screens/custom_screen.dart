@@ -166,7 +166,7 @@ class CustomScreen extends StatelessWidget {
             const SizedBox(width: 4),
             SpeechControls(
               idleLabel: '播放本组',
-              onStart: () => _play(context, provider.visibleTexts),
+              onStart: () => _playFrom(context, provider, 0),
             ),
           ],
         ],
@@ -190,26 +190,30 @@ class CustomScreen extends StatelessWidget {
     }
 
     final speech = context.watch<EntrySpeechProvider>();
-    // Where each item's sentences start in the flattened queue, so the row of
-    // the sentence being read can be found.
-    final starts = <int>[];
-    var cursor = 0;
-    for (final item in items) {
-      starts.add(cursor);
-      cursor += item.utterances.length;
+    final settings = context.watch<SettingsProvider>();
+    final currentItemId = speech.currentUtterance?.itemId;
+
+    if (isPaneView &&
+        currentItemId != null &&
+        speech.isPlaying &&
+        provider.selectedId != currentItemId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (speech.isPlaying &&
+            speech.currentUtterance?.itemId == currentItemId) {
+          provider.select(currentItemId);
+        }
+      });
     }
-    final queue = [for (final item in items) ...item.utterances];
-    final speakingIndex =
-        speech.isReading(queue) ? speech.currentIndex : null;
+
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 4),
       itemCount: items.length,
       separatorBuilder: (_, _) => const Divider(height: 1, indent: 56),
       itemBuilder: (context, index) {
         final item = items[index];
-        final speaking = speakingIndex != null &&
-            speakingIndex >= starts[index] &&
-            speakingIndex < starts[index] + item.utterances.length;
+        final sentences = item.utterances;
+        final speakingSentence = speech.sentenceIndexFor(item.id);
+        final speaking = speakingSentence != null;
         final theme = Theme.of(context);
         return ListTile(
           dense: true,
@@ -217,8 +221,16 @@ class CustomScreen extends StatelessWidget {
             icon: Icon(
                 speaking ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded),
             color: speaking ? theme.colorScheme.error : null,
-            tooltip: '播放这一条',
-            onPressed: () => _play(context, [item]),
+            tooltip: speaking
+                ? '停止播放'
+                : '${settings.speechOrder.label}播放（从这篇开始）',
+            onPressed: () {
+              if (speaking) {
+                speech.stop();
+              } else {
+                _playFrom(context, provider, index);
+              }
+            },
           ),
           title: Text(
             item.label,
@@ -231,10 +243,9 @@ class CustomScreen extends StatelessWidget {
           ),
           subtitle: Text(
             speaking
-                ? '正在朗读 ${speakingIndex - starts[index] + 1}/'
-                    '${item.utterances.length}：'
-                    '${item.utterances[speakingIndex - starts[index]]}'
-                : '${item.utterances.length} 句',
+                ? '正在朗读 ${speakingSentence + 1}/${sentences.length}：'
+                    '${speech.currentUtterance?.text ?? (speakingSentence < sentences.length ? sentences[speakingSentence] : '')}'
+                : '${sentences.length} 句',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -270,12 +281,12 @@ class CustomScreen extends StatelessWidget {
       },
     );
   }
-
   Widget _buildBottomBar(BuildContext context, CustomTextProvider provider) {
     final speech = context.watch<EntrySpeechProvider>();
     final settings = context.watch<SettingsProvider>();
     final theme = Theme.of(context);
-    final queue = provider.queueFor(settings.speechOrder);
+    final totalSentences =
+        provider.visibleTexts.fold<int>(0, (sum, it) => sum + it.utterances.length);
     final playing = speech.isPlaying;
     final index = speech.currentIndex;
 
@@ -296,16 +307,16 @@ class CustomScreen extends StatelessWidget {
               label: Text(
                 playing
                     ? '停止 ${index == null ? '' : '${index + 1}/${speech.items.length}'}'.trimRight()
-                    : '${settings.speechOrder.label}播放 ${queue.length} 句',
+                    : '${settings.speechOrder.label}播放 $totalSentences 句',
               ),
-              onPressed: queue.isEmpty
+              onPressed: totalSentences == 0
                   ? null
                   : () {
                       if (playing) {
                         speech.stop();
                         return;
                       }
-                      _playQueue(context, queue);
+                      _playFrom(context, provider, 0);
                     },
             ),
           ),
@@ -345,15 +356,18 @@ class CustomScreen extends StatelessWidget {
     );
   }
 
-  void _play(BuildContext context, List<CustomText> items) {
-    final order = context.read<SettingsProvider>().speechOrder;
-    final ordered = [...items];
-    if (order == PlaybackOrder.shuffle) ordered.shuffle();
-    _playQueue(context, [
-      for (final item in ordered)
-        for (final line in item.utterances)
-          EntryUtterance(text: line, isPhrase: false),
-    ]);
+  void _playFrom(
+    BuildContext context,
+    CustomTextProvider provider,
+    int startIndex,
+  ) {
+    final items = provider.visibleTexts;
+    if (startIndex < 0 || startIndex >= items.length) return;
+    provider.select(items[startIndex].id);
+
+    final settings = context.read<SettingsProvider>();
+    final queue = provider.queueFrom(startIndex, settings.speechOrder);
+    _playQueue(context, queue);
   }
 
   void _playQueue(BuildContext context, List<EntryUtterance> queue) {

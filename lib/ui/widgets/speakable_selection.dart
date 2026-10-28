@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/entry_speech_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../providers/custom_text_provider.dart';
 
 /// Reads [text] aloud with the reader's own voice settings.
 ///
@@ -58,13 +59,27 @@ T? _findRender<T extends RenderObject>(RenderObject? root) {
   return found;
 }
 
-void _playFrom(BuildContext context, List<String> sentences) {
+void _playFrom(
+  BuildContext context,
+  List<String> sentences, {
+  int startIndex = 0,
+}) {
   final speech = context.read<EntrySpeechProvider>();
   final settings = context.read<SettingsProvider>();
+  String? itemId;
+  try {
+    itemId = context.read<CustomTextProvider>().selectedId;
+  } catch (_) {}
+
   speech.playAll(
     [
-      for (final sentence in sentences)
-        EntryUtterance(text: sentence, isPhrase: false),
+      for (var i = 0; i < sentences.length; i++)
+        EntryUtterance(
+          text: sentences[i],
+          isPhrase: false,
+          itemId: itemId,
+          sentenceIndex: startIndex + i,
+        ),
     ],
     rate: settings.speechRate,
     gap: settings.sentenceGap,
@@ -81,6 +96,7 @@ Widget _toolbar({
   required List<ContextMenuButtonItem> items,
   required TextSelectionToolbarAnchors anchors,
   List<String>? fromHere,
+  int? fromStartIndex,
 }) {
   final buttons = [
     if (fromHere != null && fromHere.isNotEmpty)
@@ -88,7 +104,7 @@ Widget _toolbar({
         label: '从这里开始朗读',
         onPressed: () {
           ContextMenuController.removeAny();
-          _playFrom(context, fromHere);
+          _playFrom(context, fromHere, startIndex: fromStartIndex ?? 0);
         },
       ),
     if (selected.trim().isNotEmpty)
@@ -116,15 +132,16 @@ Widget speakableEditableMenu(BuildContext context, EditableTextState state) {
       ? selection.textInside(value.text)
       : '';
   final caret = _offsetFromSecondaryTap(state.context);
-  final from = caret != null
-      ? sentencesFrom(value.text, caret)
-      : const <String>[];
+  final fromResult = caret != null
+      ? sentencesFromWithIndex(value.text, caret)
+      : (startIndex: 0, sentences: const <String>[]);
   return _toolbar(
     context: context,
     selected: selected,
     anchors: state.contextMenuAnchors,
     items: state.contextMenuButtonItems,
-    fromHere: from.isEmpty ? null : from,
+    fromHere: fromResult.sentences.isEmpty ? null : fromResult.sentences,
+    fromStartIndex: fromResult.sentences.isEmpty ? null : fromResult.startIndex,
   );
 }
 
