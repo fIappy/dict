@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'mdict_crypto.dart';
+
 class MdxKeyBlockMeta {
   final int count;
   final String firstKey;
@@ -91,6 +93,10 @@ class MdxReader {
         }
       }
 
+      // Encrypted="2" (LDOCE5++, 牛津高阶第 10 版 …): the block that indexes the
+      // key blocks is a stream cipher over what is otherwise zlib data.
+      final encryption = MdictCrypto.encryptionFlag(header);
+
       final kinfoBuf = ByteData.sublistView(raf.readSync(40));
       final numKeyBlocks = kinfoBuf.getUint64(0, Endian.big);
       final entriesCount = kinfoBuf.getUint64(8, Endian.big);
@@ -98,8 +104,9 @@ class MdxReader {
       kinfoBuf.getUint64(32, Endian.big); // keyBlockSize
       raf.readSync(4); // checksum
 
-      final compKbInfo = raf.readSync(compKbInfoSize);
-      final decompKbInfo = Uint8List.fromList(zlib.decode(compKbInfo.sublist(8)));
+      final compKbInfo = Uint8List.fromList(raf.readSync(compKbInfoSize));
+      final decompKbInfo =
+          MdictCrypto.decodeKeyBlockInfo(compKbInfo, encryption);
       final bd = ByteData.sublistView(decompKbInfo);
 
       final reader = MdxReader._(
@@ -193,8 +200,8 @@ class MdxReader {
 
     for (final kb in _keyBlocks) {
       _raf.setPositionSync(kb.filePos);
-      final raw = _raf.readSync(kb.compSize);
-      final decomp = Uint8List.fromList(zlib.decode(raw.sublist(8)));
+      final raw = Uint8List.fromList(_raf.readSync(kb.compSize));
+      final decomp = MdictCrypto.decodeBlock(raw);
       final dbd = ByteData.sublistView(decomp);
 
       int kp = 0;
@@ -353,8 +360,8 @@ class MdxReader {
 
     final rb = _recordBlocks[blockIndex];
     _raf.setPositionSync(rb.filePos);
-    final compData = _raf.readSync(rb.compSize);
-    final decomp = Uint8List.fromList(zlib.decode(compData.sublist(8)));
+    final compData = Uint8List.fromList(_raf.readSync(rb.compSize));
+    final decomp = MdictCrypto.decodeBlock(compData);
 
     if (_recordBlockCache.length >= _maxCacheBlocks) {
       final oldest = _recordBlockLru.removeAt(0);

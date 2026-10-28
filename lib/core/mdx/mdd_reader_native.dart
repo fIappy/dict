@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+
+import 'mdict_crypto.dart';
 
 class MddKeyBlockMeta {
   final int count;
@@ -66,7 +69,17 @@ class MddReader {
 
   void _init() {
     final hlen = ByteData.sublistView(_raf.readSync(4)).getUint32(0, Endian.big);
-    _raf.readSync(hlen + 4);
+    final headerBytes = _raf.readSync(hlen);
+    _raf.readSync(4); // checksum
+    String header;
+    try {
+      header = utf8.decode(headerBytes);
+    } catch (_) {
+      // Older MDD files (LDOCE5++ …) write the header as UTF-16LE.
+      header = _utf16LeDecode(headerBytes);
+    }
+    // The audio archive is encrypted the same way the text one is.
+    final encryption = MdictCrypto.encryptionFlag(header);
 
     final kinfoBuf = ByteData.sublistView(_raf.readSync(40));
     final numKeyBlocks = kinfoBuf.getUint64(0, Endian.big);
@@ -74,8 +87,8 @@ class MddReader {
     final compKbInfoSize = kinfoBuf.getUint64(24, Endian.big);
     kinfoBuf.getUint64(32, Endian.big); // keyBlockSize
 
-    final compKbInfo = _raf.readSync(compKbInfoSize);
-    final decompKbInfo = Uint8List.fromList(zlib.decode(compKbInfo.sublist(8)));
+    final compKbInfo = Uint8List.fromList(_raf.readSync(compKbInfoSize));
+    final decompKbInfo = MdictCrypto.decodeKeyBlockInfo(compKbInfo, encryption);
     final bd = ByteData.sublistView(decompKbInfo);
 
     int pos = 0;
@@ -151,8 +164,8 @@ class MddReader {
 
     // 2. Read target key block
     _raf.setPositionSync(targetBlock.filePos);
-    final kbData = _raf.readSync(targetBlock.compSize);
-    final decompKb = Uint8List.fromList(zlib.decode(kbData.sublist(8)));
+    final kbData = Uint8List.fromList(_raf.readSync(targetBlock.compSize));
+    final decompKb = MdictCrypto.decodeBlock(kbData);
 
     int kp = 0;
     int? foundOffset;
@@ -241,7 +254,7 @@ class MddReader {
     final rb = _recordBlocks[blockIndex];
     _raf.setPositionSync(rb.filePos);
     final compData = _raf.readSync(rb.compSize);
-    final decomp = Uint8List.fromList(zlib.decode(compData.sublist(8)));
+    final decomp = MdictCrypto.decodeBlock(compData);
 
     if (_recordBlockCache.length >= _maxCacheBlocks) {
       final oldest = _recordBlockLru.removeAt(0);

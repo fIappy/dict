@@ -684,11 +684,13 @@ Uint8List _buildMdx(Map<String, List<String>> entries) {
       .toBytes();
 }
 
-/// On disk, each compressed block is 8 bytes of bookkeeping followed by the
-/// zlib stream the reader decodes.
+/// On disk, each block starts with the info word MDict writes: little-endian,
+/// low nibble 2 = zlib, next nibble 0 = not encrypted. Then the block's adler32
+/// (the reader does not verify it) and the zlib stream.
 Uint8List _block(List<int> decompressed) {
   final builder = BytesBuilder()
-    ..add(List<int>.filled(8, 0))
+    ..add(const [0x02, 0x00, 0x00, 0x00])
+    ..add(_beUint32(0))
     ..add(zlib.encode(decompressed));
   return builder.toBytes();
 }
