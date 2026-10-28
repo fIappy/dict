@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 
@@ -5,6 +7,7 @@ import '../api/api_config.dart';
 import '../services/dictionary_service.dart';
 import 'ipa_asset.dart';
 import 'playback_wait.dart';
+import 'prepared_pronunciation.dart';
 import 'sentence_voice.dart';
 import 'speech_clip_player.dart';
 
@@ -101,6 +104,83 @@ class AudioManager implements SpeechClipPlayer {
       onStateChanged: onStateChanged,
       resetAfter: const Duration(milliseconds: 1500),
     );
+  }
+
+  /// Resolves [word]'s audio without playing it, so the drill can queue words
+  /// ahead and keep the configured gap between them.
+  Future<PreparedPronunciation> prepareWord({
+    required String word,
+    String? soundKey,
+    String accent = 'us',
+  }) async {
+    await ApiConfig.resolve();
+    for (final key in [soundKey, '$word.mp3']) {
+      if (key == null || key.isEmpty) continue;
+      final bytes = await _dictService.getAudioBytes(key);
+      if (bytes != null && bytes.isNotEmpty) {
+        return PreparedPronunciation(word: word, bytes: bytes);
+      }
+    }
+    final type = accent == 'uk' ? 1 : 2;
+    return PreparedPronunciation(
+      word: word,
+      url: 'https://dict.youdao.com/dictvoice'
+          '?audio=${Uri.encodeComponent(word)}&type=$type',
+    );
+  }
+
+  /// Plays a prepared clip and waits for it to end.
+  Future<void> playPrepared(
+    PreparedPronunciation clip, {
+    Duration maxWait = const Duration(seconds: 6),
+  }) async {
+    final Source source;
+    if (clip.bytes != null) {
+      source = BytesSource(clip.bytes!);
+    } else if (clip.path != null) {
+      source = UrlSource(clip.path!);
+    } else if (clip.url != null) {
+      source = UrlSource(clip.url!);
+    } else {
+      return;
+    }
+    await _play('${clip.word}_clip', source);
+    try {
+      await _player.onPlayerComplete.first.timeout(maxWait);
+    } on TimeoutException {
+      await _player.stop();
+    } catch (e) {
+      debugPrint('Pronunciation of ${clip.word} did not report its end: $e');
+    }
+  }
+
+  /// Plays [word] and waits for the clip to end — the 背词 loop needs one word
+  /// to finish before the next starts.
+  Future<void> playWordAndWait({
+    required String word,
+    String? soundKey,
+    String accent = 'us',
+    Duration maxWait = const Duration(seconds: 6),
+  }) async {
+    await playWord(word: word, soundKey: soundKey, accent: accent);
+    try {
+      await _player.onPlayerComplete.first.timeout(maxWait);
+    } on TimeoutException {
+      await _player.stop();
+    } catch (e) {
+      debugPrint('Pronunciation completion not reported for $word: $e');
+    }
+  }
+
+  /// Cuts the pronunciation in flight.
+  Future<void> stopPronunciation() async {
+    _currentlyPlayingTag = null;
+    _isPlaying = false;
+    try {
+      await _player.stop();
+    } catch (e) {
+      debugPrint('Could not stop the pronunciation: $e');
+    }
   }
 
   Future<void> playIpaPhoneme(

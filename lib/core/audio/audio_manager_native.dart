@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
@@ -8,6 +9,7 @@ import '../services/dictionary_service.dart';
 import 'audio_background.dart';
 import 'ipa_asset.dart';
 import 'playback_wait.dart';
+import 'prepared_pronunciation.dart';
 import 'sentence_voice.dart';
 import 'speech_clip_player.dart';
 
@@ -45,60 +47,16 @@ class AudioManager implements SpeechClipPlayer {
     _currentlyPlayingTag = playTag;
     _isPlaying = true;
     onStateChanged?.call(true);
-    AudioBackground.begin();
-
     try {
-      if (accent == 'uk') {
-        final ukClip = await _cachedOnlineClip(word, 'uk');
-        if (ukClip != null) {
-          await _player.stop();
-          await _player.play(DeviceFileSource(ukClip));
-          return;
-        }
-        await _speakWithOs(word);
-        return;
-      }
-
-      // 1. The archive's own recording, available when the dictionary ships an .mdd.
-      Uint8List? audioBytes;
-      if (soundKey != null && soundKey.isNotEmpty) {
-        audioBytes = await _dictService.getAudioBytes(soundKey);
-      }
-      audioBytes ??= await _dictService.getAudioBytes('$word.mp3');
-
-      if (audioBytes != null && audioBytes.isNotEmpty) {
-        try {
-          if (Platform.isWindows) {
-            final tempDir = await getTemporaryDirectory();
-            final tempFile = File(p.join(tempDir.path, 'temp_audio_us.mp3'));
-            await tempFile.writeAsBytes(audioBytes, flush: true);
-            await _player.stop();
-            await _player.play(DeviceFileSource(tempFile.path));
-          } else {
-            await _player.stop();
-            await _player.play(BytesSource(audioBytes));
-          }
-          return;
-        } catch (e) {
-          debugPrint('AudioPlayer error: $e');
-        }
-      }
-
-      // 2. No .mdd in this archive (e.g. an .mdx imported on its own): use the
-      //    online voice instead of staying silent.
-      final usClip = await _cachedOnlineClip(word, 'us');
-      if (usClip != null) {
-        await _player.stop();
-        await _player.play(DeviceFileSource(usClip));
-        return;
-      }
-
-      // 3. Offline and no archive audio: fall back to OS text-to-speech.
-      await _speakWithOs(word);
+      final clip = await prepareWord(
+        word: word,
+        soundKey: soundKey,
+        accent: accent,
+      );
+      await _startClip(clip);
     } catch (e) {
       debugPrint('Error playing pronunciation for $word: $e');
     } finally {
-      AudioBackground.end();
       Future.delayed(const Duration(milliseconds: 1200), () {
         if (_currentlyPlayingTag == playTag) {
           _isPlaying = false;
@@ -106,6 +64,130 @@ class AudioManager implements SpeechClipPlayer {
           onStateChanged?.call(false);
         }
       });
+    }
+  }
+
+  /// Resolves [word]'s audio without playing it.
+  ///
+  /// The drill fills its queue with these ahead of time, so the configured gap
+  /// between words is the gap the reader hears instead of that plus a file read
+  /// or a download.
+  Future<PreparedPronunciation> prepareWord({
+    required String word,
+    String? soundKey,
+    String accent = 'us',
+  }) async {
+    if (accent == 'uk') {
+      final ukClip = await _cachedOnlineClip(word, 'uk');
+      return ukClip != null
+          ? PreparedPronunciation(word: word, path: ukClip)
+          : PreparedPronunciation(word: word);
+    }
+
+    final audioBytes = await _archiveAudio(word, soundKey);
+    if (audioBytes != null && audioBytes.isNotEmpty) {
+      try {
+        if (Platform.isWindows) {
+          // One file per word: the drill holds ten prepared clips at once, so a
+          // single shared temp name would let them overwrite each other.
+          final tempDir = await getTemporaryDirectory();
+          final safe = word.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
+          final tempFile = File(p.join(tempDir.path, 'mdd_us_$safe.mp3'));
+          await tempFile.writeAsBytes(audioBytes, flush: true);
+          return PreparedPronunciation(word: word, path: tempFile.path);
+        }
+        return PreparedPronunciation(word: word, bytes: audioBytes);
+      } catch (e) {
+        debugPrint('AudioPlayer error: $e');
+      }
+    }
+
+    // No .mdd in this archive (an .mdx imported on its own): online voice.
+    final usClip = await _cachedOnlineClip(word, 'us');
+    if (usClip != null) {
+      return PreparedPronunciation(word: word, path: usClip);
+    }
+    // Nothing to play: the OS voice says it when its turn comes.
+    return PreparedPronunciation(word: word);
+  }
+
+  /// Words, not sentences: the archive's own recording first.
+  Future<Uint8List?> _archiveAudio(String word, String? soundKey) async {
+    Uint8List? audioBytes;
+    if (soundKey != null && soundKey.isNotEmpty) {
+      audioBytes = await _dictService.getAudioBytes(soundKey);
+    }
+    audioBytes ??= await _dictService.getAudioBytes('$word.mp3');
+    return audioBytes;
+  }
+
+  /// Starts a prepared clip; returns once the sound has begun.
+  Future<void> _startClip(PreparedPronunciation clip) async {
+    AudioBackground.begin();
+    try {
+      final path = clip.path;
+      if (path != null) {
+        await _player.stop();
+        await _player.play(DeviceFileSource(path));
+        return;
+      }
+      final bytes = clip.bytes;
+      if (bytes != null) {
+        await _player.stop();
+        await _player.play(BytesSource(bytes));
+        return;
+      }
+      await _speakWithOs(clip.word);
+    } catch (e) {
+      debugPrint('Error playing pronunciation for ${clip.word}: $e');
+    } finally {
+      AudioBackground.end();
+    }
+  }
+
+  /// Plays a clip from [prepareWord] and waits for it to finish.
+  Future<void> playPrepared(
+    PreparedPronunciation clip, {
+    Duration maxWait = const Duration(seconds: 6),
+  }) async {
+    final hasAudio = clip.hasAudio;
+    await _startClip(clip);
+    if (!hasAudio) return; // OS speech finished when it returned
+    try {
+      await _player.onPlayerComplete.first.timeout(maxWait);
+    } on TimeoutException {
+      await _player.stop();
+    } catch (e) {
+      debugPrint('Pronunciation of ${clip.word} did not report its end: $e');
+    }
+  }
+
+  /// Plays [word] and waits for the clip to finish.
+  ///
+  /// The loop in 背词 needs one word to end before the next starts; [playWord]
+  /// only starts the sound.
+  Future<void> playWordAndWait({
+    required String word,
+    String? soundKey,
+    String accent = 'us',
+    Duration maxWait = const Duration(seconds: 6),
+  }) async {
+    final clip = await prepareWord(
+      word: word,
+      soundKey: soundKey,
+      accent: accent,
+    );
+    await playPrepared(clip, maxWait: maxWait);
+  }
+
+  /// Cuts the pronunciation in flight (the drill's loop uses this when stopped).
+  Future<void> stopPronunciation() async {
+    _currentlyPlayingTag = null;
+    _isPlaying = false;
+    try {
+      await _player.stop();
+    } catch (e) {
+      debugPrint('Could not stop the pronunciation: $e');
     }
   }
 

@@ -38,6 +38,17 @@ class EntrySpeechProvider extends ChangeNotifier {
   bool _isPaused = false;
   int _run = 0;
 
+  /// How many lines the engine may render ahead of the one sounding.
+  ///
+  /// Ten short lines is a few hundred kilobytes of PCM and covers a render that
+  /// takes longer than the clip itself; the first line still waits for the model
+  /// ([warmUp] is what shortens that).
+  static const int prefetchWindow = 10;
+
+  /// Clips kept after they sound: enough for a looped drill of a few dozen
+  /// lines, small enough that a whole passage never sits in memory.
+  static const int clipCacheSize = 32;
+
   /// 循环播放: repeat the list until stopped.
   bool _loop = false;
 
@@ -66,6 +77,22 @@ class EntrySpeechProvider extends ChangeNotifier {
 
   /// The line sounding right now, or null when nothing is playing.
   int? get currentIndex => _currentIndex;
+
+  /// The utterance sounding right now, or null when nothing is playing.
+  EntryUtterance? get currentUtterance =>
+      (_isPlaying && _currentIndex != null && _currentIndex! < _items.length)
+          ? _items[_currentIndex!]
+          : null;
+
+  /// Returns the sentence index if [itemId] is currently being read, or null.
+  int? sentenceIndexFor(String itemId) {
+    if (!_isPlaying || _currentIndex == null || _currentIndex! >= _items.length) {
+      return null;
+    }
+    final current = _items[_currentIndex!];
+    if (current.itemId == itemId) return current.sentenceIndex;
+    return null;
+  }
 
   bool get isPlaying => _isPlaying;
 
@@ -140,17 +167,34 @@ class EntrySpeechProvider extends ChangeNotifier {
     _currentIndex = null;
     notifyListeners();
     try {
-      // One render per line for this run: the next line is rendered while the
-      // current one sounds, so the configured gap is the gap the reader hears
-      // rather than gap + synthesis. A repeat reuses the clip.
+      // Render ahead, not one line but a window of them: a word or a short
+      // sentence takes about a second to synthesize and the reader asked for a
+      // 350 ms gap, so one line of head start is not enough — the pause would
+      // come out as gap + render. With a window the only render the listener
+      // ever waits for is the first one.
+      // Insertion-ordered, capped: a loop over a short list reuses its clips,
+      // a 700-line passage does not pin every clip in memory.
       final clips = <int, Future<PcmClip?>>{};
-      Future<PcmClip?> clipAt(int at) =>
-          clips[at] ??= _render(items[at].text, rate: _rate);
-      Future<void> prefetch(int at) async {
-        if (at >= 0 && at < items.length) await clipAt(at);
+      Future<PcmClip?> clipAt(int at) {
+        final ready = clips.remove(at);
+        if (ready != null) {
+          clips[at] = ready; // touch: most recently used goes last
+          return ready;
+        }
+        final created = _render(items[at].text, rate: _rate);
+        clips[at] = created;
+        while (clips.length > clipCacheSize) {
+          clips.remove(clips.keys.first);
+        }
+        return created;
+      }
+      void prefetchFrom(int from) {
+        for (var ahead = from; ahead < from + prefetchWindow && ahead < items.length; ahead++) {
+          unawaited(clipAt(ahead));
+        }
       }
 
-      unawaited(prefetch(0));
+      prefetchFrom(0);
       var index = 0;
       while (run == _run) {
         for (; index < items.length; index++) {
@@ -170,8 +214,10 @@ class EntrySpeechProvider extends ChangeNotifier {
 
           _currentIndex = index;
           notifyListeners();
-          unawaited(prefetch(index + 1));
-          await _playClip(await clipAt(index), run: run);
+          // Keep the window full as lines move out of it.
+          prefetchFrom(index + 1);
+          final clip = await clipAt(index);
+          await _playClip(clip, run: run);
           if (run != _run) return;
 
           // A repeat asked for during the line lands here, after it finished.

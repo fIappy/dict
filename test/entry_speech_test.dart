@@ -561,6 +561,59 @@ void main() {
     expect(kokoro.rendered, isEmpty, reason: 'the model is not touched');
     expect(player.sentences, ['One.', 'Two.']);
   });
+  test('currentUtterance and sentenceIndexFor track the active item', () async {
+    final player = _RecordingPlayer();
+    final kokoro = _StubKokoro();
+    final speech = EntrySpeechProvider(player: player, kokoro: kokoro);
+
+    final tracked = <String?>[];
+    final item1Indices = <int?>[];
+    final item2Indices = <int?>[];
+
+    player.onBuffer = (count) {
+      tracked.add(speech.currentUtterance?.text);
+      item1Indices.add(speech.sentenceIndexFor('item-1'));
+      item2Indices.add(speech.sentenceIndexFor('item-2'));
+    };
+
+    await speech.playAll(const [
+      EntryUtterance(text: 'One.', isPhrase: false, itemId: 'item-1', sentenceIndex: 0),
+      EntryUtterance(text: 'Two.', isPhrase: false, itemId: 'item-1', sentenceIndex: 1),
+      EntryUtterance(text: 'Three.', isPhrase: false, itemId: 'item-2', sentenceIndex: 0),
+    ], rate: 1.0, gap: Duration.zero, accent: 'us');
+
+    expect(tracked, ['One.', 'Two.', 'Three.']);
+    expect(item1Indices, [0, 1, null]);
+    expect(item2Indices, [null, null, 0]);
+    expect(speech.currentUtterance, isNull);
+    expect(speech.sentenceIndexFor('item-1'), isNull);
+  });
+
+  test('the engine renders a window ahead of the line sounding', () async {
+    final player = _GateQueuePlayer();
+    final kokoro = _StubKokoro();
+    final speech = EntrySpeechProvider(player: player, kokoro: kokoro);
+
+    final lines = [
+      for (var i = 0; i < 15; i++) EntryUtterance(text: 'line $i.', isPhrase: false),
+    ];
+
+    player.holdNext(); // sit inside the first line
+    final run = speech.playAll(lines, rate: 1.0, gap: Duration.zero, accent: 'us');
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    // The first line pays the render; the next ten are already done while it
+    // sounds, so those lines start on the configured gap alone.
+    final window = EntrySpeechProvider.prefetchWindow;
+    for (var ahead = 1; ahead <= window && ahead < lines.length; ahead++) {
+      expect(kokoro.rendered, contains('line $ahead.'),
+          reason: 'line $ahead should be rendered while line 0 sounds');
+    }
+    expect(kokoro.rendered, isNot(contains('line ${window + 1}.')));
+
+    player.releaseAll();
+    await run;
+  }, timeout: const Timeout(Duration(minutes: 1)));
 
   group('pause, resume and loop', () {
     List<EntryUtterance> lines() => const [
