@@ -142,7 +142,15 @@ class DictionaryService {
 
   Future<void> reloadDictionaries() => refreshDictionaries();
 
+  /// Only one dictionary may be enabled: switching one on turns the others off
+  /// (the backend stores a flag per archive, so each one is set explicitly).
   Future<void> toggleDictionary(String id, bool isEnabled) async {
+    if (isEnabled) {
+      for (final info in _dictionaries) {
+        if (info.id == id || !info.isEnabled) continue;
+        await _api.setDictionaryEnabled(info.id, false);
+      }
+    }
     await _api.setDictionaryEnabled(id, isEnabled);
     await refreshDictionaries();
   }

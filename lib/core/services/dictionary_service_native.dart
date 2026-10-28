@@ -66,14 +66,18 @@ class DictionaryService {
     if (_isInitialized) return;
     _frequencyService.init();
 
-    // 1. Load registered enabled dictionaries from database
+    // 1. Load the registered enabled dictionary. Only one may be on: a lookup
+    //    has to have one answer and one voice, so a database that still carries
+    //    several enabled rows (older builds allowed that) is collapsed to the
+    //    first one before anything is opened.
     final registered = await _dao.getEnabled();
+    final enabled = await _collapseToSingle(registered);
 
-    if (registered.isEmpty) {
+    if (enabled.isEmpty) {
       // Nothing registered yet: adopt every archive the probe folders hold.
       await autoImportDetectedDictionaries();
     } else {
-      for (final info in registered) {
+      for (final info in enabled) {
         await _loadDictionaryHandle(info);
       }
     }
@@ -175,9 +179,31 @@ class DictionaryService {
     return 'dict_auto_${hash.toRadixString(16).padLeft(8, '0')}';
   }
 
-  /// Registers and loads every detected archive that is not registered yet.
+  /// Keeps at most one of [enabled] on — the first in priority order — and
+  /// turns the rest off in the database. Returns what should be loaded.
+  Future<List<DictionaryInfo>> _collapseToSingle(
+    List<DictionaryInfo> enabled,
+  ) async {
+    if (enabled.length <= 1) return enabled;
+    final kept = enabled.first;
+    debugPrint(
+      'Only one dictionary may be enabled; keeping ${kept.name}, '
+      'turning off ${enabled.length - 1} other(s)',
+    );
+    await _dao.enableOnly(kept.id);
+    return [kept];
+  }
+
+  /// Registers every detected archive that is not registered yet.
+  ///
+  /// On a first run the first archive found becomes the active dictionary; when
+  /// one is already active, the new ones are registered but left off, ready to
+  /// be switched on from the manager.
   Future<List<DictionaryInfo>> autoImportDetectedDictionaries() async {
     final known = {for (final info in await _dao.getAll()) info.mdxPath};
+    // A dictionary is already in use: the detected ones are registered but stay
+    // off, so probing a folder never swaps the reader's dictionary behind them.
+    final hasActive = (await _dao.getEnabled()).isNotEmpty;
     final registered = <DictionaryInfo>[];
 
     for (final mdxPath in await autoDetectMdxFiles()) {
@@ -188,13 +214,18 @@ class DictionaryService {
         mdxPath: mdxPath,
         mddPath: _sidecar(mdxPath, '.mdd'),
         cssPath: _sidecar(mdxPath, '.css') ?? _firstCssIn(p.dirname(mdxPath)),
-        isEnabled: true,
+        isEnabled: false,
         priority: _loadedDicts.length + registered.length,
         createdAt: DateTime.now(),
       );
       await _dao.insert(info);
-      await _loadDictionaryHandle(info);
       registered.add(info);
+    }
+
+    if (registered.isNotEmpty && !hasActive) {
+      // First run: the first archive found becomes the active dictionary.
+      await _dao.enableOnly(registered.first.id);
+      await _loadDictionaryHandle(registered.first);
     }
 
     return registered;
@@ -306,7 +337,9 @@ class DictionaryService {
       createdAt: DateTime.now(),
     );
 
-    await _dao.insert(info);
+    // The freshly imported dictionary is the one the reader wants to read, so
+    // it takes the single enabled slot and the previous one steps down.
+    await _dao.enableOnly(info.id);
     final loaded = await _loadDictionaryHandle(info);
     if (loaded == null) {
       await _dao.delete(info.id);
@@ -372,8 +405,14 @@ class DictionaryService {
     }
   }
 
+  /// Switching a dictionary on switches every other one off: the app reads with
+  /// a single dictionary, so "enabled" is really "the one in use".
   Future<void> toggleDictionary(String id, bool isEnabled) async {
-    await _dao.toggleEnabled(id, isEnabled);
+    if (isEnabled) {
+      await _dao.enableOnly(id);
+    } else {
+      await _dao.toggleEnabled(id, false);
+    }
     await reloadDictionaries();
   }
 

@@ -55,6 +55,24 @@ class DictionariesDao {
     );
   }
 
+  /// Enables [id] and disables every other dictionary.
+  ///
+  /// The app looks words up in one dictionary at a time, so the flag is
+  /// exclusive: two enabled archives would make a lookup depend on which one
+  /// happens to answer first.
+  Future<void> enableOnly(String id) async {
+    final db = await _appDb.database;
+    await db.transaction((txn) async {
+      await txn.update('dictionaries', {'is_enabled': 0});
+      await txn.update(
+        'dictionaries',
+        {'is_enabled': 1},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    });
+  }
+
   Future<void> toggleEnabled(String id, bool isEnabled) async {
     final db = await _appDb.database;
     await db.update(

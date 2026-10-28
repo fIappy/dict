@@ -132,8 +132,9 @@ class _DictionaryManagerScreenState extends State<DictionaryManagerScreen> {
                   '可设置 DICT_DIR、把词典放进当前目录或程序目录'),
             )
           : SnackBar(
-              content: Text('已加载 ${registered.length} 本词典：'
-                  '${registered.map((d) => d.name).join("、")}'),
+              content: Text('已登记 ${registered.length} 本词典：'
+                  '${registered.map((d) => d.name).join("、")}'
+                  '（未启用的可在列表里切换）'),
               backgroundColor: Colors.green[700],
             ),
     );
@@ -199,7 +200,8 @@ class _DictionaryManagerScreenState extends State<DictionaryManagerScreen> {
                         const SizedBox(height: 8),
                         if (_supportsLocalDictionaries)
                           Text(
-                            '支持 MDict (.mdx / .mdd) 格式本地词典，支持多本词典联合查词、发音资源提取与样式渲染。',
+                            '支持 MDict (.mdx / .mdd) 格式本地词典。同一时间只启用一本：'
+                            '查词与发音都只走启用那一本，切换启用即切换词库。',
                             style: TextStyle(
                               fontSize: 13,
                               color: isDark ? Colors.white60 : Colors.black54,

@@ -43,6 +43,15 @@ class DictionariesDao {
 
   Future<void> update(DictionaryInfo info) async {}
 
+  /// Enables [id] and turns every other dictionary off, over the API.
+  Future<void> enableOnly(String id) async {
+    for (final info in await getAll()) {
+      if (info.id == id || !info.isEnabled) continue;
+      await _api.setDictionaryEnabled(info.id, false);
+    }
+    await _api.setDictionaryEnabled(id, true);
+  }
+
   Future<void> toggleEnabled(String id, bool isEnabled) async {
     await _api.setDictionaryEnabled(id, isEnabled);
   }
