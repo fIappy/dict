@@ -57,6 +57,20 @@ void main() {
       }
     });
 
+    test('every word carries its Chinese gloss for the drill', () async {
+      final service = ThemeService();
+      await service.init();
+      for (final scene in service.scenes) {
+        final group = scene.groups.single;
+        expect(group.glosses.length, group.words.length,
+            reason: '${scene.id}: 每个词都该有释义');
+        for (final word in group.words) {
+          expect(group.glosses[word]?.trim(), isNotEmpty,
+              reason: '${scene.id}/$word has no gloss');
+        }
+      }
+    });
+
     test('every word exists in COCA and is ordered by its rank', () async {
       final ranks = cocaRanks();
       final service = ThemeService();

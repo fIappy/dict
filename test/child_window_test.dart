@@ -1,19 +1,30 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:local_dict/core/platform/ai_window_launcher.dart';
+import 'package:local_dict/core/platform/child_window_launcher.dart';
 
-/// The AI window is a second process launched with the theme on its command
+/// A child window is a second process launched with the theme on its command
 /// line; this is the only piece of that contract the main window has to parse.
 void main() {
-  test('the flag carries the theme id', () {
-    expect(aiWindowSceneId(['local_dict.exe', '--ai-window=weather']), 'weather');
-    expect(aiWindowSceneId(['--ai-window=medical']), 'medical');
-    expect(aiWindowSceneId(['--verbose', '--ai-window=sports', '--x']), 'sports');
+  test('the AI flag carries the theme id', () {
+    expect(childWindowRequest(['local_dict.exe', '--ai-window=weather']),
+        (window: ChildWindow.ai, sceneId: 'weather'));
+    expect(childWindowRequest(['--ai-window=medical']),
+        (window: ChildWindow.ai, sceneId: 'medical'));
+    expect(childWindowRequest(['--verbose', '--ai-window=sports', '--x']),
+        (window: ChildWindow.ai, sceneId: 'sports'));
+  });
+
+  test('the vocabulary flag carries the theme id', () {
+    expect(childWindowRequest(['local_dict.exe', '--vocab-window=health']),
+        (window: ChildWindow.vocabulary, sceneId: 'health'));
+    expect(childWindowRequest(['--vocab-window=t01']),
+        (window: ChildWindow.vocabulary, sceneId: 't01'));
   });
 
   test('the main window has no theme', () {
-    expect(aiWindowSceneId(const []), isNull);
-    expect(aiWindowSceneId(['--verbose']), isNull);
-    expect(aiWindowSceneId(['--ai-window=']), isNull);
-    expect(aiWindowSceneId(['--ai-window=   ']), isNull);
+    expect(childWindowRequest(const []), isNull);
+    expect(childWindowRequest(['--verbose']), isNull);
+    expect(childWindowRequest(['--ai-window=']), isNull);
+    expect(childWindowRequest(['--ai-window=   ']), isNull);
+    expect(childWindowRequest(['--vocab-window=']), isNull);
   });
 }

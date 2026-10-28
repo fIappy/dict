@@ -73,6 +73,7 @@ class ThemesProvider extends ChangeNotifier {
             id: group.id,
             label: group.label,
             words: [for (final word in group.words) if (word.contains(query)) word],
+            glosses: group.glosses,
           ),
     ];
   }

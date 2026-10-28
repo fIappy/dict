@@ -32,7 +32,9 @@ class DictionaryProvider extends ChangeNotifier {
   List<DictionaryInfo> get allDictionaries => _allDictionaries;
   bool get hasDictionaries => _service.hasDictionaries;
 
-  Future<void> initialize() async {
+  /// [restoreWord] is false in a child window (背词): that window looks words
+  /// up on demand and must not reopen — or overwrite — the main window's word.
+  Future<void> initialize({bool restoreWord = true}) async {
     _isLoading = true;
     _initError = null;
     notifyListeners();
@@ -44,7 +46,7 @@ class DictionaryProvider extends ChangeNotifier {
       // Reopen the word the reader was on; 'hello' only when there is nothing
       // remembered (first run) or the remembered word is gone with its
       // dictionary.
-      if (_service.hasDictionaries && _currentWord == null) {
+      if (restoreWord && _service.hasDictionaries && _currentWord == null) {
         final remembered = (await UiMemory.readString(UiMemory.word))?.trim();
         final first = remembered == null || remembered.isEmpty ? 'hello' : remembered;
         await lookupWord(first, addToHistory: false);
@@ -88,14 +90,21 @@ class DictionaryProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> lookupWord(String word, {bool addToHistory = true, String? preferDictId}) async {
+  /// [remember] is false in a child window: a lookup there is a glance, not the
+  /// word the reader left the dictionary on.
+  Future<void> lookupWord(
+    String word, {
+    bool addToHistory = true,
+    bool remember = true,
+    String? preferDictId,
+  }) async {
     if (word.trim().isEmpty) return;
     _currentWord = word.trim();
     final lookupSeq = ++_lookupSeq;
     _isLoadingEntry = true;
     notifyListeners();
 
-    await _rememberWord();
+    if (remember) await _rememberWord();
     try {
       final entry = await _service.lookup(_currentWord!, preferDictId: preferDictId);
       if (lookupSeq != _lookupSeq) return;

@@ -7,13 +7,22 @@ import 'package:flutter/services.dart';
 /// single group; the type stays because the JSON contract carries groups and a
 /// future taxonomy may split a theme again.
 class ThemeGroup {
-  const ThemeGroup({required this.id, required this.label, required this.words});
+  const ThemeGroup({
+    required this.id,
+    required this.label,
+    required this.words,
+    this.glosses = const {},
+  });
 
   final String id;
   final String label;
 
   /// Words in COCA frequency order, most frequent first.
   final List<String> words;
+
+  /// Chinese gloss per word, for the 背词 window. Empty when the asset carries
+  /// none (older data); the drill then shows a dash instead of a meaning.
+  final Map<String, String> glosses;
 }
 
 /// A theme the vocabulary belongs to — 通用, 动作与变化, 科学与技术…
@@ -93,6 +102,11 @@ class ThemeService {
                   id: group['id'] as String,
                   label: group['label'] as String,
                   words: [for (final word in group['words'] as List) word as String],
+                  glosses: {
+                    for (final entry
+                        in ((group['glosses'] ?? const {}) as Map).entries)
+                      entry.key as String: entry.value as String,
+                  },
                 ),
             ],
           ),

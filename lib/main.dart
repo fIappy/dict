@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'core/platform/ai_window_launcher.dart';
+import 'core/platform/child_window_launcher.dart';
 import 'core/audio/kokoro_voice.dart';
 import 'core/platform/window_frame.dart';
 import 'providers/custom_text_provider.dart';
@@ -16,18 +16,22 @@ import 'providers/numbers_provider.dart';
 import 'providers/themes_provider.dart';
 import 'providers/settings_provider.dart';
 import 'ui/ai_window_app.dart';
+import 'ui/vocab_window_app.dart';
 import 'ui/screens/home_screen.dart';
 import 'ui/theme/app_theme.dart';
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // `local_dict --ai-window=<theme>` is the AI practice in its own window: a
-  // second process, so it has plugins (storage, audio) and cannot block the
-  // dictionary window.
-  final aiSceneId = aiWindowSceneId(args);
-  if (aiSceneId != null) {
-    runApp(AiWindowApp(sceneId: aiSceneId));
+  // `local_dict --ai-window=<theme>` / `--vocab-window=<theme>` are the child
+  // windows: a second process, so each has plugins (storage, audio) and cannot
+  // block the dictionary window.
+  final request = childWindowRequest(args);
+  if (request != null) {
+    runApp(switch (request.window) {
+      ChildWindow.ai => AiWindowApp(sceneId: request.sceneId),
+      ChildWindow.vocabulary => VocabWindowApp(sceneId: request.sceneId),
+    });
     return;
   }
 

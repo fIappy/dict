@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/platform/ai_window_launcher.dart';
+import '../../core/platform/child_window_launcher.dart';
 import '../../core/themes/theme_service.dart';
 import '../../providers/dictionary_provider.dart';
 import '../../providers/themes_provider.dart';
 import 'ai_practice_screen.dart';
+import 'vocab_drill_screen.dart';
 import 'word_detail_screen.dart';
 
 /// 主题词汇: pick a theme (通用 / 动作与变化 / 科学与技术 …), then read its words
@@ -68,6 +69,7 @@ class _ThemesScreenState extends State<ThemesScreen> {
               onBack: provider.backToScenes,
               isDark: isDark,
               onAiPractice: () => _openAiPractice(context, scene),
+              onVocabDrill: () => _openVocabDrill(context, scene),
             ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
@@ -376,10 +378,20 @@ class _ThemesScreenState extends State<ThemesScreen> {
   }
 }
 
+  /// 背词: same arrangement as AI 练习 — its own window on the desktop, a page
+  /// elsewhere.
+  Future<void> _openVocabDrill(BuildContext context, ThemeScene scene) async {
+    if (await openChildWindow(ChildWindow.vocabulary, scene.id)) return;
+    if (!context.mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => VocabDrillScreen(scene: scene)),
+    );
+  }
+
   /// Desktop gets a window of its own (one per theme, so the dictionary stays
   /// usable); everything else falls back to a normal page.
   Future<void> _openAiPractice(BuildContext context, ThemeScene scene) async {
-    if (await openAiWindow(scene.id)) return;
+    if (await openChildWindow(ChildWindow.ai, scene.id)) return;
     if (!context.mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => AiPracticeScreen(scene: scene)),
@@ -393,6 +405,7 @@ class _SceneHeader extends StatelessWidget {
     required this.onBack,
     required this.isDark,
     required this.onAiPractice,
+    required this.onVocabDrill,
   });
 
   final ThemeScene scene;
@@ -400,6 +413,7 @@ class _SceneHeader extends StatelessWidget {
   final VoidCallback onBack;
   final bool isDark;
   final VoidCallback onAiPractice;
+  final VoidCallback onVocabDrill;
 
   @override
   Widget build(BuildContext context) {
@@ -444,6 +458,12 @@ class _SceneHeader extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.style_rounded, size: 18),
+            tooltip: '背词：看词记义、加星筛选',
+            visualDensity: VisualDensity.compact,
+            onPressed: onVocabDrill,
           ),
           IconButton(
             icon: const Icon(Icons.auto_awesome_rounded, size: 18),
