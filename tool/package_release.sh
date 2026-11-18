@@ -67,6 +67,18 @@ if [ ! -f "$ZIP" ]; then
   python tool/fetch_kokoro_model.py --zip-only
 fi
 
+# 2. This machine's own content becomes the build's built-in library: the
+# passages, groups, favorites and AI archive written here are published into
+# assets/seed/ before Flutter packs the bundle. Skipped where those stores do
+# not exist (a clean CI box), so a build there keeps the committed seed.
+APP_DATA="${APPDATA:-$HOME/Library/Application Support}/com.example/local_dict"
+if [ -f "$APP_DATA/shared_preferences.json" ] || [ -f "$APP_DATA/custom_texts.json" ]; then
+  echo "publishing this machine's library into assets/seed…"
+  python tool/publish_library.py || { echo "publish failed" >&2; exit 1; }
+else
+  echo "no local library at $APP_DATA — keeping the committed seed"
+fi
+
 stage_models() {
   local destination="$1"
   rm -rf "$destination"

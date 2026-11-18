@@ -9,14 +9,22 @@ them without touching what the reader changed:
   assets/seed/ai_archive.json    AI 生成的主题文章与例句
   assets/seed/favorites.json     收藏的词汇 (groups + words)
 
-Each file carries a `version`. The app merges a file when its version is newer
-than the one already merged: entries whose id is missing are added, and an id
-that already exists keeps the local copy (that is the reader's edit). Bumping
-the version is what makes an installed app pick new content up.
+Each file carries a `version`, and the app merges a file once, when the build
+that carries it changes. Two different rules:
+
+  自定义短文 — this machine *is* the built-in library. The asset is replaced by
+  exactly what the app on this machine holds, so an edit, a new passage or a
+  deletion all reach the next build. On another machine the merge adds what it
+  lacks (its own groups and passages survive untouched) and takes the shipped
+  text for an id it already has — the built-in copy wins over a stale one.
+
+  AI 归档 / 收藏 — additive. Entries are matched by id and the local copy of an
+  id wins, so nothing the reader wrote is overwritten.
 
 The store this reads is the running app's own:
-  * shared_preferences.json  (custom texts, AI archive)
-  * dict_app.db              (favorites, SQLite)
+  * custom_texts.json, custom_groups.json   (自定义短文, see TextLibraryStore)
+  * shared_preferences.json                 (AI archive; older custom texts)
+  * dict_app.db                             (favorites, SQLite)
 
 Usage:
     python tool/publish_library.py                 # default Windows paths
@@ -75,18 +83,42 @@ def write_library(path, payload, version, changed):
     return version
 
 
-def publish_custom(store, dry_run):
+def local_library(store):
+    """The passages and groups this machine holds.
+
+    They live in their own files (TextLibraryStore); a store written by an
+    older build still has them inside shared_preferences.json, which is read
+    as the fallback so publishing keeps working across the move.
+    """
+    texts_path = os.path.join(APP_DATA, 'custom_texts.json')
+    groups_path = os.path.join(APP_DATA, 'custom_groups.json')
+    if os.path.exists(texts_path) or os.path.exists(groups_path):
+        return (load_json(groups_path, []), load_json(texts_path, []))
+    legacy_groups = store.get('flutter.custom_groups')
+    legacy_texts = store.get('flutter.custom_texts')
+    return (json.loads(legacy_groups) if legacy_groups else [],
+            json.loads(legacy_texts) if legacy_texts else [])
+
+
+def publish_custom(store, dry_run, force):
+    """Replaces the asset with this machine's library.
+
+    Not a union: this machine is the built-in library, so a passage deleted
+    here must be gone from the next build too. An empty library is refused —
+    that is a wrong path or a fresh profile, not a decision.
+    """
     data = load_json(CUSTOM, {'version': 1, 'groups': [], 'texts': []})
-    groups = json.loads(store.get('flutter.custom_groups', '[]'))
-    texts = json.loads(store.get('flutter.custom_texts', '[]'))
-    merged_groups = merge_by_id(data.get('groups', []), groups)
-    merged_texts = merge_by_id(data.get('texts', []), texts)
-    changed = (merged_groups != data.get('groups', [])
-               or merged_texts != data.get('texts', []))
+    groups, texts = local_library(store)
+    if not texts and not force:
+        print(f'{CUSTOM}: this machine has no passages, leaving the asset alone '
+              f'(use --force to publish an empty library)', file=sys.stderr)
+        return (len(data.get('groups', [])), len(data.get('texts', [])),
+                int(data.get('version', 1)), False)
+    changed = (groups != data.get('groups', []) or texts != data.get('texts', []))
     version = int(data.get('version', 1)) + (1 if changed else 0)
-    if not dry_run:
-        write_library(CUSTOM, {'groups': merged_groups, 'texts': merged_texts}, version, changed)
-    return len(merged_groups), len(merged_texts), version, changed
+    if not dry_run and changed:
+        write_library(CUSTOM, {'groups': groups, 'texts': texts}, version, changed)
+    return len(groups), len(texts), version, changed
 
 
 def publish_ai(store, dry_run):
@@ -130,13 +162,24 @@ def main():
     parser.add_argument('--store', default=DEFAULT_STORE)
     parser.add_argument('--favorites-db', default=DEFAULT_DB)
     parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--force', action='store_true',
+                        help='publish the custom library even when it is empty')
     args = parser.parse_args()
 
-    if not os.path.exists(args.store):
-        sys.exit(f'store not found: {args.store}')
-    store = json.load(open(args.store, encoding='utf-8'))
+    if os.path.exists(args.store):
+        store = json.load(open(args.store, encoding='utf-8'))
+    else:
+        # The custom library keeps its own files since TextLibraryStore; a
+        # machine without shared_preferences.json can still publish it.
+        if not (os.path.exists(os.path.join(APP_DATA, 'custom_texts.json'))
+                or os.path.exists(os.path.join(APP_DATA, 'custom_groups.json'))):
+            sys.exit(f'store not found: {args.store}')
+        print(f'{args.store}: missing, publishing from the custom library files',
+              file=sys.stderr)
+        store = {}
 
-    groups, texts, version, changed = publish_custom(store, args.dry_run)
+    groups, texts, version, changed = publish_custom(
+        store, args.dry_run, args.force)
     print(f'{CUSTOM}: {groups} groups, {texts} texts, version {version}'
           f'{" (updated)" if changed else " (unchanged)"}')
 

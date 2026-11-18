@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_dict/core/ai/ai_archive.dart';
 import 'package:local_dict/providers/custom_text_provider.dart';
@@ -69,18 +71,53 @@ void main() {
         reason: 'entries the reader does not have are added next to it');
   });
 
-  test('a library version already merged is not touched again', () async {
+  test('the same library content is not merged twice', () async {
+    final first = CustomTextProvider();
+    await first.initialize();
+    await first.ensureSeeded();
+    final count = first.allTexts.length;
+
+    final prefs = await SharedPreferences.getInstance();
+    final fingerprint = prefs.getString('custom_library_fingerprint');
+    expect(fingerprint, isNotNull, reason: 'the merge records what it merged');
+
+    final again = CustomTextProvider();
+    await again.initialize();
+    await again.ensureSeeded();
+    expect(again.allTexts, hasLength(count));
+  });
+
+  test('a rebuilt library refreshes the shipped passages', () async {
+    // What a reader who installed an older build has: the seed's own id, an old
+    // body, and a fingerprint from that older file.
+    final raw = await rootBundle.loadString('assets/seed/custom_home.json');
+    final seed = jsonDecode(raw) as Map<String, dynamic>;
+    final texts = (seed['texts'] as List).cast<Map<String, dynamic>>();
+    final shipped = texts.firstWhere((t) => t['groupId'] != null);
+    final oldBody = 'An old copy of this passage.';
+
     SharedPreferences.setMockInitialValues({
-      'flutter.custom_texts': '[]',
-      'flutter.custom_groups': '[]',
-      'flutter.custom_library_version': 999,
+      'flutter.custom_texts': jsonEncode([
+        {
+          'id': shipped['id'],
+          'body': oldBody,
+          'title': shipped['title'],
+          'groupId': shipped['groupId'],
+          'createdAt': '2026-01-01T00:00:00',
+        },
+      ]),
+      'flutter.custom_groups': jsonEncode(seed['groups']),
+      'flutter.custom_library_fingerprint': 'an older build',
     });
+
     final provider = CustomTextProvider();
     await provider.initialize();
     await provider.ensureSeeded();
 
-    expect(provider.allTexts, isEmpty, reason: 'newer than the shipped version');
-    expect(provider.groups, isEmpty);
+    final refreshed = provider.allTexts.where((t) => t.id == shipped['id']).single;
+    expect(refreshed.body, shipped['body'],
+        reason: 'the library owns a shipped passage: the fix must land');
+    expect(refreshed.body, isNot(oldBody));
   });
 
   test('an empty AI archive is filled from the shipped examples', () async {
@@ -145,5 +182,49 @@ void main() {
     await provider.initialize();
 
     expect(provider.groups.map((g) => g.id), ['local-home']);
+  });
+
+  test('a built-in group is put back to its shipped name', () async {
+    final raw = await rootBundle.loadString('assets/seed/custom_home.json');
+    final seed = jsonDecode(raw) as Map<String, dynamic>;
+    final group = (seed['groups'] as List).first as Map<String, dynamic>;
+
+    SharedPreferences.setMockInitialValues({
+      'flutter.custom_groups':
+          jsonEncode([{'id': group['id'], 'name': 'Renamed on this machine'}]),
+      'flutter.custom_texts':
+          '[{"id":"mine","body":"My own line.","title":"Mine",'
+              '"groupId":"${group['id']}","createdAt":"2026-01-01T00:00:00"}]',
+    });
+    final provider = CustomTextProvider();
+    await provider.initialize();
+    await provider.ensureSeeded();
+
+    final shipped = provider.groups.where((g) => g.id == group['id']);
+    expect(shipped, hasLength(1), reason: 'one group, not a renamed duplicate');
+    expect(shipped.single.name, group['name']);
+    expect(provider.allTexts.where((t) => t.id == 'mine').single.groupId,
+        group['id'],
+        reason: 'the reader\'s own passage stays where it was');
+  });
+
+  test('data written on this machine survives a rebuilt library', () async {
+    SharedPreferences.setMockInitialValues({
+      'flutter.custom_groups': '[{"id":"g-mine","name":"我的分组"}]',
+      'flutter.custom_texts':
+          '[{"id":"mine","body":"My own line.","title":"Mine",'
+              '"groupId":"g-mine","createdAt":"2026-01-01T00:00:00"}]',
+    });
+    final provider = CustomTextProvider();
+    await provider.initialize();
+    await provider.ensureSeeded();
+
+    expect(provider.groups.where((g) => g.id == 'g-mine').single.name, '我的分组',
+        reason: 'a group the library does not know is not touched');
+    final mine = provider.allTexts.where((t) => t.id == 'mine').single;
+    expect(mine.body, 'My own line.');
+    expect(mine.groupId, 'g-mine');
+    expect(provider.allTexts.length, greaterThan(1),
+        reason: 'the shipped passages are added around it');
   });
 }

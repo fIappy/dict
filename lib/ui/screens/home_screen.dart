@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/dictionary_provider.dart';
@@ -42,9 +43,27 @@ class _HomeScreenState extends State<HomeScreen> {
   static const int _destinationCount = 9;
 
   int _selectedIndex = 0;
-  double _middlePaneWidth = 360.0;
-  bool _isDividerHovered = false;
-  bool _isDividerDragging = false;
+
+  /// The middle pane's width. A notifier, not a plain field: dragging the
+  /// divider must re-lay the panes out, not rebuild the shell and its lists.
+  final ValueNotifier<double> _middlePaneWidth = ValueNotifier<double>(360);
+
+  /// Built panes kept across shell rebuilds.
+  ///
+  /// A window resize re-runs this build with new constraints; the panes' *data*
+  /// has not changed, so handing Flutter the same widget instance turns the
+  /// resize into a pure layout pass instead of rebuilding the editor and every
+  /// list on the way. The key covers everything the pane is built from.
+  String? _railKey;
+  Widget? _railCache;
+  String? _rightKey;
+  Widget? _rightCache;
+
+  @override
+  void dispose() {
+    _middlePaneWidth.dispose();
+    super.dispose();
+  }
   @override
   void initState() {
     super.initState();
@@ -78,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _selectedIndex = section.clamp(0, _destinationCount - 1);
       }
       if (paneWidth != null) {
-        _middlePaneWidth = paneWidth.clamp(220.0, 900.0);
+        _middlePaneWidth.value = paneWidth.clamp(220.0, 900.0);
       }
     });
   }
@@ -90,7 +109,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _rememberPaneWidth() =>
-      UiMemory.writeDouble(UiMemory.paneWidth, _middlePaneWidth);
+      UiMemory.writeDouble(UiMemory.paneWidth, _middlePaneWidth.value);
 
   @override
   Widget build(BuildContext context) {
@@ -113,182 +132,143 @@ class _HomeScreenState extends State<HomeScreen> {
     final ipaProvider = context.watch<IpaProvider>();
     final alphabetProvider = context.watch<AlphabetProvider>();
     final customProvider = context.watch<CustomTextProvider>();
-    return Scaffold(
-      body: Row(
-        children: [
-          // 1. Navigation Rail
-          NavigationRail(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: _selectSection,
-            leading: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Column(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          theme.colorScheme.primary,
-                          theme.colorScheme.secondary,
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
+
+    // Built once per shell build. The divider drag only changes a width, and a
+    // width is a layout input: rebuilding these three panes on every pointer
+    // move is what made the splitter feel heavy with the passage editor open.
+    final String railKey = '$_selectedIndex|$isDark';
+    if (_railCache == null || _railKey != railKey) {
+      _railKey = railKey;
+      // 1. Navigation Rail
+      _railCache = NavigationRail(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: _selectSection,
+          leading: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        theme.colorScheme.primary,
+                        theme.colorScheme.secondary,
                       ],
                     ),
-                    child: const Icon(
-                      Icons.menu_book_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                  child: const Icon(
+                    Icons.menu_book_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ],
             ),
-            trailing: Expanded(
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.settings_rounded,
-                      color: theme.colorScheme.primary,
-                    ),
-                    tooltip: '设置',
-                    onPressed: () => showDialog<void>(
-                      context: context,
-                      builder: (_) => Dialog(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(
-                            maxWidth: 460,
-                            maxHeight: 620,
-                          ),
-                          child: const SettingsScreen(isPaneView: true),
+          ),
+          trailing: Expanded(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: IconButton(
+                  icon: Icon(
+                    Icons.settings_rounded,
+                    color: theme.colorScheme.primary,
+                  ),
+                  tooltip: '设置',
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (_) => Dialog(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: 460,
+                          maxHeight: 620,
                         ),
+                        child: const SettingsScreen(isPaneView: true),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-            // Nine destinations no longer fit the 720 px default window with
-            // a label under every icon (历史/词典 were already clipped before the
-            // numbers module was added). Showing the label of the selected item
-            // only — the rest keep their tooltips — fits them all. `scrollable`
-            // is not an option here: it hands the trailing widget unbounded
-            // height, and the trailing widget is an Expanded settings button.
-            labelType: NavigationRailLabelType.selected,
-            destinations: const [
-              NavigationRailDestination(
-                icon: Icon(Icons.search_rounded),
-                selectedIcon: Icon(Icons.search_rounded),
-                label: Text('查词'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.bookmark_outline_rounded),
-                selectedIcon: Icon(Icons.bookmark_rounded),
-                label: Text('生词本'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.trending_up_rounded),
-                selectedIcon: Icon(Icons.trending_up_rounded),
-                label: Text('词频'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.category_outlined),
-                selectedIcon: Icon(Icons.category_rounded),
-                label: Text('主题'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.record_voice_over_outlined),
-                selectedIcon: Icon(Icons.record_voice_over_rounded),
-                label: Text('音标'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.text_fields_outlined),
-                selectedIcon: Icon(Icons.text_fields_rounded),
-                label: Text('字母'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.numbers_outlined),
-                selectedIcon: Icon(Icons.numbers_rounded),
-                label: Text('数字'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.history_rounded),
-                selectedIcon: Icon(Icons.history_rounded),
-                label: Text('历史'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.edit_note_outlined),
-                selectedIcon: Icon(Icons.edit_note_rounded),
-                label: Text('自定义'),
-              ),
-            ],
           ),
-
-          const VerticalDivider(width: 1),
-
-          // 2. Middle Navigation Pane (Search list, Favorites list, etc.)
-          SizedBox(
-            width: _middlePaneWidth,
-            child: _buildMiddlePane(),
-          ),
-
-          // Draggable vertical divider splitter
-          MouseRegion(
-            cursor: SystemMouseCursors.resizeColumn,
-            onEnter: (_) => setState(() => _isDividerHovered = true),
-            onExit: (_) => setState(() => _isDividerHovered = false),
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onHorizontalDragStart: (_) => setState(() => _isDividerDragging = true),
-              onHorizontalDragEnd: (_) {
-                setState(() => _isDividerDragging = false);
-                _rememberPaneWidth();
-              },
-              onHorizontalDragCancel: () => setState(() => _isDividerDragging = false),
-              onHorizontalDragUpdate: (details) {
-                setState(() {
-                  // Keep right detail pane at least 360px wide
-                  final maxW = (constraints.maxWidth - 440.0).clamp(280.0, 900.0);
-                  final nextW = _middlePaneWidth + details.delta.dx;
-                  _middlePaneWidth = nextW.clamp(220.0, maxW);
-                });
-              },
-              onDoubleTap: () {
-                setState(() {
-                  _middlePaneWidth = 360.0;
-                });
-                _rememberPaneWidth();
-              },
-              child: Container(
-                width: 12,
-                color: Colors.transparent,
-                child: Center(
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: (_isDividerHovered || _isDividerDragging) ? 3 : 1,
-                    height: double.infinity,
-                    color: (_isDividerHovered || _isDividerDragging)
-                        ? theme.colorScheme.primary
-                        : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
-                  ),
-                ),
-              ),
+          // Nine destinations no longer fit the 720 px default window with
+          // a label under every icon (历史/词典 were already clipped before the
+          // numbers module was added). Showing the label of the selected item
+          // only — the rest keep their tooltips — fits them all. `scrollable`
+          // is not an option here: it hands the trailing widget unbounded
+          // height, and the trailing widget is an Expanded settings button.
+          labelType: NavigationRailLabelType.selected,
+          destinations: const [
+            NavigationRailDestination(
+              icon: Icon(Icons.search_rounded),
+              selectedIcon: Icon(Icons.search_rounded),
+              label: Text('查词'),
             ),
-          ),
-          Expanded(
-            child: _selectedIndex == 4
-                ? IpaDetailView(
+            NavigationRailDestination(
+              icon: Icon(Icons.bookmark_outline_rounded),
+              selectedIcon: Icon(Icons.bookmark_rounded),
+              label: Text('生词本'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.trending_up_rounded),
+              selectedIcon: Icon(Icons.trending_up_rounded),
+              label: Text('词频'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.category_outlined),
+              selectedIcon: Icon(Icons.category_rounded),
+              label: Text('主题'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.record_voice_over_outlined),
+              selectedIcon: Icon(Icons.record_voice_over_rounded),
+              label: Text('音标'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.text_fields_outlined),
+              selectedIcon: Icon(Icons.text_fields_rounded),
+              label: Text('字母'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.numbers_outlined),
+              selectedIcon: Icon(Icons.numbers_rounded),
+              label: Text('数字'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.history_rounded),
+              selectedIcon: Icon(Icons.history_rounded),
+              label: Text('历史'),
+            ),
+            NavigationRailDestination(
+              icon: Icon(Icons.edit_note_outlined),
+              selectedIcon: Icon(Icons.edit_note_rounded),
+              label: Text('自定义'),
+            ),
+          ],
+        );
+    }
+    final Widget rail = _railCache!;
+
+    final Widget middlePane = _buildMiddlePane();
+    final String rightKey = '$_selectedIndex|$isDark'
+        '|${customProvider.selectedId}|${customProvider.selectedGroupId}'
+        '|${dictProvider.currentWord}|${ipaProvider.currentPhoneme.symbol}'
+        '|${alphabetProvider.currentLetter.upper}';
+    if (_rightCache == null || _rightKey != rightKey) {
+      _rightKey = rightKey;
+      _rightCache = _selectedIndex == 4
+          ? IpaDetailView(
                     isPaneView: true,
                     phoneme: ipaProvider.currentPhoneme,
                   )
@@ -311,8 +291,38 @@ class _HomeScreenState extends State<HomeScreen> {
                             : WordDetailScreen(
                                 isPaneView: true,
                                 word: dictProvider.currentWord ?? 'hello',
-                              )))),
+                              ))));
+    }
+    final Widget rightPane = _rightCache!;
+
+    final double maxMiddle = (constraints.maxWidth - 440.0).clamp(280.0, 900.0);
+    return Scaffold(
+      body: Row(
+        children: [
+          // Each pane repaints on its own: dragging the divider must not
+          // repaint the rail, and the rail must not repaint the editor.
+          RepaintBoundary(child: rail),
+          const VerticalDivider(width: 1),
+          RepaintBoundary(
+            child: _SizedPane(
+              width: _middlePaneWidth,
+              min: 220.0,
+              max: maxMiddle,
+              child: middlePane,
+            ),
           ),
+          _PaneDivider(
+            width: _middlePaneWidth,
+            min: 220.0,
+            max: maxMiddle,
+            isDark: isDark,
+            onDone: _rememberPaneWidth,
+            onReset: () {
+              _middlePaneWidth.value = 360;
+              _rememberPaneWidth();
+            },
+          ),
+          Expanded(child: RepaintBoundary(child: rightPane)),
         ],
       ),
     );
@@ -415,6 +425,114 @@ class _HomeScreenState extends State<HomeScreen> {
             label: '设置',
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A pane whose width follows [width] without rebuilding [child].
+class _SizedPane extends StatelessWidget {
+  const _SizedPane({
+    required this.width,
+    required this.min,
+    required this.max,
+    required this.child,
+  });
+
+  final ValueListenable<double> width;
+  final double min;
+  final double max;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<double>(
+      valueListenable: width,
+      child: child,
+      builder: (context, value, child) => SizedBox(
+        width: value.clamp(min, max),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// The bar between the list pane and the detail pane.
+///
+/// Owns its hover/drag look and writes the width into a notifier, so a drag is
+/// a layout change and nothing above it rebuilds.
+class _PaneDivider extends StatefulWidget {
+  const _PaneDivider({
+    required this.width,
+    required this.min,
+    required this.max,
+    required this.isDark,
+    required this.onDone,
+    required this.onReset,
+  });
+
+  final ValueNotifier<double> width;
+  final double min;
+  final double max;
+  final bool isDark;
+  final VoidCallback onDone;
+  final VoidCallback onReset;
+
+  @override
+  State<_PaneDivider> createState() => _PaneDividerState();
+}
+
+class _PaneDividerState extends State<_PaneDivider> {
+  bool _hovering = false;
+  bool _dragging = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final active = _hovering || _dragging;
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeColumn,
+      onEnter: (_) {
+        if (_hovering) return;
+        setState(() => _hovering = true);
+      },
+      onExit: (_) {
+        if (_dragging || !_hovering) return;
+        setState(() => _hovering = false);
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragStart: (_) {
+          if (!_dragging) setState(() => _dragging = true);
+        },
+        onHorizontalDragUpdate: (details) {
+          widget.width.value = (widget.width.value + details.delta.dx)
+              .clamp(widget.min, widget.max);
+        },
+        onHorizontalDragEnd: (_) {
+          if (_dragging) setState(() => _dragging = false);
+          widget.onDone();
+        },
+        onHorizontalDragCancel: () {
+          if (_dragging) setState(() => _dragging = false);
+          widget.onDone();
+        },
+        onDoubleTap: widget.onReset,
+        child: SizedBox(
+          width: 12,
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: active ? 3 : 1,
+              height: double.infinity,
+              color: active
+                  ? theme.colorScheme.primary
+                  : (widget.isDark
+                      ? const Color(0xFF334155)
+                      : const Color(0xFFE2E8F0)),
+            ),
+          ),
+        ),
       ),
     );
   }

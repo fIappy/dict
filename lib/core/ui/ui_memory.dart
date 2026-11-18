@@ -16,6 +16,7 @@ class UiMemory {
   static const String letter = 'ui_alphabet_letter';
   static const String customGroup = 'ui_custom_group';
   static const String customText = 'ui_custom_text';
+  static const String customGroupHeight = 'ui_custom_group_height';
   static const String favoriteGroup = 'ui_favorite_group';
   static const String themeScene = 'ui_theme_scene';
 

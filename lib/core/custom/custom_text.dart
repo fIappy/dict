@@ -23,7 +23,7 @@ class CustomTextGroup {
 
 /// One entry of the 自定义短文 list.
 class CustomText {
-  const CustomText({
+  CustomText({
     required this.id,
     required this.body,
     this.title = '',
@@ -58,7 +58,19 @@ class CustomText {
       );
 
   /// What the list shows: the title, or the first line of the body.
-  String get label {
+  String get label => _label ??= _labelOf();
+
+  /// What playback reads, in order: the passage's sentences.
+  ///
+  /// Split once per entry. The list shows a sentence count for every entry in
+  /// the open group, and splitting the whole library on each layout pass —
+  /// megabytes of text — is what made resizing the window stutter.
+  List<String> get utterances => _utterances ??= splitSentences(body);
+
+  String? _label;
+  List<String>? _utterances;
+
+  String _labelOf() {
     final trimmed = title.trim();
     if (trimmed.isNotEmpty) return trimmed;
     final firstLine = body
@@ -68,9 +80,6 @@ class CustomText {
     if (firstLine.length <= 48) return firstLine;
     return '${firstLine.substring(0, 48)}…';
   }
-
-  /// What playback reads, in order: the passage's sentences.
-  List<String> get utterances => splitSentences(body);
 
   Map<String, Object?> toJson() => {
         'id': id,

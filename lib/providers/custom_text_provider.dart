@@ -8,16 +8,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/custom/custom_text.dart';
 import '../core/custom/playback_order.dart';
 import '../core/mdx/entry_speech.dart';
+import '../core/storage/text_library_store.dart';
 import '../core/ui/ui_memory.dart';
 
 /// Holds the user's 自定义短语 / 自定义短文 and their groups.
 ///
-/// The list is small (notes, not a dictionary), so the whole thing lives in
-/// `shared_preferences` as JSON instead of the dictionary database: one write
-/// per change, no schema, and it travels with the app's other settings.
+/// The list is small (notes, not a dictionary), so the whole thing is JSON
+/// rather than a dictionary database: one write per change, no schema. It lives
+/// in its own files, not in `shared_preferences` — that store rewrites its whole
+/// document on every write, and with megabytes of passages in it every unrelated
+/// flag (window frame, split position) dragged the library along.
 class CustomTextProvider extends ChangeNotifier {
-  static const String _textsKey = 'custom_texts';
-  static const String _groupsKey = 'custom_groups';
+  static const String _textsKey = TextLibraryStore.legacyTextsKey;
+  static const String _groupsKey = TextLibraryStore.legacyGroupsKey;
 
   /// The id of the 未分组 bucket, which is a real top-level group like any
   /// other: the list is classified by group first.
@@ -29,6 +32,14 @@ class CustomTextProvider extends ChangeNotifier {
   /// reaches an install that already has older content (see
   /// `tool/publish_custom_library.py`).
   static const String _seedVersionKey = 'custom_library_version';
+
+  /// Fingerprint of the seed the store was last merged with.
+  ///
+  /// The version number cannot be the only trigger: content fixes (deduplicating
+  /// sentences, re-splitting cues) can land without the number moving, and a
+  /// rebuilt app then keeps serving the old text. The fingerprint changes
+  /// whenever the shipped file does.
+  static const String _seedFingerprintKey = 'custom_library_fingerprint';
   static const String _seedAsset = 'assets/seed/custom_home.json';
 
   final List<CustomText> _texts = [];
@@ -126,12 +137,21 @@ class CustomTextProvider extends ChangeNotifier {
     if (_initialized) return;
     _initialized = true;
     final prefs = await SharedPreferences.getInstance();
+    // A library left in preferences by an older build moves to disk here; after
+    // that the two keys are gone and preferences stay small.
+    await TextLibraryStore.migrate(prefs);
     _groups
       ..clear()
-      ..addAll(_decodeList(prefs.getString(_groupsKey), CustomTextGroup.fromJson));
+      ..addAll(_decodeList(
+        await TextLibraryStore.readGroups() ?? prefs.getString(_groupsKey),
+        CustomTextGroup.fromJson,
+      ));
     _texts
       ..clear()
-      ..addAll(_decodeList(prefs.getString(_textsKey), CustomText.fromJson));
+      ..addAll(_decodeList(
+        await TextLibraryStore.readTexts() ?? prefs.getString(_textsKey),
+        CustomText.fromJson,
+      ));
     // Reopen the group that was on screen, unless it was deleted meanwhile.
     final remembered = prefs.getString(UiMemory.customGroup);
     if (remembered != null &&
@@ -163,17 +183,21 @@ class CustomTextProvider extends ChangeNotifier {
   /// built-in entry therefore only sticks until the next library version.
   Future<void> ensureSeeded() async {
     final prefs = await SharedPreferences.getInstance();
-    final merged = prefs.getInt(_seedVersionKey) ?? 0;
     try {
       final raw = await rootBundle.loadString(_seedAsset);
+      final fingerprint = _fingerprintOf(raw);
+      if (prefs.getString(_seedFingerprintKey) == fingerprint) return;
+
       final data = jsonDecode(raw);
       if (data is! Map) return;
-      final version = (data['version'] as num?)?.toInt() ?? 0;
-      if (version <= merged) return;
 
-      final added = _mergeLibrary(data);
-      await prefs.setInt(_seedVersionKey, version);
-      if (added == 0) return;
+      final merged = _mergeLibrary(data);
+      await prefs.setString(_seedFingerprintKey, fingerprint);
+      await prefs.setInt(
+        _seedVersionKey,
+        (data['version'] as num?)?.toInt() ?? 0,
+      );
+      if (merged.added == 0 && merged.updated == 0) return;
       _selectFirstWithContent();
       notifyListeners();
       await _persistGroups();
@@ -183,16 +207,31 @@ class CustomTextProvider extends ChangeNotifier {
     }
   }
 
-  /// Adds the groups and entries of [data] whose ids are not here yet; returns
-  /// how many were added. Existing ids are left alone.
+  /// FNV-1a over the seed text: cheap, stable, and only compared with itself.
+  static String _fingerprintOf(String raw) {
+    var hash = 0xcbf29ce484222325;
+    for (var i = 0; i < raw.length; i++) {
+      hash = (hash ^ raw.codeUnitAt(i)) * 0x100000001b3;
+    }
+    return hash.toUnsigned(64).toRadixString(16);
+  }
+
+  /// Merges the shipped library into the store.
   ///
-  /// A group is matched by id first and then by **name**: the store on this
-  /// machine was built before the seed existed, so its 家庭场景 has a different
-  /// id — matching on id alone grew a second, empty 家庭场景 beside the real one.
-  /// Entries inherit that mapping, so imported passages land in the group the
-  /// reader already has.
-  int _mergeLibrary(Map<dynamic, dynamic> data) {
+  /// The shipped library is this app's own content, so it wins where the two
+  /// overlap: a passage it carries replaces a stale local copy of the same id
+  /// (body, title, group) and a group's shipped name is put back. Everything
+  /// the library does not know — passages and groups written on this machine —
+  /// is left exactly as it is, which is what lets a new build arrive on someone
+  /// else's install without touching what they wrote.
+  ///
+  /// A group is matched by id first and then by **name**: a store built before
+  /// the seed existed carries its 家庭场景 under a different id, and matching on
+  /// id alone grew a second, empty 家庭场景 beside the real one. Entries inherit
+  /// that mapping, so imported passages land in the group the reader has.
+  ({int added, int updated}) _mergeLibrary(Map<dynamic, dynamic> data) {
     var added = 0;
+    var updated = 0;
     final groupIds = <String, String>{};
     final groups = data['groups'];
     if (groups is List) {
@@ -200,11 +239,24 @@ class CustomTextProvider extends ChangeNotifier {
         if (entry is! Map) continue;
         final group = CustomTextGroup.fromJson(entry.cast<String, Object?>());
         if (group.id.isEmpty) continue;
-        final existing = _groups.where(
-          (local) => local.id == group.id || local.name == group.name,
-        );
-        if (existing.isNotEmpty) {
-          groupIds[group.id] = existing.first.id;
+        final byId = _groups.where((local) => local.id == group.id);
+        if (byId.isNotEmpty) {
+          // Same group, possibly renamed in a newer build: the built-in name
+          // wins, the passages keep pointing at it.
+          final local = byId.first;
+          if (local.name != group.name) {
+            _groups[_groups.indexOf(local)] =
+                CustomTextGroup(id: local.id, name: group.name);
+            updated++;
+          }
+          groupIds[group.id] = local.id;
+          continue;
+        }
+        // A store built before the seed existed: its 家庭场景 carries another
+        // id, and matching on id alone grew a second, empty 家庭场景 beside it.
+        final byName = _groups.where((local) => local.name == group.name);
+        if (byName.isNotEmpty) {
+          groupIds[group.id] = byName.first.id;
           continue;
         }
         _groups.add(group);
@@ -218,17 +270,31 @@ class CustomTextProvider extends ChangeNotifier {
         if (entry is! Map) continue;
         final item = CustomText.fromJson(entry.cast<String, Object?>());
         if (item.id.isEmpty) continue;
-        if (_texts.any((existing) => existing.id == item.id)) continue;
         final target = item.groupId == null ? null : groupIds[item.groupId];
-        _texts.add(
-          target == null || target == item.groupId
-              ? item
-              : item.copyWith(groupId: target),
+        final seeded = target == null || target == item.groupId
+            ? item
+            : item.copyWith(groupId: target);
+
+        final index = _texts.indexWhere((existing) => existing.id == item.id);
+        if (index == -1) {
+          _texts.add(seeded);
+          added++;
+          continue;
+        }
+        final local = _texts[index];
+        if (local.body == seeded.body && local.title == seeded.title) continue;
+        // A shipped passage: the library owns its text, so a rebuilt app shows
+        // the fix. The reader's placement (group, creation time) is kept.
+        _texts[index] = local.copyWith(
+          body: seeded.body,
+          title: seeded.title,
+          groupId: seeded.groupId,
+          clearGroup: seeded.groupId == null,
         );
-        added++;
+        updated++;
       }
     }
-    return added;
+    return (added: added, updated: updated);
   }
 
   /// Drops an empty group whose name another group already uses.
@@ -361,19 +427,19 @@ class CustomTextProvider extends ChangeNotifier {
   }
 
   Future<void> _persistTexts() async {
+    final raw = jsonEncode([for (final item in _texts) item.toJson()]);
+    if (await TextLibraryStore.writeTexts(raw)) return;
+    // No writable support directory (tests, an exotic platform): preferences
+    // still hold it, as they always did.
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      _textsKey,
-      jsonEncode([for (final item in _texts) item.toJson()]),
-    );
+    await prefs.setString(_textsKey, raw);
   }
 
   Future<void> _persistGroups() async {
+    final raw = jsonEncode([for (final group in _groups) group.toJson()]);
+    if (await TextLibraryStore.writeGroups(raw)) return;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      _groupsKey,
-      jsonEncode([for (final group in _groups) group.toJson()]),
-    );
+    await prefs.setString(_groupsKey, raw);
   }
 
   static List<T> _decodeList<T>(

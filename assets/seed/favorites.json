@@ -1,5 +1,5 @@
 {
- "version": 3,
+ "version": 4,
  "groups": [
   {
    "id": "default",
@@ -129,6 +129,45 @@
    "tags": "",
    "created_at": 1792678630806,
    "updated_at": 1792678630806
+  },
+  {
+   "id": "fav_1795009956818",
+   "word": "nerdy",
+   "group_id": "default",
+   "phonetic": "",
+   "definition_snippet": null,
+   "examples_snippet": null,
+   "note": "",
+   "dict_source": "Dictionary.com",
+   "tags": "",
+   "created_at": 1795009956818,
+   "updated_at": 1795009956818
+  },
+  {
+   "id": "fav_1795010864831",
+   "word": "singular",
+   "group_id": "default",
+   "phonetic": "",
+   "definition_snippet": null,
+   "examples_snippet": null,
+   "note": "",
+   "dict_source": "Dictionary.com",
+   "tags": "",
+   "created_at": 1795010864831,
+   "updated_at": 1795010864831
+  },
+  {
+   "id": "fav_1795010877801",
+   "word": "noun",
+   "group_id": "default",
+   "phonetic": "",
+   "definition_snippet": null,
+   "examples_snippet": null,
+   "note": "",
+   "dict_source": "Dictionary.com",
+   "tags": "",
+   "created_at": 1795010877801,
+   "updated_at": 1795010877801
   }
  ]
 }
