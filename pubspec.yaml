@@ -61,6 +61,7 @@ dependencies:
   openai_dart: ^8.1.0
   desktop_multi_window: ^0.3.1
   window_manager: ^0.5.2
+  web_socket_channel: ^3.0.3
 
 dev_dependencies:
   flutter_test:

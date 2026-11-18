@@ -19,6 +19,13 @@ abstract class SpeechClipPlayer {
   /// caller fall back to another engine instead of leaving dead air.
   Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0});
 
+  /// Plays an MP3 the online voices answered with.
+  ///
+  /// Separate from [playAudioBytes] because the format decides how the file is
+  /// staged on Windows: a `.wav` name in front of MPEG frames is how the clip
+  /// "plays" for zero seconds.
+  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0});
+
   /// Speaks a whole sentence with the prosody of connected speech.
   ///
   /// Recorded words played back to back keep each word's citation form — its own

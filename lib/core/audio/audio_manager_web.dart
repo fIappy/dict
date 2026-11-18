@@ -241,6 +241,15 @@ class AudioManager implements SpeechClipPlayer {
         rate: rate,
       );
 
+  @override
+  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0}) =>
+      _playToCompletion(
+        BytesSource(bytes, mimeType: 'audio/mpeg'),
+        tag: 'mp3_${bytes.length}',
+        label: '${bytes.length} bytes of MP3',
+        rate: rate,
+      );
+
   Future<bool> _playToCompletion(
     Source source, {
     required String tag,
@@ -250,14 +259,6 @@ class AudioManager implements SpeechClipPlayer {
     _currentlyPlayingTag = tag;
     _isPlaying = true;
     try {
-      if (rate != 1.0) {
-        try {
-          await _player.setPlaybackRate(rate);
-        } catch (e) {
-          // Not supported everywhere; the clip still plays.
-          debugPrint('Playback rate $rate unsupported: $e');
-        }
-      }
       // Completion is what advances the queue: the clip must finish sounding
       // before the next word starts. No stop() before play() either: replacing
       // the source already ends whatever is sounding, and stopping first is how
@@ -268,7 +269,17 @@ class AudioManager implements SpeechClipPlayer {
       final completed = await awaitPlayback(
         completions: _player.onPlayerComplete,
         durations: _player.onDurationChanged,
-        start: () => _player.play(source),
+        start: () async {
+          await _player.play(source);
+          // After `play`: loading the source resets the element's rate.
+          if (rate != 1.0) {
+            try {
+              await _player.setPlaybackRate(rate);
+            } catch (e) {
+              debugPrint('Playback rate $rate unsupported: $e');
+            }
+          }
+        },
         minPlausible: _minPlausiblePlayback,
         durationWait: const Duration(milliseconds: 600),
         stallGuard: _clipStallGuard,

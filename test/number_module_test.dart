@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:local_dict/core/audio/kokoro_voice.dart';
 import 'package:local_dict/core/audio/speech_clip_player.dart';
+import 'package:local_dict/core/audio/speech_engine.dart';
 import 'package:local_dict/core/audio/pcm_audio.dart';
 import 'package:local_dict/core/numbers/number_data.dart';
 import 'package:local_dict/core/numbers/number_model.dart';
@@ -47,6 +48,7 @@ class _StubKokoro extends KokoroVoice {
 /// abandoned run resume and talk over the run that replaced it. Gates are
 /// released individually, so one run can be resumed while another stays parked.
 class _GatedPlayer implements SpeechClipPlayer {
+  final List<Uint8List> onlineClips = [];
   final List<String> played = [];
   final List<Uint8List> buffers = [];
   final List<Completer<void>> _gates = [];
@@ -93,6 +95,12 @@ class _GatedPlayer implements SpeechClipPlayer {
     return true;
   }
 
+  @override
+  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0}) async {
+    onlineClips.add(bytes);
+    return true;
+  }
+
 
   @override
   Future<void> setVolume(double volume) async => this.volume = volume;
@@ -112,6 +120,8 @@ class _GatedPlayer implements SpeechClipPlayer {
 
 class _RecordingPlayer implements SpeechClipPlayer {
   _RecordingPlayer({this.supportsSentences = false});
+
+  final List<Uint8List> onlineClips = [];
 
   @override
   Future<void> setVolume(double volume) async {}
@@ -145,6 +155,12 @@ class _RecordingPlayer implements SpeechClipPlayer {
     buffers.add(bytes);
     played.add('bytes:${bytes.length}');
     rates.add(rate);
+    return true;
+  }
+
+  @override
+  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0}) async {
+    onlineClips.add(bytes);
     return true;
   }
 
@@ -1099,6 +1115,41 @@ void main() {
       player.release();
       await Future.wait([first, second]);
       expect(provider.isPlaying, isFalse);
+    });
+  });
+
+  group('online voices in the number drill', () {
+    test('an online engine plays the fetched clip', () async {
+      final player = _RecordingPlayer(supportsSentences: true);
+      final voice = NumberSpeaker(
+        player: player,
+        kokoro: _StubKokoro(),
+        online: (engine, {required text, required accent, rate = 1.0, client}) async =>
+            Uint8List.fromList([0xFF, 0xF3, 0x64, ...List<int>.filled(400, 0)]),
+      );
+
+      await voice.speak('one hundred and twenty-three',
+          engine: SpeechEngine.edge, accent: 'us');
+
+      expect(player.onlineClips, hasLength(1));
+      expect(player.buffers, isEmpty, reason: 'the local model is not used');
+      expect(player.sentences, isEmpty);
+    });
+
+    test('an unreachable service falls back to the platform voice', () async {
+      final player = _RecordingPlayer(supportsSentences: true);
+      final voice = NumberSpeaker(
+        player: player,
+        kokoro: _StubKokoro(),
+        online: (engine, {required text, required accent, rate = 1.0, client}) async =>
+            null,
+      );
+
+      await voice.speak('forty-two', engine: SpeechEngine.baidu, accent: 'us');
+
+      expect(player.onlineClips, isEmpty);
+      expect(player.sentences, hasLength(1),
+          reason: 'a drill that goes silent on a network blip is worse');
     });
   });
 }

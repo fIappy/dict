@@ -83,18 +83,31 @@ class SettingsScreen extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         _SectionTitle('发音引擎'),
-        SegmentedButton<SpeechEngine>(
-          segments: [
+        // Five engines no longer fit one row of segments; a chip per engine
+        // wraps, and the label plus the hint say which ones leave the machine.
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
             for (final engine in SpeechEngine.values)
-              ButtonSegment(
-                value: engine,
+              ChoiceChip(
                 label: Text(engine.label, style: const TextStyle(fontSize: 13)),
+                selected: settings.speechEngine == engine,
+                onSelected: (_) => settings.setSpeechEngine(engine),
               ),
           ],
-          selected: {settings.speechEngine},
-          showSelectedIcon: false,
-          onSelectionChanged: (selection) =>
-              settings.setSpeechEngine(selection.first),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            settings.speechEngine.isOnline ? '联网朗读：这一句会发送到服务商' : '本机朗读：不联网',
+            style: TextStyle(
+              fontSize: 11.5,
+              color: settings.speechEngine.isOnline
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).hintColor,
+            ),
+          ),
         ),
         Padding(
           padding: const EdgeInsets.only(top: 6),
@@ -498,6 +511,12 @@ class _EngineStatusState extends State<_EngineStatus> {
       SpeechEngine.kokoro => await findKokoroModel() == null
           ? await kokoroModelHint()
           : '已找到 Kokoro 模型',
+      SpeechEngine.edge => '会实时请求微软的朗读接口；可用音色：'
+          '美音 Aria、英音 Sonia；失败时自动换本机语音',
+      SpeechEngine.google => '会实时请求 Google 翻译的发音接口；'
+          '语速偏快，长句分段拼接；失败时自动换本机语音',
+      SpeechEngine.baidu => '会实时请求百度翻译的朗读接口；国内直连、延迟低；'
+          '失败时自动换本机语音',
     };
     if (!mounted || _asked != engine) return;
     setState(() => _status = status);

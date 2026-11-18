@@ -3,11 +3,35 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../core/audio/audio_manager.dart';
+import '../core/audio/online_tts.dart';
 import '../core/audio/pcm_audio.dart';
 import '../core/audio/kokoro_voice.dart';
 import '../core/audio/speech_engine.dart';
 import '../core/audio/speech_clip_player.dart';
 import '../core/mdx/entry_speech.dart';
+
+/// One line ready to sound.
+///
+/// Three shapes because the engines differ: a local render arrives as samples,
+/// an online voice as MP3, and the platform voice needs no audio at all — it is
+/// handed the text when its turn comes.
+sealed class _Line {
+  const _Line();
+}
+
+class _PcmLine extends _Line {
+  const _PcmLine(this.clip);
+  final PcmClip clip;
+}
+
+class _Mp3Line extends _Line {
+  const _Mp3Line(this.bytes);
+  final Uint8List bytes;
+}
+
+class _SpokenLine extends _Line {
+  const _SpokenLine();
+}
 
 /// The Piper accent for a settings language tag: `en-GB` reads with the British
 /// voice, everything else with the American one.
@@ -25,12 +49,20 @@ String accentForLanguage(String language) =>
 /// between lines; [stop] cuts whatever is sounding and drops the pending pause,
 /// so starting again cannot overlap the previous run.
 class EntrySpeechProvider extends ChangeNotifier {
-  EntrySpeechProvider({SpeechClipPlayer? player, KokoroVoice? kokoro})
-    : _player = player ?? AudioManager(),
-      _kokoro = kokoro ?? KokoroVoice();
+  EntrySpeechProvider({
+    SpeechClipPlayer? player,
+    KokoroVoice? kokoro,
+    OnlineSynthesizer? online,
+  })  : _player = player ?? AudioManager(),
+        _kokoro = kokoro ?? KokoroVoice(),
+        _online = online ?? OnlineTts.synthesize;
 
   final SpeechClipPlayer _player;
   final KokoroVoice? _kokoro;
+
+  /// How a sentence becomes MP3 for the online engines; injectable so a test can
+  /// drive the fallback without a network.
+  final OnlineSynthesizer _online;
 
   List<EntryUtterance> _items = const [];
   int? _currentIndex;
@@ -174,8 +206,8 @@ class EntrySpeechProvider extends ChangeNotifier {
       // ever waits for is the first one.
       // Insertion-ordered, capped: a loop over a short list reuses its clips,
       // a 700-line passage does not pin every clip in memory.
-      final clips = <int, Future<PcmClip?>>{};
-      Future<PcmClip?> clipAt(int at) {
+      final clips = <int, Future<_Line?>>{};
+      Future<_Line?> clipAt(int at) {
         final ready = clips.remove(at);
         if (ready != null) {
           clips[at] = ready; // touch: most recently used goes last
@@ -394,39 +426,64 @@ class EntrySpeechProvider extends ChangeNotifier {
   /// configured gap is what made a 1 s pause feel like 3 s: the reader waited the
   /// gap and then waited again for the model. Doing it during playback costs
   /// nothing the reader notices.
-  Future<PcmClip?> _render(String text, {required double rate}) async {
-    if (_engine == SpeechEngine.system) return null;
+  Future<_Line?> _render(String text, {required double rate}) async {
+    if (_engine.isOnline) {
+      final bytes = await _online(_engine, text: text, accent: _accent, rate: rate);
+      if (bytes != null && bytes.isNotEmpty) return _Mp3Line(bytes);
+      // A blocked route, an outage, a quota: the line still has to sound, so
+      // the machine's own voice takes over instead of leaving dead air.
+      debugPrint('${_engine.label} answered no audio; using this machine\'s voice');
+      if (_kokoroReady) {
+        final clip = await _kokoro!.synthesize(text, accent: _accent, rate: rate);
+        if (clip != null && clip.samples.isNotEmpty) return _PcmLine(clip);
+      }
+      return const _SpokenLine();
+    }
+    if (_engine == SpeechEngine.system) return const _SpokenLine();
+    // A local engine that cannot render skips the line, as it always has: the
+    // reader picked one voice, and switching mid-passage is worse than silence.
     if (!_kokoroReady) return null;
     final clip = await _kokoro!.synthesize(text, accent: _accent, rate: rate);
     if (clip == null || clip.samples.isEmpty) {
       debugPrint('Kokoro could not render a line; skipping it');
       return null;
     }
-    return clip;
+    return _PcmLine(clip);
   }
 
   /// Sounds one rendered line.
   Future<bool> _playClip(
-    PcmClip? clip, {
+    _Line? line, {
     required int run,
   }) async {
     if (run != _run || _isPaused) return false;
-    if (clip == null && _engine == SpeechEngine.system) {
-      // The platform voice speaks the line itself; there is no clip to play.
-      final index = _currentIndex;
-      if (index == null || index < 0 || index >= _items.length) return false;
-      return _player.speakSentence(
-        _items[index].text,
-        accent: _accent,
-        rate: _rate,
-      );
-    }
-    if (clip == null) return false;
+    if (line == null) return false;
     final epoch = _lineEpoch;
-    final played = await _player.playAudioBytes(
-      encodeWav(clip.samples, sampleRate: clip.sampleRate),
-      rate: 1.0,
-    );
+    final bool played;
+    switch (line) {
+      case _SpokenLine():
+        // The platform voice speaks the line itself; there is no clip to play.
+        final index = _currentIndex;
+        if (index == null || index < 0 || index >= _items.length) return false;
+        return _player.speakSentence(
+          _items[index].text,
+          accent: _accent,
+          rate: _rate,
+        );
+      case _Mp3Line(:final bytes):
+        // Edge and 百度 bake the speed into the clip; scaling it again would
+        // apply the slider twice. Google's endpoint ignores speed, so there the
+        // player does the work (and shifts pitch with it).
+        played = await _player.playOnlineClip(
+          bytes,
+          rate: _engine.bakesRate ? 1.0 : _rate,
+        );
+      case _PcmLine(:final clip):
+        played = await _player.playAudioBytes(
+          encodeWav(clip.samples, sampleRate: clip.sampleRate),
+          rate: 1.0,
+        );
+    }
     if (run != _run || _isPaused || epoch != _lineEpoch) return false;
     return played;
   }

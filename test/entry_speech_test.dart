@@ -29,6 +29,8 @@ const String _dictionaryComHtml = '''
 ''';
 
 class _RecordingPlayer implements SpeechClipPlayer {
+  final List<Uint8List> onlineClips = [];
+  final List<double> onlineRates = [];
   final List<String> sentences = [];
   final List<double> rates = [];
   final List<String> accents = [];
@@ -56,6 +58,15 @@ class _RecordingPlayer implements SpeechClipPlayer {
     onBuffer?.call(buffers.length);
     return bytesPlayable;
   }
+
+  @override
+  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0}) async {
+    onlineClips.add(bytes);
+    onlineRates.add(rate);
+    return true;
+  }
+
+  double? get lastOnlineRate => onlineRates.isEmpty ? null : onlineRates.last;
 
   @override
   Future<void> playSpeechClip(String assetPath, {double rate = 1.0}) async {}
@@ -132,6 +143,12 @@ class _GatedPlayer extends _RecordingPlayer {
     _stopped = false;
     return sounded;
   }
+
+  @override
+  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0}) async {
+    onlineClips.add(bytes);
+    return true;
+  }
 }
 
 /// A player that holds chosen playbacks, so a repeat can be requested while a
@@ -175,6 +192,113 @@ class _GateQueuePlayer extends _RecordingPlayer {
     }
     return true;
   }
+
+  @override
+  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0}) async {
+    onlineClips.add(bytes);
+    return true;
+  }
+}
+
+
+void _onlineEngineTests() {
+  Uint8List mp3() => Uint8List.fromList(
+      [0xFF, 0xF3, 0x64, ...List<int>.filled(900, 0)]);
+
+  group('online engines', () {
+    test('the line plays what the service sent, not another voice', () async {
+      final player = _RecordingPlayer();
+      final provider = EntrySpeechProvider(
+        player: player,
+        online: (engine, {required text, required accent, rate = 1.0, client}) async {
+          expect(engine, SpeechEngine.edge);
+          expect(text, 'Hello there.');
+          return mp3();
+        },
+      );
+
+      await provider.playAll(
+        const [EntryUtterance(text: 'Hello there.', isPhrase: false)],
+        rate: 1.0,
+        gap: Duration.zero,
+        accent: 'us',
+        engine: SpeechEngine.edge,
+      );
+
+      expect(player.onlineClips, hasLength(1),
+          reason: 'the fetched MP3 is handed to the player');
+      expect(player.buffers, isEmpty, reason: 'the local model is not used');
+      expect(player.sentences, isEmpty, reason: 'nor the platform voice');
+      provider.dispose();
+    });
+
+    test('a request that answers nothing falls back to the machine voice',
+        () async {
+      final player = _RecordingPlayer();
+      final provider = EntrySpeechProvider(
+        player: player,
+        online: (engine, {required text, required accent, rate = 1.0, client}) async =>
+            null,
+      );
+
+      await provider.playAll(
+        const [
+          EntryUtterance(text: 'One.', isPhrase: false),
+          EntryUtterance(text: 'Two.', isPhrase: false),
+        ],
+        rate: 1.0,
+        gap: Duration.zero,
+        accent: 'us',
+        engine: SpeechEngine.baidu,
+      );
+
+      expect(player.onlineClips, isEmpty);
+      expect(player.sentences, ['One.', 'Two.'],
+          reason: 'no dead air when the service is unreachable');
+      provider.dispose();
+    });
+
+    test('the speed goes into the request where the service can use it',
+        () async {
+      final player = _RecordingPlayer();
+      double? askedRate;
+      EntrySpeechProvider provider() => EntrySpeechProvider(
+            player: player,
+            online: (engine, {required text, required accent, rate = 1.0, client})
+                async {
+              askedRate = rate;
+              return mp3();
+            },
+          );
+
+      // 百度 bakes the speed into the clip: the request carries it and the
+      // player must not scale it a second time.
+      final baidu = provider();
+      await baidu.playAll(
+        const [EntryUtterance(text: 'Hello there.', isPhrase: false)],
+        rate: 0.75,
+        gap: Duration.zero,
+        accent: 'us',
+        engine: SpeechEngine.baidu,
+      );
+      expect(askedRate, 0.75, reason: 'the request asks for the slow pace');
+      expect(player.lastOnlineRate, 1.0, reason: 'the clip is already slowed');
+      baidu.dispose();
+
+      // Google's endpoint ignores speed, so the player scales the clip.
+      player.onlineRates.clear();
+      final google = provider();
+      await google.playAll(
+        const [EntryUtterance(text: 'Hello there.', isPhrase: false)],
+        rate: 0.75,
+        gap: Duration.zero,
+        accent: 'us',
+        engine: SpeechEngine.google,
+      );
+      expect(player.lastOnlineRate, 0.75);
+      google.dispose();
+    });
+  });
 }
 
 class _StubKokoro extends KokoroVoice {
@@ -206,6 +330,7 @@ class _StubKokoro extends KokoroVoice {
 }
 
 void main() {
+  _onlineEngineTests();
   group('Entry speech lines', () {
     test('SIO sections become English-only phrases and sentences', () {
       final items = extractEntryUtterances(_sioHtml);

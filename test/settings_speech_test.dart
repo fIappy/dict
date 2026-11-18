@@ -23,16 +23,18 @@ void main() {
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();
 
-    // Engine: both choices, Kokoro selected by default.
+    // Engine: every engine is offered, Kokoro selected by default.
     await tester.scrollUntilVisible(find.text('Kokoro'), 200,
         scrollable: find.byType(Scrollable).first);
-    expect(find.text('Kokoro'), findsOneWidget);
-    expect(find.text('系统语音'), findsOneWidget);
+    for (final engine in SpeechEngine.values) {
+      expect(find.text(engine.label), findsOneWidget,
+          reason: '${engine.name} is not offered');
+    }
 
-    final engine = tester.widget<SegmentedButton<SpeechEngine>>(
-      find.byType(SegmentedButton<SpeechEngine>),
-    );
-    expect(engine.selected, {SpeechEngine.kokoro});
+    final chips = tester.widgetList<ChoiceChip>(find.byType(ChoiceChip));
+    final selected = chips.where((chip) => chip.selected).toList();
+    expect(selected, hasLength(1));
+    expect((selected.single.label as Text).data, SpeechEngine.kokoro.label);
 
     // Volume: a slider labelled 音量 that reports a percentage.
     await tester.scrollUntilVisible(find.text('音量'), 200,

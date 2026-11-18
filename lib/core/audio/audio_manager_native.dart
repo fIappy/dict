@@ -311,7 +311,19 @@ class AudioManager implements SpeechClipPlayer {
   /// Plays audio the module built itself (a spliced sentence, or Piper's
   /// samples) — one buffer, so nothing is read from disk on any platform.
   @override
-  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) =>
+      _playBytes(bytes, extension: 'wav', mimeType: 'audio/wav', rate: rate);
+
+  @override
+  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0}) =>
+      _playBytes(bytes, extension: 'mp3', mimeType: 'audio/mpeg', rate: rate);
+
+  Future<bool> _playBytes(
+    Uint8List bytes, {
+    required String extension,
+    required String mimeType,
+    required double rate,
+  }) async {
     // The Windows backend of audioplayers does not play a byte buffer: the clip
     // never starts and `_playToCompletion` just waits out its stall guard. That
     // was the whole "the app is silent but thinks it is speaking" bug — every
@@ -320,12 +332,15 @@ class AudioManager implements SpeechClipPlayer {
     if (Platform.isWindows) {
       try {
         final dir = await getTemporaryDirectory();
-        final file = File(p.join(dir.path, 'speech_${bytes.length}.wav'));
+        // The extension is part of the contract: the Windows backend picks its
+        // decoder from it.
+        final file = File(
+            p.join(dir.path, 'speech_${bytes.length}_$extension.$extension'));
         await file.writeAsBytes(bytes, flush: true);
         final played = await _playToCompletion(
           DeviceFileSource(file.path),
-          tag: 'bytes_${bytes.length}',
-          label: '${bytes.length} bytes of WAV (staged)',
+          tag: 'bytes_${bytes.length}_$extension',
+          label: '${bytes.length} bytes of $extension (staged)',
           rate: rate,
         );
         try {
@@ -339,9 +354,9 @@ class AudioManager implements SpeechClipPlayer {
       }
     }
     return _playToCompletion(
-      BytesSource(bytes, mimeType: 'audio/wav'),
-      tag: 'bytes_${bytes.length}',
-      label: '${bytes.length} bytes of WAV',
+      BytesSource(bytes, mimeType: mimeType),
+      tag: 'bytes_${bytes.length}_$extension',
+      label: '${bytes.length} bytes of $extension',
       rate: rate,
     );
   }
@@ -356,14 +371,6 @@ class AudioManager implements SpeechClipPlayer {
     _isPlaying = true;
     AudioBackground.begin();
     try {
-      if (rate != 1.0) {
-        try {
-          await _player.setPlaybackRate(rate);
-        } catch (e) {
-          // Not every platform implements rate control; the clip still plays.
-          debugPrint('Playback rate $rate unsupported: $e');
-        }
-      }
       // Completion is what advances the queue: the clip must finish sounding
       // before the next word starts. No stop() before play() either: replacing
       // the source already ends whatever is sounding.
@@ -374,10 +381,33 @@ class AudioManager implements SpeechClipPlayer {
       final completed = await awaitPlayback(
         completions: _player.onPlayerComplete,
         durations: _player.onDurationChanged,
-        start: () => _player.play(source),
+        start: () async {
+          await _player.play(source);
+          // After `play`, never before: the Windows backend applies the rate to
+          // the media engine of the *current* source, and `play` loads a new one
+          // — a rate set first is silently dropped (or lands on the clip that
+          // just finished), which is why 语速 did nothing on the online voices.
+          if (rate != 1.0) {
+            try {
+              await _player.setPlaybackRate(rate);
+            } catch (e) {
+              // Not every platform implements rate control; the clip still plays.
+              debugPrint('Playback rate $rate unsupported: $e');
+            }
+          }
+        },
         minPlausible: _minPlausiblePlayback,
         durationWait: const Duration(milliseconds: 600),
-        stallGuard: _clipStallGuard,
+        // A slower clip is allowed to take correspondingly longer: the reported
+        // duration is the clip's own, and the guard must not call a 0.5×
+        // playback "stalled" halfway through (it would then start the next line
+        // over the one still sounding).
+        stallGuard: (reported) {
+          final base = _clipStallGuard(reported);
+          if (rate == 1.0) return base;
+          return base * (1 / rate.clamp(0.25, 4.0)) +
+              const Duration(milliseconds: 300);
+        },
       );
       if (!completed) {
         debugPrint('Speech clip $label did not report completion');

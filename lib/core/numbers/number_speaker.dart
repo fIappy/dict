@@ -1,7 +1,10 @@
+import 'dart:typed_data';
+
 import '../audio/audio_manager.dart';
 import '../audio/kokoro_voice.dart';
 import '../audio/pcm_audio.dart';
 import '../audio/speech_clip_player.dart';
+import '../audio/online_tts.dart';
 import '../audio/speech_engine.dart';
 
 /// Plays a number sentence.
@@ -19,11 +22,18 @@ import '../audio/speech_engine.dart';
 /// belongs to and drops out once that id is superseded, and [cancel] also
 /// silences whatever is sounding.
 class NumberSpeaker {
-  NumberSpeaker({SpeechClipPlayer? player, KokoroVoice? kokoro})
-      : _player = player ?? AudioManager(),
-        _kokoro = kokoro;
+  NumberSpeaker({
+    SpeechClipPlayer? player,
+    KokoroVoice? kokoro,
+    OnlineSynthesizer? online,
+  })  : _player = player ?? AudioManager(),
+        _kokoro = kokoro,
+        _online = online ?? OnlineTts.synthesize;
 
   final SpeechClipPlayer _player;
+
+  /// How a sentence becomes MP3 for the online engines; injectable for tests.
+  final OnlineSynthesizer _online;
   final KokoroVoice? _kokoro;
 
   /// Pause inserted where the sentence has a comma (phone-number groups).
@@ -48,10 +58,10 @@ class NumberSpeaker {
   }) async {
     final run = ++_runId;
     await _player.setVolume(volume);
-    final clip = engine == SpeechEngine.system
-        ? null
-        : await _render(sentence, accent: accent, rate: rate);
-    await _play(clip, run: run, engine: engine, text: sentence, accent: accent, rate: rate);
+    final line = await _render(sentence,
+        engine: engine, accent: accent, rate: rate);
+    await _play(line, run: run, engine: engine, text: sentence,
+        accent: accent, rate: rate);
   }
 
   /// Speaks [sentences] one after another, waiting [gap] between them.
@@ -111,16 +121,16 @@ class NumberSpeaker {
       // Render the next number while this one sounds: synthesis is the slow
       // part, and waiting for it after the gap is what made a 1 s gap feel like
       // three.
-      var pending = engine == SpeechEngine.system
-          ? Future<PcmClip?>.value(null)
-          : _render(parts.first, accent: accent, rate: rate);
+      var pending = _render(parts.first,
+          engine: engine, accent: accent, rate: rate);
       for (var j = 0; j < parts.length; j++) {
         if (_stale(run)) return;
-        final clip = await pending;
-        if (j + 1 < parts.length && engine != SpeechEngine.system) {
-          pending = _render(parts[j + 1], accent: accent, rate: rate);
+        final line = await pending;
+        if (j + 1 < parts.length) {
+          pending = _render(parts[j + 1],
+              engine: engine, accent: accent, rate: rate);
         }
-        await _play(clip, run: run, engine: engine, text: parts[j],
+        await _play(line, run: run, engine: engine, text: parts[j],
             accent: accent, rate: rate);
         if (_stale(run)) return;
         if (j < parts.length - 1) await Future<void>.delayed(innerGap);
@@ -130,20 +140,30 @@ class NumberSpeaker {
     }
   }
 
-  /// The audio for one line, or null when the model cannot render it.
-  Future<PcmClip?> _render(
+  /// The audio for one line, or null when the platform voice should read it.
+  Future<_NumberLine?> _render(
     String text, {
+    required SpeechEngine engine,
     required String accent,
     required double rate,
   }) async {
+    final spoken = sentenceForSpeech(text);
+    if (engine.isOnline) {
+      final bytes = await _online(engine, text: spoken, accent: accent, rate: rate);
+      if (bytes != null && bytes.isNotEmpty) return _NumberLine.mp3(bytes);
+      // The service answered nothing: speak the line rather than skip it.
+      return null;
+    }
+    if (engine == SpeechEngine.system) return null;
     final kokoro = _kokoro;
     if (kokoro == null) return null;
-    return kokoro.synthesize(sentenceForSpeech(text), accent: accent, rate: rate);
+    final clip = await kokoro.synthesize(spoken, accent: accent, rate: rate);
+    return clip == null ? null : _NumberLine.pcm(clip);
   }
 
   /// Sounds one rendered line.
   Future<bool> _play(
-    PcmClip? clip, {
+    _NumberLine? line, {
     required int run,
     required SpeechEngine engine,
     required String text,
@@ -151,9 +171,17 @@ class NumberSpeaker {
     required double rate,
   }) async {
     if (_stale(run)) return false;
-    if (engine == SpeechEngine.system) {
+    if (line == null) {
       return _player.speakSentence(text, accent: accent, rate: rate);
     }
+    if (line.mp3 != null) {
+      // Edge and 百度 bake the speed into the clip; Google's endpoint cannot, so
+      // there the player scales it.
+      await _player.playOnlineClip(line.mp3!,
+          rate: engine.bakesRate ? 1.0 : rate);
+      return !_stale(run);
+    }
+    final clip = line.clip;
     if (clip == null || clip.isEmpty) return false;
     // The model paces itself (`speed`), so the player must not scale the audio a
     // second time.
@@ -182,4 +210,13 @@ String sentenceForSpeech(String text) {
   final capitalised =
       trimmed[0].toUpperCase() + (trimmed.length > 1 ? trimmed.substring(1) : '');
   return RegExp(r'[.!?]$').hasMatch(capitalised) ? capitalised : '$capitalised.';
+}
+
+/// One number line ready to sound: local samples, or an online voice's MP3.
+class _NumberLine {
+  const _NumberLine.pcm(PcmClip this.clip) : mp3 = null;
+  const _NumberLine.mp3(Uint8List this.mp3) : clip = null;
+
+  final PcmClip? clip;
+  final Uint8List? mp3;
 }
