@@ -14,7 +14,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:local_dict/core/custom/passage_cleanup.dart';
+import 'custom_store.dart';
 
 String get _appData =>
     '${Platform.environment['APPDATA']}\\com.example\\local_dict';
@@ -23,58 +23,6 @@ String get _storePath => '$_appData\\shared_preferences.json';
 const String _storeTextsKey = 'flutter.custom_texts';
 const String _storeGroupsKey = 'flutter.custom_groups';
 const String _seedPath = 'assets/seed/custom_home.json';
-
-/// Group ids whose name contains [needle].
-Set<String> _groupIds(Iterable<Map<String, dynamic>> groups, String needle) {
-  final lower = needle.toLowerCase();
-  return {
-    for (final group in groups)
-      if ((group['name'] as String? ?? '').toLowerCase().contains(lower))
-        group['id'] as String,
-  };
-}
-
-/// One group's passages, in list order, cleaned.
-({int before, int after, int droppedChapters, List<String> emptied}) _cleanGroup({
-  required List<Map<String, dynamic>> texts,
-  required Set<String> groupIds,
-  required bool keepEmpty,
-}) {
-  final indexes = [
-    for (var i = 0; i < texts.length; i++)
-      if (groupIds.contains(texts[i]['groupId'])) i,
-  ];
-  final passages = [
-    for (final i in indexes)
-      passageFromBody(texts[i]['body'] as String? ?? ''),
-  ];
-  final before = passages.fold<int>(0, (sum, p) => sum + p.sentences.length);
-  final cleaned = cleanPassages(passages);
-
-  final emptied = <String>[];
-  final removed = <int>{};
-  for (var k = 0; k < indexes.length; k++) {
-    final text = texts[indexes[k]];
-    final passage = cleaned[k];
-    if (passage.isEmpty && !keepEmpty) {
-      emptied.add(passage.title);
-      removed.add(indexes[k]);
-      continue;
-    }
-    text['body'] = passage.body;
-    if (passage.title.isNotEmpty && text['title'] != passage.title) {
-      text['title'] = passage.title;
-    }
-  }
-  texts.removeWhere((text) => removed.contains(texts.indexOf(text)));
-  final after = cleaned.fold<int>(0, (sum, p) => sum + p.sentences.length);
-  return (
-    before: before,
-    after: after,
-    droppedChapters: emptied.length,
-    emptied: emptied,
-  );
-}
 
 void main(List<String> args) {
   final dryRun = args.contains('--dry-run');
@@ -90,22 +38,21 @@ void main(List<String> args) {
       .cast<Map<String, dynamic>>();
   final groups = (jsonDecode(store[_storeGroupsKey] as String? ?? '[]') as List)
       .cast<Map<String, dynamic>>();
-  final ids = _groupIds(groups, needle);
+  final ids = groupIdsNamed(groups, needle);
   if (ids.isEmpty) {
     stderr.writeln('no group matches "$needle"');
     exitCode = 1;
     return;
   }
 
-  final storeResult = _cleanGroup(
-    texts: texts,
+  final storeResult = cleanGroupTexts(
+    texts,
     groupIds: ids,
     keepEmpty: keepEmpty,
   );
   stdout.writeln('store: ${ids.length} group(s), sentences '
       '${storeResult.before} -> ${storeResult.after}, '
-      'chapters ${storeResult.before == storeResult.after ? '' : ''}'
-      '${storeResult.droppedChapters} emptied');
+      '${storeResult.emptied.length} emptied');
   for (final title in storeResult.emptied) {
     stdout.writeln('  removed: $title');
   }
@@ -115,15 +62,15 @@ void main(List<String> args) {
       jsonDecode(seedFile.readAsStringSync()) as Map<String, dynamic>;
   final seedTexts = (seed['texts'] as List).cast<Map<String, dynamic>>();
   final seedGroups = (seed['groups'] as List).cast<Map<String, dynamic>>();
-  final seedIds = _groupIds(seedGroups, needle);
-  final seedResult = _cleanGroup(
-    texts: seedTexts,
+  final seedIds = groupIdsNamed(seedGroups, needle);
+  final seedResult = cleanGroupTexts(
+    seedTexts,
     groupIds: seedIds,
     keepEmpty: keepEmpty,
   );
   stdout.writeln('seed: ${seedIds.length} group(s), sentences '
       '${seedResult.before} -> ${seedResult.after}, '
-      '${seedResult.droppedChapters} emptied');
+      '${seedResult.emptied.length} emptied');
 
   if (dryRun) {
     stdout.writeln('dry run: nothing written');

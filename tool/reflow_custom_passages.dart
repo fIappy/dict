@@ -19,12 +19,15 @@ import 'dart:io';
 import 'package:local_dict/core/custom/custom_text.dart';
 import 'package:local_dict/core/custom/passage_reflow.dart';
 
+import 'custom_store.dart';
+
 String get _appData => Directory(
       '${Platform.environment['APPDATA']}\\com.example\\local_dict',
     ).path;
 
 String get _storePath => '$_appData\\shared_preferences.json';
 const String _storeKey = 'flutter.custom_texts';
+const String _groupsKey = 'flutter.custom_groups';
 const String _seedPath = 'assets/seed/custom_home.json';
 
 int _sentences(String body) => splitSentences(body).length;
@@ -115,6 +118,32 @@ void main(List<String> args) {
   }
   stdout.writeln('seed: ${seedTexts.length} passages, $seedRebuilt rebuilt, '
       '$seedChanged reflowed, sentences $seedBefore -> $seedAfter');
+
+  final cleanIndex = args.indexOf('--clean');
+  final cleanNeedle = cleanIndex >= 0 && cleanIndex + 1 < args.length
+      ? args[cleanIndex + 1]
+      : null;
+  if (cleanNeedle != null) {
+    final storeGroups =
+        (jsonDecode(store[_groupsKey] as String? ?? '[]') as List)
+            .cast<Map<String, dynamic>>();
+    final seedGroups =
+        (seed['groups'] as List? ?? const []).cast<Map<String, dynamic>>();
+    final storeClean = cleanGroupTexts(
+      texts,
+      groupIds: groupIdsNamed(storeGroups, cleanNeedle),
+      keepEmpty: false,
+    );
+    final seedClean = cleanGroupTexts(
+      seedTexts,
+      groupIds: groupIdsNamed(seedGroups, cleanNeedle),
+      keepEmpty: false,
+    );
+    stdout.writeln('clean "$cleanNeedle": store ${storeClean.before} -> '
+        '${storeClean.after} (${storeClean.emptied.length} emptied), seed '
+        '${seedClean.before} -> ${seedClean.after} '
+        '(${seedClean.emptied.length} emptied)');
+  }
 
   if (dryRun) {
     final sample = seedTexts.firstWhere(

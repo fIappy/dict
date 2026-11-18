@@ -25,6 +25,21 @@ void main() {
     expect(out, contains('And by learning I don’t mean memorizing.'));
   });
 
+  test('a lowercase cue stays inside the sentence above it', () {
+    const body = 'Lesson 07\n'
+        'Mason is at work at the restaurant\n'
+        'from 12 o’clock noon\n'
+        'to 4 o’clock in the afternoon\n'
+        'He is here at the restaurant for 4 hours.';
+    expect(
+      reflowPassage(body),
+      'Lesson 07\n'
+      'Mason is at work at the restaurant from 12 o’clock noon '
+      'to 4 o’clock in the afternoon.\n'
+      'He is here at the restaurant for 4 hours.',
+    );
+  });
+
   test('a fragment group collapses into one sentence', () {
     const body = 'Lesson 03\n'
         'is a question\n'
