@@ -7,6 +7,11 @@
 //
 //   dart run tool/reflow_custom_passages.dart --dry-run   # report only
 //   dart run tool/reflow_custom_passages.dart             # write
+//
+// Reflow only merges cues; the course still repeats whole sentences across
+// lessons and leaves two-word cues behind. Run
+// `dart run tool/clean_custom_passages.dart --group Udemy` after a rebuild to
+// drop those.
 
 import 'dart:convert';
 import 'dart:io';
