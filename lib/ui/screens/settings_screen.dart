@@ -26,7 +26,9 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsProvider>();
-    final dictionaries = context.watch<DictionaryProvider>();
+    // The AI child window hosts this page without a DictionaryProvider: the
+    // dictionary card is simply absent there instead of taking the window down.
+    final dictionaries = Provider.of<DictionaryProvider?>(context);
 
     final content = ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -69,8 +71,8 @@ class SettingsScreen extends StatelessWidget {
             leading: const Icon(Icons.folder_copy_outlined),
             title: const Text('本地词典管理'),
             subtitle: Text(
-              dictionaries.hasDictionaries
-                  ? '已加载 ${dictionaries.allDictionaries.length} 本'
+              (dictionaries?.hasDictionaries ?? false)
+                  ? '已加载 ${dictionaries!.allDictionaries.length} 本'
                   : '尚未添加词典',
             ),
             trailing: const Icon(Icons.chevron_right_rounded),

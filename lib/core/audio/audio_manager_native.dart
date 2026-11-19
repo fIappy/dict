@@ -218,14 +218,22 @@ class AudioManager implements SpeechClipPlayer {
   }
 
   /// Last-resort speech synthesis; only Windows exposes a usable CLI.
+  ///
+  /// The text goes over stdin, never into the command line: PowerShell treats
+  /// the Unicode quotes a dictionary headword may carry (’ ‘ “ ”) as quotes, so
+  /// interpolating it let an entry run arbitrary commands.
   Future<void> _speakWithOs(String word) async {
     if (!Platform.isWindows) return;
-    final clean = word.replaceAll("'", '').replaceAll('"', '');
     try {
-      await Process.run('powershell', [
+      final process = await Process.start('powershell', [
+        '-NoProfile',
         '-Command',
-        "(New-Object -ComObject SAPI.SpVoice).Speak('$clean')",
+        r'$text = [Console]::In.ReadToEnd(); '
+            r'(New-Object -ComObject SAPI.SpVoice).Speak($text)',
       ]);
+      process.stdin.write(word);
+      await process.stdin.close();
+      await process.exitCode;
     } catch (e) {
       debugPrint('OS speech failed for $word: $e');
     }

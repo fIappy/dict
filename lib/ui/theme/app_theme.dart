@@ -3,7 +3,13 @@ import 'package:flutter/material.dart';
 class AppTheme {
   static const Color primarySeed = Color(0xFF2563EB); // Modern Royal Blue
 
-  static ThemeData light() {
+  /// Built once. `ColorScheme.fromSeed` is not free, and the entries rebuilt
+  /// both schemes on every `SettingsProvider` notification (an API key being
+  /// typed, a slider being dragged).
+  static final ThemeData light = _buildLight();
+  static final ThemeData dark = _buildDark();
+
+  static ThemeData _buildLight() {
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
@@ -48,7 +54,7 @@ class AppTheme {
     );
   }
 
-  static ThemeData dark() {
+  static ThemeData _buildDark() {
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(

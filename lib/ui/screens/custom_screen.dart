@@ -11,6 +11,7 @@ import '../../core/ui/ui_memory.dart';
 import '../../providers/settings_provider.dart';
 import 'custom_detail_view.dart';
 import '../widgets/speech_controls.dart';
+import '../widgets/text_input_dialog.dart';
 
 /// The 自定义短文 section, classified by **group**: the top of the pane lists
 /// the groups (未分组 included, because every entry belongs somewhere), and the
@@ -474,33 +475,15 @@ class _CustomScreenState extends State<CustomScreen> {
         );
   }
 
-  Future<String?> _askName(BuildContext context, String title, String initial) async {
-    final controller = TextEditingController(text: initial);
-    final name = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: '例如：商务英语'),
-          onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
+  Future<String?> _askName(BuildContext context, String title, String initial) =>
+      showDialog<String>(
+        context: context,
+        builder: (_) => TextInputDialog(
+          title: title,
+          initialValue: initial,
+          hintText: '例如：商务英语',
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('确定'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    return name;
-  }
+      );
 
   Future<void> _promptNewGroup(
     BuildContext context,

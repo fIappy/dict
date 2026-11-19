@@ -1,6 +1,6 @@
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
-import 'kokoro_model.dart';
+import 'kokoro_model_store.dart';
 import 'pcm_audio.dart';
 
 /// Runs Kokoro on the calling thread (the browser has no isolates).
@@ -15,6 +15,14 @@ class KokoroEngine {
 
   Future<String?> start() async {
     await sherpa.initBindingsAsync();
+    // The wasm module boots with an empty MEMFS, so OfflineTts has no files to
+    // open. The model has to be fetched into it first — this used to be nobody's
+    // job, which is why Kokoro never started on the web.
+    try {
+      await prepareKokoroModel(files);
+    } catch (e) {
+      return '$e';
+    }
     return _load();
   }
 

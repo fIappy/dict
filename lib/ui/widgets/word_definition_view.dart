@@ -240,6 +240,8 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
                 prepared.utterances[index],
                 rate: settings.speechRate,
                 accent: accentForLanguage(settings.ttsLanguage),
+                engine: settings.speechEngine,
+                volume: settings.speechVolume,
               );
             }
             return true;

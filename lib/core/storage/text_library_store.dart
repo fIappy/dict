@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -30,11 +31,22 @@ class TextLibraryStore {
   static bool? _available;
 
   static Future<Directory?> _directory() async {
+    // `dart:io` compiles for the web but throws at the first call: Platform and
+    // Directory do not exist there. Check before touching either.
+    if (kIsWeb) {
+      _available = false;
+      return null;
+    }
     if (_available == false) return null;
     // The widget tests have no plugin host: a channel call there never
     // completes inside the fake async zone, and the library lives in the
     // mocked preferences anyway.
-    if (Platform.environment['FLUTTER_TEST'] == 'true') {
+    try {
+      if (Platform.environment['FLUTTER_TEST'] == 'true') {
+        _available = false;
+        return null;
+      }
+    } on UnsupportedError {
       _available = false;
       return null;
     }
@@ -66,13 +78,18 @@ class TextLibraryStore {
     if (directory == null) return false;
     final path = '${directory.path}${Platform.pathSeparator}$name';
     try {
-      // Write beside the target and swap: a crash mid-write leaves the old
-      // library intact instead of a truncated one.
-      final temporary = File('$path.tmp');
-      await temporary.writeAsString(raw, flush: false);
+      // Write beside the target and swap. The temp name is unique so two saves
+      // cannot scribble over each other, the flush puts the bytes on disk before
+      // the rename, and the previous file is kept as `.bak` until the swap is
+      // done — a crash at any point leaves a readable library behind.
+      final temporary = File('$path.${DateTime.now().microsecondsSinceEpoch}.tmp');
+      await temporary.writeAsString(raw, flush: true);
       final target = File(path);
-      if (await target.exists()) await target.delete();
+      final backup = File('$path.bak');
+      if (await backup.exists()) await backup.delete();
+      if (await target.exists()) await target.rename(backup.path);
       await temporary.rename(path);
+      if (await backup.exists()) await backup.delete();
       return true;
     } catch (_) {
       return false;

@@ -411,6 +411,9 @@ class NumbersProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    // Bump the run id first: a drill still waiting in an `await` then drops out
+    // instead of notifying a disposed provider on the next line.
+    _playRun++;
     _speaker?.cancel();
     _kokoro.dispose();
     super.dispose();

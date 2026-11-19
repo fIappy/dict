@@ -325,6 +325,10 @@ class EntrySpeechProvider extends ChangeNotifier {
   }) async {
     stop();
     _engine = engine;
+    // The engine reads these fields, not the parameters: without this the
+    // platform voice and Google spoke at the previous run's accent and speed.
+    _accent = accent;
+    _rate = rate;
     await _player.setVolume(volume);
     final run = ++_run;
     _items = [item];
@@ -334,12 +338,16 @@ class EntrySpeechProvider extends ChangeNotifier {
     _isPaused = false;
     _currentIndex = 0;
     notifyListeners();
-    final clip = await _render(item.text, rate: rate);
-    await _playClip(clip, run: run);
-    if (run != _run) return;
-    _isPlaying = false;
-    _currentIndex = null;
-    notifyListeners();
+    try {
+      final line = await _render(item.text, rate: rate);
+      await _playClip(line, run: run);
+    } finally {
+      if (run == _run) {
+        _isPlaying = false;
+        _currentIndex = null;
+        notifyListeners();
+      }
+    }
   }
 
   /// Speaks text the reader picked out of the entry — a definition line, a

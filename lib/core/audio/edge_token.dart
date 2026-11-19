@@ -38,6 +38,20 @@ int _rot16(int value) {
   return ((v << 16) | (v >> 16)) & _u32;
 }
 
+/// Low 32 bits of `a * b` without ever forming the 64-bit product.
+///
+/// A Dart `int` is 64-bit on the VM but an IEEE-754 double under dart2js, where
+/// a 32×32 product above 2^53 silently drops its low bits — the token then comes
+/// out wrong on the web while every VM test still passes. Splitting into 16-bit
+/// halves keeps every intermediate below 2^33.
+int _mul32(int a, int b) {
+  final low = (a & 0xFFFF) * (b & 0xFFFF);
+  final middle = (((a >> 16) & 0xFFFF) * (b & 0xFFFF) +
+          (a & 0xFFFF) * ((b >> 16) & 0xFFFF)) &
+      0xFFFF;
+  return (low + (middle << 16)) & _u32;
+}
+
 const List<int> _sha256Initial = [
   0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A,
   0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19,
@@ -337,23 +351,23 @@ List<int> _sha256Digest(List<int> data) {
   keyA |= 1;
   keyB |= 1;
   final factors = [
-    (keyA * _cs64Factor) & _u32,
-    (keyB * _cs64Factor) & _u32,
+    _mul32(keyA, _cs64Factor),
+    _mul32(keyB, _cs64Factor),
   ];
   final terms = <int>[];
   final offsets = <int>[];
   for (var index = 0; index < _cs64Coefficients.length; index++) {
     final (coefficient, offset) = _cs64Coefficients[index];
-    terms.add((coefficient * factors[index % 2]) & _u32);
+    terms.add(_mul32(coefficient, factors[index % 2]));
     offsets.add(offset);
   }
   final words = _wordsLe4Even([0, ...data]);
   for (var index = 0; index < words.length; index++) {
     final word = words[index];
-    var term = word * (index.isEven ? keyA : keyB);
-    var offset = _rot16(word) * (index.isEven ? 0xEF0569FB : 0xC31713DB);
+    var term = _mul32(word, index.isEven ? keyA : keyB);
+    var offset = _mul32(_rot16(word), index.isEven ? 0xEF0569FB : 0xC31713DB);
     if (index == 0) {
-      term += _cs64Adjustment0 * factors[0];
+      term += _mul32(_cs64Adjustment0, factors[0]);
       offset += _cs64Adjustment1;
     }
     terms.add(term & _u32);
@@ -368,23 +382,23 @@ List<int> _sha256Digest(List<int> data) {
     final x = terms[index];
     final y = terms[index + 1];
     var t = _rot16((offsets[index] + x) & _u32);
-    var q = (t * 0x76F50F34) & _u32;
-    swapAcc += (_rot16(q) * 0xC3EFEA97 + q) & _u32;
+    var q = _mul32(t, 0x76F50F34);
+    swapAcc += (_mul32(_rot16(q), 0xC3EFEA97) + q) & _u32;
     t = _rot16((offsets[index + 1] + y) & _u32);
-    q = (t * 0x1881CE3C) & _u32;
-    swapLast = (_rot16(q) * 0x35BD1EC9 + q) & _u32;
+    q = _mul32(t, 0x1881CE3C);
+    swapLast = (_mul32(_rot16(q), 0x35BD1EC9) + q) & _u32;
     swapAcc = (swapAcc + swapLast) & _u32;
 
-    state = (state * keyA + x) & _u32;
-    state = (_rot16(state) * 0xCF98B111) & _u32;
-    state = (_rot16(state) * 0x87085B9F) & _u32;
-    state = (_rot16(state) * 0x12CEB96D) & _u32;
-    state = (_rot16(state) * 0x257E1D83) & _u32;
+    state = (_mul32(state, keyA) + x) & _u32;
+    state = _mul32(_rot16(state), 0xCF98B111);
+    state = _mul32(_rot16(state), 0x87085B9F);
+    state = _mul32(_rot16(state), 0x12CEB96D);
+    state = _mul32(_rot16(state), 0x257E1D83);
     acc += state;
-    var t2 = (state * keyB + y) & _u32;
-    t2 = (_rot16(t2) * 0xA27416F5) & _u32;
-    t2 = (_rot16(t2) * 0xD38396FF) & _u32;
-    state = (_rot16((_rot16(t2) * 0x7C932B89) & _u32) * 0xBFA49F69) & _u32;
+    var t2 = (_mul32(state, keyB) + y) & _u32;
+    t2 = _mul32(_rot16(t2), 0xA27416F5);
+    t2 = _mul32(_rot16(t2), 0xD38396FF);
+    state = _mul32(_rot16(_mul32(_rot16(t2), 0x7C932B89)), 0xBFA49F69);
     acc = (acc + state) & _u32;
   }
   return (swapLast ^ state, swapAcc ^ acc);
@@ -406,7 +420,9 @@ String secMsGec([DateTime? now]) {
   var ticks = seconds + _windowsEpoch;
   ticks -= ticks % 300;
   // 100-nanosecond intervals since 1601, written the way the service signs it.
-  final stored = ticks * 10000000;
+  // The product is 1.3e17, which a dart2js double cannot hold exactly; appending
+  // seven zeros is the same number computed in decimal.
+  final stored = '${ticks}0000000';
   final data = ascii.encode('$stored$edgeTrustedToken');
   final digest = _sha256Digest(data);
   final (cs64a, cs64b) = _cs64Digest(data, digest);

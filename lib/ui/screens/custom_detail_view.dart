@@ -10,6 +10,7 @@ import '../../providers/settings_provider.dart';
 import '../widgets/speakable_selection.dart';
 import '../widgets/annotated_text.dart';
 import '../widgets/speech_controls.dart';
+import '../widgets/text_input_dialog.dart';
 
 /// Write or edit one 短文, and play it.
 ///
@@ -312,31 +313,13 @@ class _CustomDetailViewState extends State<CustomDetailView> {
           tooltip: '新建分组',
           icon: const Icon(Icons.create_new_folder_outlined),
           onPressed: () async {
-            final controller = TextEditingController();
             final name = await showDialog<String>(
               context: context,
-              builder: (dialogContext) => AlertDialog(
-                title: const Text('新建分组'),
-                content: TextField(
-                  controller: controller,
-                  autofocus: true,
-                  onSubmitted: (value) =>
-                      Navigator.of(dialogContext).pop(value),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text('取消'),
-                  ),
-                  FilledButton(
-                    onPressed: () =>
-                        Navigator.of(dialogContext).pop(controller.text),
-                    child: const Text('创建'),
-                  ),
-                ],
+              builder: (_) => const TextInputDialog(
+                title: '新建分组',
+                confirmLabel: '创建',
               ),
             );
-            controller.dispose();
             if (name == null) return;
             final group = await provider.addGroup(name);
             if (group != null && mounted) setState(() => _groupId = group.id);

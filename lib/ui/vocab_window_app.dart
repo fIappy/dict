@@ -124,8 +124,8 @@ class _VocabWindowState extends State<_VocabWindow> {
     return MaterialApp(
       title: '背词',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
       themeMode: settings.themeMode,
       home: Scaffold(
         body: SafeArea(child: body),

@@ -75,6 +75,8 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
     baseUrl: settings.aiBaseUrl,
     apiKey: settings.aiApiKey,
     model: settings.aiModel,
+    // Without this the 思考强度 choice never left the settings page.
+    reasoningEffort: settings.aiReasoningEffort,
   );
 
   void _speak(String text) {

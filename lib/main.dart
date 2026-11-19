@@ -14,6 +14,7 @@ import 'providers/ipa_provider.dart';
 import 'providers/alphabet_provider.dart';
 import 'providers/numbers_provider.dart';
 import 'providers/themes_provider.dart';
+import 'providers/vocabulary_provider.dart';
 import 'providers/settings_provider.dart';
 import 'ui/ai_window_app.dart';
 import 'ui/vocab_window_app.dart';
@@ -56,6 +57,9 @@ void main(List<String> args) async {
           ChangeNotifierProvider(create: (_) => AlphabetProvider()),
           ChangeNotifierProvider(create: (_) => NumbersProvider(kokoro: voice)),
           ChangeNotifierProvider(create: (_) => ThemesProvider()),
+          // 背词 opens as a pushed page off the theme screen away from the
+          // desktop child window, so the provider has to live here too.
+          ChangeNotifierProvider(create: (_) => VocabularyProvider()),
           ChangeNotifierProvider(
               create: (_) => EntrySpeechProvider(kokoro: voice)),
           ChangeNotifierProvider(create: (_) => CustomTextProvider()),
@@ -77,8 +81,8 @@ class LocalDictApp extends StatelessWidget {
     return MaterialApp(
       title: '本地词典 - Local Dictionary',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
       themeMode: settings.themeMode,
       home: const HomeScreen(),
     );

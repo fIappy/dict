@@ -108,8 +108,8 @@ class _AiWindowState extends State<_AiWindow> {
     return MaterialApp(
       title: 'AI 练习',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
       themeMode: settings.themeMode,
       home: Scaffold(
         body: SafeArea(child: body),
