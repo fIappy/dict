@@ -14,6 +14,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:local_dict/core/custom/passage_cleanup.dart';
+import 'package:local_dict/core/custom/sentence_split.dart';
+
 import 'custom_store.dart';
 
 const String _seedPath = 'assets/seed/custom_home.json';
@@ -21,6 +24,7 @@ const String _seedPath = 'assets/seed/custom_home.json';
 void main(List<String> args) {
   final dryRun = args.contains('--dry-run');
   final keepEmpty = args.contains('--keep-empty');
+  final split = args.contains('--split');
   final groupIndex = args.indexOf('--group');
   final needle = groupIndex >= 0 && groupIndex + 1 < args.length
       ? args[groupIndex + 1]
@@ -36,11 +40,32 @@ void main(List<String> args) {
     return;
   }
 
+  var splitBefore = 0;
+  var splitAfter = 0;
+  void splitGroup(List<Map<String, dynamic>> items) {
+    for (final text in items) {
+      if (!ids.contains(text['groupId'])) continue;
+      final passage = passageFromBody(text['body'] as String? ?? '');
+      splitBefore += passage.sentences.length;
+      final sentences = [
+        for (final line in passage.sentences) ...splitSentenceLine(line),
+      ];
+      splitAfter += sentences.length;
+      text['body'] =
+          CleanedPassage(title: passage.title, sentences: sentences).body;
+    }
+  }
+
+  if (split) splitGroup(texts);
+
   final storeResult = cleanGroupTexts(
     texts,
     groupIds: ids,
     keepEmpty: keepEmpty,
   );
+  if (split) {
+    stdout.writeln('split: $splitBefore lines -> $splitAfter');
+  }
   stdout.writeln('store: ${ids.length} group(s), sentences '
       '${storeResult.before} -> ${storeResult.after}, '
       '${storeResult.emptied.length} emptied');
@@ -54,6 +79,7 @@ void main(List<String> args) {
   final seedTexts = (seed['texts'] as List).cast<Map<String, dynamic>>();
   final seedGroups = (seed['groups'] as List).cast<Map<String, dynamic>>();
   final seedIds = groupIdsNamed(seedGroups, needle);
+  if (split) splitGroup(seedTexts);
   final seedResult = cleanGroupTexts(
     seedTexts,
     groupIds: seedIds,
