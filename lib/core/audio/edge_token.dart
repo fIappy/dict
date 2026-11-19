@@ -22,6 +22,17 @@ const int _windowsEpoch = 11644473600;
 
 const int _u32 = 0xFFFFFFFF;
 
+/// Rotate a 32-bit word right.
+///
+/// The reference implementation rotates by shifting a 64-bit `value * (2^32+1)`
+/// right; that trick needs 64-bit integers, which dart2js does not have. This
+/// is the same rotation expressed in 32-bit terms, so the browser computes the
+/// token exactly like the desktop build.
+int _rotr(int value, int count) {
+  final v = value & _u32;
+  return ((v >>> count) | (v << (32 - count))) & _u32;
+}
+
 int _rot16(int value) {
   final v = value & _u32;
   return ((v << 16) | (v >> 16)) & _u32;
@@ -121,15 +132,13 @@ List<int> _sha256Rounds(List<int> state, List<int> words,
   final aligned = ((firstRound + 7) ~/ 8) * 8 < 64 ? ((firstRound + 7) ~/ 8) * 8 : 64;
 
   for (var index = firstRound; index < aligned; index++) {
-    final rotE = e * 0x100000001;
-    final rotA = a * 0x100000001;
     final t1 = (h +
-            ((rotE >>> 6) ^ (rotE >>> 11) ^ (rotE >>> 25)) +
+            (_rotr(e, 6) ^ _rotr(e, 11) ^ _rotr(e, 25)) +
             (g ^ (e & (f ^ g))) +
             constants[index] +
             words[index]) &
         _u32;
-    final t2 = (((rotA >>> 2) ^ (rotA >>> 13) ^ (rotA >>> 22)) +
+    final t2 = ((_rotr(a, 2) ^ _rotr(a, 13) ^ _rotr(a, 22)) +
             ((a & b) | (c & (a | b)))) &
         _u32;
     // Python assigns a..h in one step: (t1+t2, a, b, c, d+t1, e, f, g).
@@ -146,115 +155,99 @@ List<int> _sha256Rounds(List<int> state, List<int> words,
   }
 
   for (var index = aligned; index < 64; index += 8) {
-    var rotE = e * 0x100000001;
-    var rotA = a * 0x100000001;
     var t1 = (h +
-            ((rotE >>> 6) ^ (rotE >>> 11) ^ (rotE >>> 25)) +
+            (_rotr(e, 6) ^ _rotr(e, 11) ^ _rotr(e, 25)) +
             (g ^ (e & (f ^ g))) +
             constants[index] +
             words[index]) &
         _u32;
     d = (d + t1) & _u32;
     h = (t1 +
-            ((rotA >>> 2) ^ (rotA >>> 13) ^ (rotA >>> 22)) +
+            (_rotr(a, 2) ^ _rotr(a, 13) ^ _rotr(a, 22)) +
             ((a & b) | (c & (a | b)))) &
         _u32;
 
-    rotE = (d * 0x100000001) & 0xFFFFFFFFFFFFFFFF;
-    rotA = (h * 0x100000001) & 0xFFFFFFFFFFFFFFFF;
     t1 = (g +
-            ((rotE >>> 6) ^ (rotE >>> 11) ^ (rotE >>> 25)) +
+            (_rotr(d, 6) ^ _rotr(d, 11) ^ _rotr(d, 25)) +
             (f ^ (d & (e ^ f))) +
             constants[index + 1] +
             words[index + 1]) &
         _u32;
     c = (c + t1) & _u32;
     g = (t1 +
-            ((rotA >>> 2) ^ (rotA >>> 13) ^ (rotA >>> 22)) +
+            (_rotr(h, 2) ^ _rotr(h, 13) ^ _rotr(h, 22)) +
             ((h & a) | (b & (h | a)))) &
         _u32;
 
-    rotE = (c * 0x100000001) & 0xFFFFFFFFFFFFFFFF;
-    rotA = (g * 0x100000001) & 0xFFFFFFFFFFFFFFFF;
     t1 = (f +
-            ((rotE >>> 6) ^ (rotE >>> 11) ^ (rotE >>> 25)) +
+            (_rotr(c, 6) ^ _rotr(c, 11) ^ _rotr(c, 25)) +
             (e ^ (c & (d ^ e))) +
             constants[index + 2] +
             words[index + 2]) &
         _u32;
     b = (b + t1) & _u32;
     f = (t1 +
-            ((rotA >>> 2) ^ (rotA >>> 13) ^ (rotA >>> 22)) +
+            (_rotr(g, 2) ^ _rotr(g, 13) ^ _rotr(g, 22)) +
             ((g & h) | (a & (g | h)))) &
         _u32;
 
-    rotE = (b * 0x100000001) & 0xFFFFFFFFFFFFFFFF;
-    rotA = (f * 0x100000001) & 0xFFFFFFFFFFFFFFFF;
     t1 = (e +
-            ((rotE >>> 6) ^ (rotE >>> 11) ^ (rotE >>> 25)) +
+            (_rotr(b, 6) ^ _rotr(b, 11) ^ _rotr(b, 25)) +
             (d ^ (b & (c ^ d))) +
             constants[index + 3] +
             words[index + 3]) &
         _u32;
     a = (a + t1) & _u32;
     e = (t1 +
-            ((rotA >>> 2) ^ (rotA >>> 13) ^ (rotA >>> 22)) +
+            (_rotr(f, 2) ^ _rotr(f, 13) ^ _rotr(f, 22)) +
             ((f & g) | (h & (f | g)))) &
         _u32;
 
-    rotE = (a * 0x100000001) & 0xFFFFFFFFFFFFFFFF;
-    rotA = (e * 0x100000001) & 0xFFFFFFFFFFFFFFFF;
     t1 = (d +
-            ((rotE >>> 6) ^ (rotE >>> 11) ^ (rotE >>> 25)) +
+            (_rotr(a, 6) ^ _rotr(a, 11) ^ _rotr(a, 25)) +
             (c ^ (a & (b ^ c))) +
             constants[index + 4] +
             words[index + 4]) &
         _u32;
     h = (h + t1) & _u32;
     d = (t1 +
-            ((rotA >>> 2) ^ (rotA >>> 13) ^ (rotA >>> 22)) +
+            (_rotr(e, 2) ^ _rotr(e, 13) ^ _rotr(e, 22)) +
             ((e & f) | (g & (e | f)))) &
         _u32;
 
-    rotE = (h * 0x100000001) & 0xFFFFFFFFFFFFFFFF;
-    rotA = (d * 0x100000001) & 0xFFFFFFFFFFFFFFFF;
     t1 = (c +
-            ((rotE >>> 6) ^ (rotE >>> 11) ^ (rotE >>> 25)) +
+            (_rotr(h, 6) ^ _rotr(h, 11) ^ _rotr(h, 25)) +
             (b ^ (h & (a ^ b))) +
             constants[index + 5] +
             words[index + 5]) &
         _u32;
     g = (g + t1) & _u32;
     c = (t1 +
-            ((rotA >>> 2) ^ (rotA >>> 13) ^ (rotA >>> 22)) +
+            (_rotr(d, 2) ^ _rotr(d, 13) ^ _rotr(d, 22)) +
             ((d & e) | (f & (d | e)))) &
         _u32;
 
-    rotE = (g * 0x100000001) & 0xFFFFFFFFFFFFFFFF;
-    rotA = (c * 0x100000001) & 0xFFFFFFFFFFFFFFFF;
     t1 = (b +
-            ((rotE >>> 6) ^ (rotE >>> 11) ^ (rotE >>> 25)) +
+            (_rotr(g, 6) ^ _rotr(g, 11) ^ _rotr(g, 25)) +
             (a ^ (g & (h ^ a))) +
             constants[index + 6] +
             words[index + 6]) &
         _u32;
     f = (f + t1) & _u32;
     b = (t1 +
-            ((rotA >>> 2) ^ (rotA >>> 13) ^ (rotA >>> 22)) +
+            (_rotr(c, 2) ^ _rotr(c, 13) ^ _rotr(c, 22)) +
             ((c & d) | (e & (c | d)))) &
         _u32;
 
-    rotE = (f * 0x100000001) & 0xFFFFFFFFFFFFFFFF;
-    rotA = (b * 0x100000001) & 0xFFFFFFFFFFFFFFFF;
     t1 = (a +
-            ((rotE >>> 6) ^ (rotE >>> 11) ^ (rotE >>> 25)) +
+            (_rotr(f, 6) ^ _rotr(f, 11) ^ _rotr(f, 25)) +
             (h ^ (f & (g ^ h))) +
             constants[index + 7] +
             words[index + 7]) &
         _u32;
     e = (e + t1) & _u32;
     a = (t1 +
-            ((rotA >>> 2) ^ (rotA >>> 13) ^ (rotA >>> 22)) +
+            (_rotr(b, 2) ^ _rotr(b, 13) ^ _rotr(b, 22)) +
             ((b & c) | (d & (b | c)))) &
         _u32;
   }

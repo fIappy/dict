@@ -207,13 +207,14 @@ class CustomTextProvider extends ChangeNotifier {
     }
   }
 
-  /// FNV-1a over the seed text: cheap, stable, and only compared with itself.
+  /// FNV-1a (32-bit) over the seed text: cheap, stable across platforms (the
+  /// web has no 64-bit integers), and only ever compared with itself.
   static String _fingerprintOf(String raw) {
-    var hash = 0xcbf29ce484222325;
+    var hash = 0x811c9dc5;
     for (var i = 0; i < raw.length; i++) {
-      hash = (hash ^ raw.codeUnitAt(i)) * 0x100000001b3;
+      hash = ((hash ^ raw.codeUnitAt(i)) * 0x01000193) & 0xFFFFFFFF;
     }
-    return hash.toUnsigned(64).toRadixString(16);
+    return hash.toRadixString(16);
   }
 
   /// Merges the shipped library into the store.
