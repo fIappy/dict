@@ -601,14 +601,6 @@ class _NumbersInputSectionState extends State<NumbersInputSection> {
               '输入任意数字',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '自动识别整数 / 小数 / 年份 / 时刻 / 日期 / 金额 / 电话 / 分数 / 百分数',
-                style: TextStyle(fontSize: 11.5, color: theme.hintColor),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
           ],
         ),
         const SizedBox(height: 10),
@@ -666,18 +658,13 @@ class _NumbersInputSectionState extends State<NumbersInputSection> {
           ],
         ),
         const SizedBox(height: 12),
-        if (provider.lookupInput.trim().isEmpty)
-          Text(
-            '在上面输入数字，下面会出现对应的英语读法。',
-            style: TextStyle(fontSize: 12.5, color: theme.hintColor),
-          )
-        else if (reading == null || reading.ukText.isEmpty)
-          Text(
-            '无法识别「${provider.lookupInput}」。请检查格式，或用上面的标签手动指定读法。',
-            style: const TextStyle(fontSize: 12.5, color: Colors.redAccent),
-          )
-        else
-          NumberReadingCard(reading: reading),
+        if (provider.lookupInput.trim().isNotEmpty)
+          reading == null || reading.ukText.isEmpty
+              ? Text(
+                  '无法识别「${provider.lookupInput}」。请检查格式，或用上面的标签手动指定读法。',
+                  style: const TextStyle(fontSize: 12.5, color: Colors.redAccent),
+                )
+              : NumberReadingCard(reading: reading),
       ],
     );
   }
@@ -722,14 +709,6 @@ class _NumbersTrainingSectionState extends State<NumbersTrainingSection> {
             Icon(Icons.fitness_center_rounded, size: 18, color: theme.colorScheme.primary),
             const SizedBox(width: 8),
             const Text('数字训练', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '生成后默认隐藏：先朗读、再显示数字对照',
-                style: TextStyle(fontSize: 11.5, color: theme.hintColor),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
           ],
         ),
         const SizedBox(height: 10),
@@ -781,15 +760,6 @@ class _NumbersTrainingSectionState extends State<NumbersTrainingSection> {
               const SizedBox(width: 2),
               const Text('多组连读',
                   style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  provider.runMode
-                      ? '每组一次连读 ${provider.runMin}–${provider.runMax} 个数字，组与组之间按下方「组间」停'
-                      : '一次连读多个数字（听写式练习）：组内紧凑，组间留出记录时间',
-                  style: TextStyle(fontSize: 11, color: theme.hintColor),
-                ),
-              ),
             ],
           ),
           if (provider.runMode) ...[
@@ -974,9 +944,8 @@ class _NumbersTrainingSectionState extends State<NumbersTrainingSection> {
         // The generated numbers themselves.
         if (provider.training.isEmpty)
           Text(
-            '还没有生成数字。选好类型、位数与数量后点「生成一组」，'
-            '再点「开始朗读」即可练习听力；语速与间隔随时可调。',
-            style: TextStyle(fontSize: 12.5, color: theme.hintColor, height: 1.5),
+            '还没有生成数字。',
+            style: TextStyle(fontSize: 12.5, color: theme.hintColor),
           )
         else
           Container(
@@ -1004,8 +973,8 @@ class _NumbersTrainingSectionState extends State<NumbersTrainingSection> {
                     Expanded(
                       child: Text(
                         provider.revealed
-                            ? (provider.runBatch ? '数字已显示（点击任意一组可单独试听）' : '数字已显示（点击单个数字可单独试听）')
-                            : '数字已隐藏，点击「显示数字」查看',
+                            ? '数字已显示'
+                            : '数字已隐藏',
                         style: TextStyle(fontSize: 11.5, color: theme.hintColor),
                       ),
                     ),

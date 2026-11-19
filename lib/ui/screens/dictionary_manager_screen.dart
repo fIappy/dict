@@ -198,16 +198,7 @@ class _DictionaryManagerScreenState extends State<DictionaryManagerScreen> {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        if (_supportsLocalDictionaries)
-                          Text(
-                            '支持 MDict (.mdx / .mdd) 格式本地词典。同一时间只启用一本：'
-                            '查词与发音都只走启用那一本，切换启用即切换词库。',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isDark ? Colors.white60 : Colors.black54,
-                            ),
-                          )
-                        else
+                        if (!_supportsLocalDictionaries)
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [

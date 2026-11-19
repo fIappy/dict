@@ -76,7 +76,7 @@ class WordDetailScreen extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               dictProvider.hasDictionaries
-                  ? '请检查拼写，或在左侧列表选择推荐的相近词汇'
+                  ? '请检查拼写，或选择下面的相近词汇'
                   : '当前未加载任何词典，请前往词典管理添加词典文件',
               textAlign: TextAlign.center,
               style: TextStyle(color: Theme.of(context).hintColor),

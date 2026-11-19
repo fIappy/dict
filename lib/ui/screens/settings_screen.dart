@@ -84,7 +84,7 @@ class SettingsScreen extends StatelessWidget {
         const SizedBox(height: 24),
         _SectionTitle('发音引擎'),
         // Five engines no longer fit one row of segments; a chip per engine
-        // wraps, and the label plus the hint say which ones leave the machine.
+        // wraps, and the line below says whether the choice leaves the machine.
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -109,19 +109,11 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Text(
-            settings.speechEngine.hint,
-            style: TextStyle(fontSize: 12, height: 1.4, color: Theme.of(context).hintColor),
-          ),
-        ),
         _EngineStatus(engine: settings.speechEngine),
         _SliderTile(
           icon: Icons.volume_up_rounded,
           title: '音量',
           valueLabel: '${(settings.speechVolume * 100).round()}%',
-          hint: '所有朗读（词典、AI、自定义短文、数字训练）的音量',
           value: settings.speechVolume,
           min: 0,
           max: 1,
@@ -134,7 +126,6 @@ class SettingsScreen extends StatelessWidget {
           icon: Icons.speed_rounded,
           title: '播放语速',
           valueLabel: '×${settings.speechRate.toStringAsFixed(2)}',
-          hint: '×1.0 是语音的自然语速；0.5 更慢，1.5 更快',
           value: settings.speechRate,
           min: 0.5,
           max: 1.5,
@@ -145,7 +136,6 @@ class SettingsScreen extends StatelessWidget {
           icon: Icons.timer_outlined,
           title: '短语/例句之间的间隔',
           valueLabel: '${settings.sentenceGap.inMilliseconds / 1000.0} 秒',
-          hint: '顺序播放时，一句读完后等多久再读下一句',
           value: settings.sentenceGap.inMilliseconds / 1000.0,
           min: 0,
           max: 3,
@@ -195,7 +185,6 @@ class _SliderTile extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.valueLabel,
-    required this.hint,
     required this.value,
     required this.min,
     required this.max,
@@ -206,7 +195,6 @@ class _SliderTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String valueLabel;
-  final String hint;
   final double value;
   final double min;
   final double max;
@@ -248,13 +236,6 @@ class _SliderTile extends StatelessWidget {
             divisions: divisions,
             label: valueLabel,
             onChanged: onChanged,
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 2),
-            child: Text(
-              hint,
-              style: TextStyle(fontSize: 12, color: theme.hintColor),
-            ),
           ),
         ],
       ),
@@ -311,15 +292,6 @@ class _AiSettingsCardState extends State<_AiSettingsCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '兼容 OpenAI 格式的接口，用于生成造句与主题短文。留空 Key 也能连本地服务。',
-              style: TextStyle(
-                fontSize: 11.5,
-                height: 1.4,
-                color: theme.hintColor,
-              ),
-            ),
-            const SizedBox(height: 12),
             _field(
               _base,
               'Base URL',
@@ -511,12 +483,9 @@ class _EngineStatusState extends State<_EngineStatus> {
       SpeechEngine.kokoro => await findKokoroModel() == null
           ? await kokoroModelHint()
           : '已找到 Kokoro 模型',
-      SpeechEngine.edge => '会实时请求微软的朗读接口；可用音色：'
-          '美音 Aria、英音 Sonia；失败时自动换本机语音',
-      SpeechEngine.google => '会实时请求 Google 翻译的发音接口；'
-          '语速偏快，长句分段拼接；失败时自动换本机语音',
-      SpeechEngine.baidu => '会实时请求百度翻译的朗读接口；国内直连、延迟低；'
-          '失败时自动换本机语音',
+      SpeechEngine.edge => '微软在线音色：Aria（美）/ Sonia（英）',
+      SpeechEngine.google => 'Google 在线发音',
+      SpeechEngine.baidu => '百度在线朗读',
     };
     if (!mounted || _asked != engine) return;
     setState(() => _status = status);

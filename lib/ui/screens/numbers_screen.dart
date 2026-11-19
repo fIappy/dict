@@ -99,14 +99,6 @@ class _NumbersScreenState extends State<NumbersScreen> {
                 '数字表达方式分类',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '点击卡片查看/选中，点「英音」「美音」试听',
-                  style: TextStyle(fontSize: 11.5, color: theme.hintColor),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 8),

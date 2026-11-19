@@ -271,7 +271,7 @@ class _CustomScreenState extends State<CustomScreen> {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            '「${provider.selectedGroupName}」里还没有短文，点右下角「添加」写一段',
+            '还没有短文',
             textAlign: TextAlign.center,
             style: TextStyle(color: Theme.of(context).hintColor),
           ),

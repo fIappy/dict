@@ -240,9 +240,11 @@ class AlphabetDetailView extends StatelessWidget {
                       children: [
                         Icon(Icons.auto_stories_rounded, size: 18, color: theme.colorScheme.primary),
                         const SizedBox(width: 8),
-                        const Text(
-                          '自然拼读核心规律 (Phonics)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        const Expanded(
+                          child: Text(
+                            '自然拼读核心规律 (Phonics)',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
                         ),
                       ],
                     ),
@@ -308,11 +310,6 @@ class AlphabetDetailView extends StatelessWidget {
                 Text(
                   '代表性词汇 (${letter.examples.length})',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '点击喇叭收听读音，点击卡片查看词典释义',
-                  style: TextStyle(fontSize: 12, color: theme.hintColor),
                 ),
               ],
             ),

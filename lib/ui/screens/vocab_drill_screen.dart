@@ -366,7 +366,7 @@ class _VocabDrillScreenState extends State<VocabDrillScreen> {
         child: Text(
           vocabulary.filter == StarFilter.all
               ? '这个主题还没有词'
-              : '没有符合星数筛选的词，换个筛选或先给词加星',
+              : '没有符合筛选的词',
           style: TextStyle(fontSize: 13, color: theme.hintColor),
         ),
       );

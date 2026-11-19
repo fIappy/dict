@@ -39,14 +39,6 @@ class NumbersDetailView extends StatelessWidget {
                   '当前读法',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '点「英音」「美音」分别试听，语速与「数字训练」共用',
-                    style: TextStyle(fontSize: 11.5, color: theme.hintColor),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: 10),
@@ -59,7 +51,7 @@ class NumbersDetailView extends StatelessWidget {
               NumberReadingCard(reading: reading)
             else
               Text(
-                '先在左侧选择一类数字表达方式，或在下面输入任意数字。',
+                '选择一类表达方式，或输入一个数字。',
                 style: TextStyle(fontSize: 13, color: theme.hintColor),
               ),
 

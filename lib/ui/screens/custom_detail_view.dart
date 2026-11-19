@@ -74,31 +74,33 @@ class _CustomDetailViewState extends State<CustomDetailView> {
     final item = _storedItem;
     final isNew = item == null;
 
-    return Padding(
+    final content = Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Icon(
-                isNew
-                    ? Icons.add_circle_outline_rounded
-                    : Icons.edit_note_rounded,
-                size: 20,
-                color: theme.colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                isNew ? '新增短文' : '编辑短文',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+          if (widget.isPaneView) ...[
+            Row(
+              children: [
+                Icon(
+                  isNew
+                      ? Icons.add_circle_outline_rounded
+                      : Icons.edit_note_rounded,
+                  size: 20,
+                  color: theme.colorScheme.primary,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
+                const SizedBox(width: 8),
+                Text(
+                  isNew ? '新增短文' : '编辑短文',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+          ],
           TextField(
             controller: _title,
             contextMenuBuilder: speakableEditableMenu,
@@ -113,41 +115,49 @@ class _CustomDetailViewState extends State<CustomDetailView> {
           const SizedBox(height: 12),
           _buildGroupRow(context, provider),
           const SizedBox(height: 16),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               FilledButton.icon(
                 icon: const Icon(Icons.save_rounded, size: 18),
                 label: const Text('保存'),
                 onPressed: () => _save(provider, item),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: SpeechControls(
-                    labels: true,
-                    idleLabel: '播放全文',
-                    onStart: _startPlay,
-                  ),
-                ),
-              ),
+              // Before the player: an idle bar then stays on one line, and the
+              // wider playing bar takes the next run instead of pushing 删除
+              // onto a line of its own.
               if (!isNew)
                 IconButton(
                   tooltip: '删除',
                   icon: const Icon(Icons.delete_outline_rounded),
                   onPressed: () => _delete(provider, item),
                 ),
+              SpeechControls(
+                labels: true,
+                idleLabel: '播放全文',
+                onStart: _startPlay,
+              ),
             ],
           ),
           const SizedBox(height: 8),
           _buildSpeakingLine(context),
-          const SizedBox(height: 6),
-          Text(
-            '在句号、问号、叹号或换行处断句，逐句朗读，句间停顿取设置里的间隔。',
-            style: TextStyle(fontSize: 12, color: theme.hintColor),
-          ),
         ],
       ),
+    );
+
+    if (widget.isPaneView) return content;
+    // Pushed as a page on a phone: its own bar supplies the back button and
+    // keeps the fields below the status bar.
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          isNew ? '新增短文' : '编辑短文',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+      body: SafeArea(child: content),
     );
   }
 
@@ -230,7 +240,6 @@ class _CustomDetailViewState extends State<CustomDetailView> {
             keyboardType: TextInputType.multiline,
             decoration: const InputDecoration(
               labelText: '短文内容',
-              hintText: '一段文字；句号/问号/叹号或换行处会分成句子，逐句朗读',
               alignLabelWithHint: true,
               border: OutlineInputBorder(),
             ),

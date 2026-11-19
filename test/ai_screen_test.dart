@@ -174,7 +174,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('区间 4 词 · 要 3 词'), findsOneWidget);
-    expect(find.textContaining('已从区间里等距抽取'), findsOneWidget);
+    expect(find.textContaining('等距抽取'), findsOneWidget);
 
     await tester.ensureVisible(find.text('生成短文'));
     await tester.pumpAndSettle();
@@ -247,7 +247,7 @@ void main() {
     await tester.tap(find.text('生成句子'));
     await tester.pump();
 
-    expect(find.textContaining('先输入一个要造句的单词'), findsOneWidget);
+    expect(find.textContaining('先输入一个单词'), findsOneWidget);
     expect(provider.isGenerating, isFalse);
   });
 }

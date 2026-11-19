@@ -192,12 +192,18 @@ class IpaDetailView extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            phoneme.symbol,
-                            style: const TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w800,
-                              fontFamily: 'Gentium Plus DC',
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                phoneme.symbol,
+                                style: const TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w800,
+                                  fontFamily: 'Gentium Plus DC',
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -276,14 +282,11 @@ class IpaDetailView extends StatelessWidget {
                     children: [
                       Icon(Icons.graphic_eq_rounded, size: 16, color: theme.colorScheme.primary),
                       const SizedBox(width: 6),
-                      const Text(
-                        '音标纯音示范 (非单词读音):',
-                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '基于剑桥发音标准',
-                        style: TextStyle(fontSize: 11, color: theme.hintColor),
+                      const Expanded(
+                        child: Text(
+                          '音标纯音示范 (非单词读音):',
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ],
                   ),
@@ -397,7 +400,7 @@ class IpaDetailView extends StatelessWidget {
         break;
       case IpaAccent.both:
         bg = const Color(0xFF0F766E);
-        label = '🌐 英美通用音标';
+        label = '英美通用音标';
         break;
     }
 
@@ -436,11 +439,13 @@ class IpaDetailView extends StatelessWidget {
               children: [
                 const Icon(Icons.compare_arrows_rounded, color: Color(0xFF2563EB), size: 20),
                 const SizedBox(width: 8),
-                const Text(
-                  '英美发音体系对照与转换',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                const Expanded(
+                  child: Text(
+                    '英美发音体系对照与转换',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                  ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
@@ -596,14 +601,6 @@ class IpaDetailView extends StatelessWidget {
             Text(
               '核心示例单词 (${phoneme.examples.length})',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '英音 / 美音 独立试听，点击卡片查词',
-                style: TextStyle(fontSize: 11.5, color: theme.hintColor),
-                overflow: TextOverflow.ellipsis,
-              ),
             ),
           ],
         ),
@@ -765,11 +762,6 @@ class IpaDetailView extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          '涵盖声母拼读、辅音连缀、尾音闭合及不送气浊化等高频组合',
-          style: TextStyle(fontSize: 12, color: theme.hintColor),
-        ),
         const SizedBox(height: 12),
 
         ListView.separated(
@@ -858,17 +850,25 @@ class IpaDetailView extends StatelessWidget {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(
-                                  cw.word,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                Flexible(
+                                  child: Text(
+                                    cw.word,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
                                 ),
                                 const SizedBox(width: 4),
-                                Text(
-                                  cw.phonetic,
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    color: theme.colorScheme.primary,
-                                    fontFamily: 'Gentium Plus DC',
+                                Flexible(
+                                  child: Text(
+                                    cw.phonetic,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: theme.colorScheme.primary,
+                                      fontFamily: 'Gentium Plus DC',
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 4),

@@ -215,38 +215,51 @@ class IpaScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    phoneme.symbol,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Gentium Plus DC',
-                      color: isSelected
-                          ? theme.colorScheme.primary
-                          : (isDark ? Colors.white : Colors.black87),
-                    ),
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Accent badge
-                      _buildAccentBadge(phoneme.accent),
-                      const SizedBox(width: 4),
-                      // Category badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
-                        decoration: BoxDecoration(
-                          color: _getPhonemeBadgeColor(phoneme, isDark),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          phoneme.category == IpaCategory.monophthong
-                              ? (phoneme.symbol.contains('ː') ? '长元音' : '短元音')
-                              : phoneme.category.labelZh,
-                          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        phoneme.symbol,
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Gentium Plus DC',
+                          color: isSelected
+                              ? theme.colorScheme.primary
+                              : (isDark ? Colors.white : Colors.black87),
                         ),
                       ),
-                    ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.topRight,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Accent badge
+                          _buildAccentBadge(phoneme.accent),
+                          const SizedBox(width: 4),
+                          // Category badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: _getPhonemeBadgeColor(phoneme, isDark),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              phoneme.category == IpaCategory.monophthong
+                                  ? (phoneme.symbol.contains('ː') ? '长元音' : '短元音')
+                                  : phoneme.category.labelZh,
+                              style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -367,7 +380,7 @@ class IpaScreen extends StatelessWidget {
         break;
       case IpaAccent.both:
         bg = const Color(0xFF0F766E); // Teal
-        label = '🌐 通用';
+        label = '通用';
         break;
     }
 

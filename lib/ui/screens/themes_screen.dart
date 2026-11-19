@@ -115,8 +115,7 @@ class _ThemesScreenState extends State<ThemesScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 4, 14, 10),
               child: Text(
-                '${provider.sceneCount} 个场景 · ${provider.totalWords} 条归属 · '
-                '词表来自 ${provider.source}（按词频排序）',
+                '${provider.sceneCount} 个场景 · ${provider.totalWords} 条归属',
                 style: TextStyle(
                   fontSize: 11,
                   color: theme.hintColor,
@@ -384,7 +383,17 @@ class _ThemesScreenState extends State<ThemesScreen> {
     if (await openChildWindow(ChildWindow.vocabulary, scene.id)) return;
     if (!context.mounted) return;
     await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => VocabDrillScreen(scene: scene)),
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          appBar: AppBar(
+            title: Text(
+              '背词 · ${scene.label}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          body: SafeArea(child: VocabDrillScreen(scene: scene)),
+        ),
+      ),
     );
   }
 

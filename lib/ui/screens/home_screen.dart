@@ -39,8 +39,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  /// Keep in step with the destinations list below.
-  static const int _destinationCount = 9;
+  /// Keep in step with the destinations lists below: the rail has no 设置 entry
+  /// (it sits in the rail's trailing corner), the phone bar has ten.
+  static const int _railDestinationCount = 9;
+  static const int _mobileDestinationCount = 10;
 
   int _selectedIndex = 0;
 
@@ -92,9 +94,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final section = await UiMemory.readInt(UiMemory.section);
     final paneWidth = await UiMemory.readDouble(UiMemory.paneWidth);
     if (!mounted) return;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 800;
+    final maxSection =
+        (isDesktop ? _railDestinationCount : _mobileDestinationCount) - 1;
     setState(() {
       if (section != null) {
-        _selectedIndex = section.clamp(0, _destinationCount - 1);
+        _selectedIndex = section.clamp(0, maxSection);
       }
       if (paneWidth != null) {
         _middlePaneWidth.value = paneWidth.clamp(220.0, 900.0);
@@ -126,6 +131,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildDesktopLayout(BuildContext context, BoxConstraints constraints) {
+    // 设置 (index 9) exists only in the phone bar; a section restored under a
+    // wider window falls back to the last rail destination.
+    final index = _selectedIndex.clamp(0, _railDestinationCount - 1);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final dictProvider = context.watch<DictionaryProvider>();
@@ -136,12 +144,12 @@ class _HomeScreenState extends State<HomeScreen> {
     // Built once per shell build. The divider drag only changes a width, and a
     // width is a layout input: rebuilding these three panes on every pointer
     // move is what made the splitter feel heavy with the passage editor open.
-    final String railKey = '$_selectedIndex|$isDark';
+    final String railKey = '$index|$isDark';
     if (_railCache == null || _railKey != railKey) {
       _railKey = railKey;
       // 1. Navigation Rail
       _railCache = NavigationRail(
-          selectedIndex: _selectedIndex,
+          selectedIndex: index,
           onDestinationSelected: _selectSection,
           leading: Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -260,26 +268,26 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     final Widget rail = _railCache!;
 
-    final Widget middlePane = _buildMiddlePane();
-    final String rightKey = '$_selectedIndex|$isDark'
+    final Widget middlePane = _buildMiddlePane(index);
+    final String rightKey = '$index|$isDark'
         '|${customProvider.selectedId}|${customProvider.selectedGroupId}'
         '|${dictProvider.currentWord}|${ipaProvider.currentPhoneme.symbol}'
         '|${alphabetProvider.currentLetter.upper}';
     if (_rightCache == null || _rightKey != rightKey) {
       _rightKey = rightKey;
-      _rightCache = _selectedIndex == 4
+      _rightCache = index == 4
           ? IpaDetailView(
                     isPaneView: true,
                     phoneme: ipaProvider.currentPhoneme,
                   )
-                : (_selectedIndex == 5
+                : (index == 5
                     ? AlphabetDetailView(
                         isPaneView: true,
                         letter: alphabetProvider.currentLetter,
                       )
-                    : (_selectedIndex == 6
+                    : (index == 6
                         ? const NumbersDetailView(isPaneView: true)
-                        : (_selectedIndex == 8
+                        : (index == 8
                             ? CustomDetailView(
                                 // Re-seeded per group as well: a new entry
                                 // lands in the group that is open.
@@ -328,8 +336,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildMiddlePane() {
-    switch (_selectedIndex) {
+  Widget _buildMiddlePane(int index) {
+    switch (index) {
       case 0:
         return const SearchScreen(isPaneView: true);
       case 1:

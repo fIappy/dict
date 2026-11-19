@@ -123,7 +123,7 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
       final provider = context.read<AiPracticeProvider>();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('先输入一个要造句的单词（也可以点上面的候选词）'),
+          content: Text('先输入一个单词'),
           duration: Duration(seconds: 2),
         ),
       );
@@ -491,15 +491,6 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
                   (level) => setState(() => _passageLevel = level),
                 ),
               ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '难度控制句型与内容深度（五档）；必须出现的词由下面的词频区间决定。',
-              style: TextStyle(
-                fontSize: 11.5,
-                height: 1.4,
-                color: theme.hintColor,
-              ),
             ),
             const SizedBox(height: 8),
             _buildLengthRow(context, provider),
@@ -904,16 +895,10 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
                           _bandTo = values.end.round();
                         }),
               ),
-              Text(
-                '按词频从高到低排；只把这段区间里的词交给模型。',
-                style: TextStyle(fontSize: 11, color: theme.hintColor),
-              ),
               const SizedBox(height: 2),
               Text(
                 sampled
-                    ? '区间 $bandSize 个词，但 $_passageLength 词的篇幅大约只能'
-                        '容纳 ${required.length} 个必需词（每 10 词 1 个），'
-                        '已从区间里等距抽取；想要更多就往长的方向调。'
+                    ? '区间 $bandSize 词 · 等距抽取 ${required.length} 个'
                     : '区间内 ${required.length} 个词全部要求出现。',
                 style: TextStyle(
                   fontSize: 11,
