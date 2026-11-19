@@ -21,13 +21,6 @@ import 'package:local_dict/core/custom/passage_reflow.dart';
 
 import 'custom_store.dart';
 
-String get _appData => Directory(
-      '${Platform.environment['APPDATA']}\\com.example\\local_dict',
-    ).path;
-
-String get _storePath => '$_appData\\shared_preferences.json';
-const String _storeKey = 'flutter.custom_texts';
-const String _groupsKey = 'flutter.custom_groups';
 const String _seedPath = 'assets/seed/custom_home.json';
 
 int _sentences(String body) => splitSentences(body).length;
@@ -68,9 +61,8 @@ void main(List<String> args) {
       ? _readSource(args[sourceIndex + 1])
       : const <String, List<String>>{};
 
-  final store = jsonDecode(File(_storePath).readAsStringSync()) as Map<String, dynamic>;
-  final texts = (jsonDecode(store[_storeKey] as String? ?? '[]') as List)
-      .cast<Map<String, dynamic>>();
+  final library = LocalLibrary.read();
+  final texts = library.texts;
 
   var changed = 0;
   var sentencesBefore = 0;
@@ -124,9 +116,7 @@ void main(List<String> args) {
       ? args[cleanIndex + 1]
       : null;
   if (cleanNeedle != null) {
-    final storeGroups =
-        (jsonDecode(store[_groupsKey] as String? ?? '[]') as List)
-            .cast<Map<String, dynamic>>();
+    final storeGroups = library.groups;
     final seedGroups =
         (seed['groups'] as List? ?? const []).cast<Map<String, dynamic>>();
     final storeClean = cleanGroupTexts(
@@ -155,13 +145,13 @@ void main(List<String> args) {
     return;
   }
 
-  File(_storePath).copySync('$_storePath.bak-reflow');
-  store[_storeKey] = jsonEncode(texts);
-  File(_storePath).writeAsStringSync(const JsonEncoder.withIndent('  ').convert(store));
+  library.save();
 
   seed['texts'] = seedTexts;
   seed['version'] = ((seed['version'] as num?)?.toInt() ?? 1) + 1;
-  seedFile.copySync('$_storePath.bak-seed');
+  seedFile.copySync(
+    '${Directory.systemTemp.path}${Platform.pathSeparator}custom_home.json.bak-seed',
+  );
   seedFile.writeAsStringSync(
     const JsonEncoder.withIndent(' ').convert(seed),
   );

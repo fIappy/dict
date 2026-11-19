@@ -16,12 +16,6 @@ import 'dart:io';
 
 import 'custom_store.dart';
 
-String get _appData =>
-    '${Platform.environment['APPDATA']}\\com.example\\local_dict';
-
-String get _storePath => '$_appData\\shared_preferences.json';
-const String _storeTextsKey = 'flutter.custom_texts';
-const String _storeGroupsKey = 'flutter.custom_groups';
 const String _seedPath = 'assets/seed/custom_home.json';
 
 void main(List<String> args) {
@@ -32,12 +26,9 @@ void main(List<String> args) {
       ? args[groupIndex + 1]
       : 'Udemy';
 
-  final store = jsonDecode(File(_storePath).readAsStringSync())
-      as Map<String, dynamic>;
-  final texts = (jsonDecode(store[_storeTextsKey] as String? ?? '[]') as List)
-      .cast<Map<String, dynamic>>();
-  final groups = (jsonDecode(store[_storeGroupsKey] as String? ?? '[]') as List)
-      .cast<Map<String, dynamic>>();
+  final library = LocalLibrary.read();
+  final texts = library.texts;
+  final groups = library.groups;
   final ids = groupIdsNamed(groups, needle);
   if (ids.isEmpty) {
     stderr.writeln('no group matches "$needle"');
@@ -77,10 +68,7 @@ void main(List<String> args) {
     return;
   }
 
-  File(_storePath).copySync('$_storePath.bak-clean');
-  store[_storeTextsKey] = jsonEncode(texts);
-  File(_storePath)
-      .writeAsStringSync(const JsonEncoder.withIndent('  ').convert(store));
+  library.save();
 
   seed['texts'] = seedTexts;
   seed['version'] = ((seed['version'] as num?)?.toInt() ?? 1) + 1;

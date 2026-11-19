@@ -4,7 +4,77 @@
 // need the same three steps: pick the group's texts in list order, run
 // [cleanPassages], and drop the chapters whose lines were all repeats.
 
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:local_dict/core/custom/passage_cleanup.dart';
+
+String get appData =>
+    '${Platform.environment['APPDATA']}\\com.example\\local_dict';
+
+/// The app's own 自定义 library, wherever this build keeps it.
+///
+/// Newer builds keep the passages and groups in `custom_texts.json` /
+/// `custom_groups.json`; a store written before that move still has them under
+/// the `flutter.custom_*` keys of `shared_preferences.json`. Reads prefer the
+/// files and fall back to the preferences, writes go back to the same place.
+class LocalLibrary {
+  LocalLibrary._(this.texts, this.groups, this._usesFiles);
+
+  final List<Map<String, dynamic>> texts;
+  final List<Map<String, dynamic>> groups;
+  final bool _usesFiles;
+
+  static String get _prefsPath => '$appData\\shared_preferences.json';
+  static String get _textsPath => '$appData\\custom_texts.json';
+  static String get _groupsPath => '$appData\\custom_groups.json';
+
+  static LocalLibrary read() {
+    final textsFile = File(_textsPath);
+    final groupsFile = File(_groupsPath);
+    if (textsFile.existsSync() || groupsFile.existsSync()) {
+      List<Map<String, dynamic>> load(File file) {
+        if (!file.existsSync()) return [];
+        return (jsonDecode(file.readAsStringSync()) as List)
+            .cast<Map<String, dynamic>>();
+      }
+
+      return LocalLibrary._(load(textsFile), load(groupsFile), true);
+    }
+    final prefs = File(_prefsPath).existsSync()
+        ? jsonDecode(File(_prefsPath).readAsStringSync())
+            as Map<String, dynamic>
+        : <String, dynamic>{};
+    List<Map<String, dynamic>> legacy(String key) {
+      final raw = prefs[key] as String?;
+      if (raw == null || raw.isEmpty) return [];
+      return (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+    }
+
+    return LocalLibrary._(
+      legacy('flutter.custom_texts'),
+      legacy('flutter.custom_groups'),
+      false,
+    );
+  }
+
+  void save() {
+    if (_usesFiles) {
+      File(_textsPath)
+          .writeAsStringSync(jsonEncode(texts), flush: true);
+      File(_groupsPath)
+          .writeAsStringSync(jsonEncode(groups), flush: true);
+      return;
+    }
+    final prefs = jsonDecode(File(_prefsPath).readAsStringSync())
+        as Map<String, dynamic>;
+    prefs['flutter.custom_texts'] = jsonEncode(texts);
+    prefs['flutter.custom_groups'] = jsonEncode(groups);
+    File(_prefsPath).writeAsStringSync(
+      const JsonEncoder.withIndent('  ').convert(prefs),
+    );
+  }
+}
 
 /// Ids of the groups whose name contains [needle] (case-insensitive).
 Set<String> groupIdsNamed(

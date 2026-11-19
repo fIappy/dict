@@ -1,5 +1,5 @@
 {
- "version": 4,
+ "version": 5,
  "groups": [
   {
    "id": "default",
@@ -8,7 +8,7 @@
    "color": 4282339765,
    "icon": null,
    "sort_order": 0,
-   "created_at": 1790677030385
+   "created_at": 1792114500900
   },
   {
    "id": "cet_core",
@@ -17,7 +17,7 @@
    "color": 4281236786,
    "icon": null,
    "sort_order": 1,
-   "created_at": 1790677030386
+   "created_at": 1792114500901
   },
   {
    "id": "gre_ielts",
@@ -26,7 +26,7 @@
    "color": 4293880832,
    "icon": null,
    "sort_order": 2,
-   "created_at": 1790677030387
+   "created_at": 1792114500902
   },
   {
    "id": "review",
@@ -35,7 +35,7 @@
    "color": 4290910299,
    "icon": null,
    "sort_order": 3,
-   "created_at": 1790677030388
+   "created_at": 1792114500903
   }
  ],
  "items": [
@@ -168,6 +168,19 @@
    "tags": "",
    "created_at": 1795010877801,
    "updated_at": 1795010877801
+  },
+  {
+   "id": "fav_1793079552727",
+   "word": "cereal",
+   "group_id": "default",
+   "phonetic": "",
+   "definition_snippet": null,
+   "examples_snippet": null,
+   "note": "",
+   "dict_source": "Dictionary.com",
+   "tags": "",
+   "created_at": 1793079552727,
+   "updated_at": 1793079552727
   }
  ]
 }
