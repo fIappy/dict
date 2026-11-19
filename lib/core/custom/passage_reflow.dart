@@ -42,6 +42,14 @@ const Set<String> _commaConjunctions = {
   'though',
 };
 
+/// Words that carry on after a quoted question or exclamation:
+/// `“Is this a man?” is a question.` — the quote's mark closes the quotation,
+/// not the sentence.
+const Set<String> _quotedContinuations = {
+  'is', 'are', 'was', 'were', 'am', 'do', 'does', 'did', 'have', 'has', 'had',
+  'can', 'could', 'will', 'would', 'should', 'may', 'might', 'must',
+};
+
 /// Sentence-final marks a cue may already carry.
 const String _terminals = '.!?…';
 
@@ -56,6 +64,23 @@ bool _endsSentence(String line) {
   final stripped = trimmed.replaceAll(RegExp('''[)\\]"”’']+\$'''), '');
   return stripped.isNotEmpty &&
       _terminals.contains(stripped[stripped.length - 1]);
+}
+
+/// Whether [line] ends with a mark *inside* a closing quote (`?”`, `!”`, `.”`).
+bool _endsQuoted(String line) {
+  final trimmed = line.trimRight();
+  if (trimmed.isEmpty) return false;
+  final last = trimmed[trimmed.length - 1];
+  if (last != '”' && last != '"' && last != '’') return false;
+  return _endsSentence(trimmed.substring(0, trimmed.length - 1));
+}
+
+/// [line] with its first letter lowered ("Is a question." -> "is a question.").
+String _lowerFirst(String line) {
+  final trimmed = line.trimLeft();
+  if (trimmed.isEmpty) return trimmed;
+  final lowered = trimmed[0].toLowerCase() + trimmed.substring(1);
+  return RegExp(r'^i\b').hasMatch(lowered) ? 'I${lowered.substring(1)}' : lowered;
 }
 
 String _firstWord(String line) =>
@@ -144,8 +169,10 @@ String reflowPassage(String body) {
   }
 
   final rule = RegExp(r'^[-=_*~]{3,}$');
+  var pendingQuoted = false;
   for (final cue in cues) {
     if (rule.hasMatch(cue)) {
+      pendingQuoted = false;
       // A "----" divider stays a line of its own instead of swallowing the next
       // sentence.
       flush();
@@ -155,12 +182,22 @@ String reflowPassage(String body) {
     }
     if (cue.isEmpty) {
       // Paragraph break: end the sentence here and leave the blank line in.
+      pendingQuoted = false;
       flush();
       sentences.add('');
       lastCue = '';
       continue;
     }
-    if (buffer.isNotEmpty && _startsNewSentence(cue)) {
+    var continuesQuoted = false;
+    if (pendingQuoted) {
+      pendingQuoted = false;
+      if (_quotedContinuations.contains(_firstWord(cue))) {
+        continuesQuoted = true;
+      } else {
+        flush();
+      }
+    }
+    if (!continuesQuoted && buffer.isNotEmpty && _startsNewSentence(cue)) {
       // A capital letter alone does not start a sentence: not after a cue that
       // cannot end one, and not into a "sentence" of two words, which in these
       // scripts is always a fragment ("And by learning" / "I don't mean…").
@@ -184,12 +221,18 @@ String reflowPassage(String body) {
           _wordCount(joined) >= 6 &&
           _wordCount(cue) >= 4;
       buffer.write(needsComma ? ', ' : ' ');
-      buffer.write(_lowerContinuing(cue));
+      buffer.write(continuesQuoted ? _lowerFirst(cue) : _lowerContinuing(cue));
     } else {
       buffer.write(cue);
     }
     lastCue = cue;
-    if (_endsSentence(cue)) flush();
+    if (_endsSentence(cue)) {
+      if (_endsQuoted(cue)) {
+        pendingQuoted = true;
+      } else {
+        flush();
+      }
+    }
   }
   flush();
 

@@ -25,6 +25,32 @@ void main() {
     expect(out, contains('And by learning I don’t mean memorizing.'));
   });
 
+  test('a quoted question does not end the sentence', () {
+    const body = 'Lesson 03\n'
+        '“This is a man” is a statement\n'
+        '“Is this a man?”\n'
+        'is a question\n'
+        'And in negative we add “not” after “are”.';
+    expect(
+      reflowPassage(body),
+      'Lesson 03\n'
+      '“This is a man” is a statement “Is this a man?” is a question.\n'
+      'And in negative we add “not” after “are”.',
+    );
+  });
+
+  test('a quoted question followed by a new subject still ends it', () {
+    const body = 'Lesson 03\n'
+        'She is asking him “Do you have a minute?”\n'
+        'Yeah she is asking him.';
+    expect(
+      reflowPassage(body),
+      'Lesson 03\n'
+      'She is asking him “Do you have a minute?”\n'
+      'Yeah she is asking him.',
+    );
+  });
+
   test('a lowercase cue stays inside the sentence above it', () {
     const body = 'Lesson 07\n'
         'Mason is at work at the restaurant\n'

@@ -1,5 +1,5 @@
 {
- "version": 5,
+ "version": 6,
  "groups": [
   {
    "id": "default",
@@ -181,6 +181,19 @@
    "tags": "",
    "created_at": 1793079552727,
    "updated_at": 1793079552727
+  },
+  {
+   "id": "fav_1795056642951",
+   "word": "articles",
+   "group_id": "default",
+   "phonetic": "",
+   "definition_snippet": null,
+   "examples_snippet": null,
+   "note": "",
+   "dict_source": "Dictionary.com",
+   "tags": "",
+   "created_at": 1795056642951,
+   "updated_at": 1795056642951
   }
  ]
 }
