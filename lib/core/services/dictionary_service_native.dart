@@ -223,9 +223,14 @@ class DictionaryService {
     }
 
     if (registered.isNotEmpty && !hasActive) {
-      // First run: the first archive found becomes the active dictionary.
+      // First run: the first archive found becomes the active dictionary. The
+      // enabled flag has to travel with the info: `_loadDictionaryHandle` writes
+      // the row back when the entry count differs, and the stale `false` used to
+      // switch the dictionary off again right after enabling it.
       await _dao.enableOnly(registered.first.id);
-      await _loadDictionaryHandle(registered.first);
+      final enabled = registered.first.copyWith(isEnabled: true);
+      registered[0] = enabled;
+      await _loadDictionaryHandle(enabled);
     }
 
     return registered;
@@ -337,6 +342,11 @@ class DictionaryService {
       createdAt: DateTime.now(),
     );
 
+    // The row has to exist before `enableOnly`: that call switches the others
+    // off and enables this id, so without the insert the new dictionary was
+    // never in the database — it vanished on restart, and every existing
+    // dictionary had been disabled on the way there.
+    await _dao.insert(info);
     // The freshly imported dictionary is the one the reader wants to read, so
     // it takes the single enabled slot and the previous one steps down.
     await _dao.enableOnly(info.id);
@@ -345,6 +355,13 @@ class DictionaryService {
       await _dao.delete(info.id);
       throw Exception('Failed to load imported dictionary');
     }
+    // Everything else is off now; keeping its readers open leaked a file handle
+    // and a window of the archive per import.
+    _loadedDicts.removeWhere((dictionary) {
+      if (identical(dictionary, loaded)) return false;
+      dictionary.close();
+      return true;
+    });
 
     return info;
   }

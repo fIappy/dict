@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'mdict_crypto.dart';
+import 'mdx_record_scan.dart';
 
 class MdxKeyBlockMeta {
   final int count;
@@ -77,12 +78,12 @@ class MdxReader {
       final hbytes = raf.readSync(hlen);
       raf.readSync(4); // checksum
 
-      String header;
-      try {
-        header = utf8.decode(hbytes);
-      } catch (_) {
-        header = _decodeUtf16Le(hbytes);
-      }
+      // A pure-ASCII UTF-16LE header decodes "successfully" as UTF-8 (NUL is a
+      // legal UTF-8 byte), leaving `Encoding`/`Encrypted` unreadable. Sniff the
+      // byte pattern instead of waiting for the decoder to fail.
+      final header = looksUtf16Le(hbytes)
+          ? _decodeUtf16Le(hbytes)
+          : utf8.decode(hbytes, allowMalformed: true);
 
       String enc = 'UTF-8';
       final encMatch = RegExp('Encoding=["\']([^"\']+)["\']', caseSensitive: false).firstMatch(header);
@@ -397,14 +398,14 @@ class MdxReader {
     final decompRb = _getRecordBlock(targetRbIdx);
     final inBlockOffset = offset - targetRb.decompAccumOffset;
 
-    // Search for null terminator in decompRb
-    int nullIdx = -1;
-    for (int i = inBlockOffset; i < decompRb.length; i++) {
-      if (decompRb[i] == 0) {
-        nullIdx = i;
-        break;
-      }
-    }
+    // The terminator is two NUL bytes for a UTF-16LE record and one otherwise:
+    // in UTF-16 every ASCII character carries a NUL in its second byte, so a
+    // single-byte scan cut every such entry after its first character.
+    final nullIdx = findRecordTerminator(
+      decompRb,
+      inBlockOffset,
+      utf16: encoding == 'UTF-16LE',
+    );
 
     if (nullIdx != -1) {
       final slice = decompRb.sublist(inBlockOffset, nullIdx);
@@ -420,13 +421,11 @@ class MdxReader {
     int nextIdx = targetRbIdx + 1;
     while (nextIdx < _recordBlocks.length) {
       final nextDecomp = _getRecordBlock(nextIdx);
-      int term = -1;
-      for (int i = 0; i < nextDecomp.length; i++) {
-        if (nextDecomp[i] == 0) {
-          term = i;
-          break;
-        }
-      }
+      final term = findRecordTerminator(
+        nextDecomp,
+        0,
+        utf16: encoding == 'UTF-16LE',
+      );
       if (term != -1) {
         builder.add(nextDecomp.sublist(0, term));
         break;

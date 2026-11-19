@@ -222,7 +222,10 @@ class MddReader {
     if (nextOffset != null && nextOffset > foundOffset) {
       length = nextOffset - foundOffset;
     } else {
-      length = decompRb.length - inBlockOffset;
+      // The key is the last one in its block, so there is no next key to stop
+      // at: the recording ends where the record block ends. Using the whole
+      // decompressed block ran this file into the following recordings.
+      length = targetRb.decompSize - inBlockOffset;
     }
 
     if (inBlockOffset + length <= decompRb.length) {

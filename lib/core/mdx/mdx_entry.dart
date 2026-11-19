@@ -127,7 +127,7 @@ class MdxEntry {
 
     // 5. Extract panels: <div class='panel ...' data-p='tag'>...</div>
     final panels = <String, String>{};
-    final panelRegex = RegExp(r"""data-p=['"]([^'"]+)['"][^>]*>(.*?)(?=<div[^>]*data-p=|\z|$)""", dotAll: true, caseSensitive: false);
+    final panelRegex = RegExp(r"""data-p=['"]([^'"]+)['"][^>]*>(.*?)(?=<div[^>]*data-p=|$)""", dotAll: true, caseSensitive: false);
     for (final match in panelRegex.allMatches(html)) {
       final tag = match.group(1)!;
       final content = match.group(2)!.trim();
