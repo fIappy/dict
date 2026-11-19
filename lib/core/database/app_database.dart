@@ -10,11 +10,18 @@ class AppDatabase {
   AppDatabase._();
 
   Database? _db;
+  Future<Database>? _opening;
 
-  Future<Database> get database async {
-    if (_db != null) return _db!;
-    _db = await _initDatabase();
-    return _db!;
+  /// Cached as a future, not a completed value: three providers ask for the
+  /// database during startup, and assigning `_db` only after the await let all
+  /// three run `openDatabase` on the same file.
+  Future<Database> get database {
+    final open = _db;
+    if (open != null) return Future<Database>.value(open);
+    return _opening ??= _initDatabase().then((db) {
+      _db = db;
+      return db;
+    });
   }
 
   Future<Database> _initDatabase() async {
@@ -38,6 +45,13 @@ class AppDatabase {
     return await openDatabase(
       dbPath,
       version: 1,
+      onConfigure: (db) async {
+        // Two windows share this file; WAL + a busy timeout is what stops them
+        // from failing with SQLITE_BUSY the moment both write at once.
+        await db.execute('PRAGMA journal_mode = WAL');
+        await db.execute('PRAGMA busy_timeout = 5000');
+        await db.execute('PRAGMA foreign_keys = ON');
+      },
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE dictionaries (

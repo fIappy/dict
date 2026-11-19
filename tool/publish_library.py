@@ -45,6 +45,10 @@ AI = os.path.join(SEED_DIR, 'ai_archive.json')
 FAVORITES = os.path.join(SEED_DIR, 'favorites.json')
 
 APP_DATA = os.path.join(os.environ.get('APPDATA', ''), 'com.example', 'local_dict')
+
+# Assets that were left alone because the local copy is behind the committed
+# seed. `package_release.sh --publish` turns this into a failed release.
+REFUSED = []
 DEFAULT_STORE = os.path.join(APP_DATA, 'shared_preferences.json')
 DEFAULT_DB = os.path.join(APP_DATA, 'local_dict', 'dict_app.db')
 
@@ -100,6 +104,18 @@ def local_library(store):
             json.loads(legacy_texts) if legacy_texts else [])
 
 
+def merged_seed_version(store, key='flutter.custom_library_version'):
+    """The seed version the app on this machine has already merged.
+
+    `None` when the store predates that bookkeeping (or is not there at all):
+    then there is nothing to compare against.
+    """
+    value = store.get(key)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return int(value)
+
+
 def publish_custom(store, dry_run, force):
     """Replaces the asset with this machine's library.
 
@@ -109,6 +125,17 @@ def publish_custom(store, dry_run, force):
     """
     data = load_json(CUSTOM, {'version': 1, 'groups': [], 'texts': []})
     groups, texts = local_library(store)
+    seed_version = int(data.get('version', 1))
+    merged = merged_seed_version(store)
+    if merged is not None and merged < seed_version and not force:
+        REFUSED.append(os.path.basename(CUSTOM))
+        print(f'{CUSTOM}: refusing to publish — this machine last merged seed '
+              f'v{merged}, while the committed seed is v{seed_version}. '
+              f'Run the app here once so the newer built-in text lands in the '
+              f'local library, then publish again (or pass --force).',
+              file=sys.stderr)
+        return (len(data.get('groups', [])), len(data.get('texts', [])),
+                seed_version, False)
     if not texts and not force:
         print(f'{CUSTOM}: this machine has no passages, leaving the asset alone '
               f'(use --force to publish an empty library)', file=sys.stderr)
@@ -132,8 +159,18 @@ def publish_ai(store, dry_run):
     return len(merged), version, changed
 
 
-def publish_favorites(db_path, dry_run):
+def publish_favorites(db_path, dry_run, force, store):
     data = load_json(FAVORITES, {'version': 1, 'groups': [], 'items': []})
+    seed_version = int(data.get('version', 1))
+    merged = merged_seed_version(store, 'flutter.favorites_seed_version')
+    if merged is not None and merged < seed_version and not force:
+        REFUSED.append(os.path.basename(FAVORITES))
+        print(f'{FAVORITES}: refusing to publish — this machine last merged seed '
+              f'v{merged}, while the committed seed is v{seed_version}. '
+              f'Run the app here once so the built-in words land in the local '
+              f'database, then publish again (or pass --force).', file=sys.stderr)
+        return (len(data.get('groups', [])), len(data.get('items', [])),
+                seed_version, False)
     if not os.path.exists(db_path):
         return 0, 0, int(data.get('version', 1)), False
     db = sqlite3.connect(db_path)
@@ -187,9 +224,15 @@ def main():
     print(f'{AI}: {items} items, version {version}'
           f'{" (updated)" if changed else " (unchanged)"}')
 
-    groups, items, version, changed = publish_favorites(args.favorites_db, args.dry_run)
+    groups, items, version, changed = publish_favorites(
+        args.favorites_db, args.dry_run, args.force, store)
     print(f'{FAVORITES}: {groups} groups, {items} words, version {version}'
           f'{" (updated)" if changed else " (unchanged)"}')
+
+    # A refusal has to fail the build that asked for the publish, otherwise
+    # `package_release.sh --publish` ships a library it silently did not update.
+    if REFUSED and not args.dry_run:
+        sys.exit('publish refused for: ' + ', '.join(REFUSED))
 
 
 if __name__ == '__main__':

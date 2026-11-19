@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/search_result.dart';
@@ -29,17 +31,36 @@ class _SearchScreenState extends State<SearchScreen> {
     'hello', 'infrastructure', 'perspective', 'significant', 'virtual',
   ];
 
+  Timer? _searchDebounce;
+  String _lastQuery = '';
+
   @override
   void initState() {
     super.initState();
-    _controller.addListener(() {
-      final dictProvider = context.read<DictionaryProvider>();
-      dictProvider.onSearchQueryChanged(_controller.text);
+    _controller.addListener(_onQueryChanged);
+  }
+
+  /// Searching on every notification meant a full MDX scan per keystroke — and
+  /// per caret move, since a controller notifies for selection changes too.
+  void _onQueryChanged() {
+    final text = _controller.text;
+    if (text == _lastQuery) return;
+    _lastQuery = text;
+    _searchDebounce?.cancel();
+    final dictProvider = context.read<DictionaryProvider>();
+    if (text.trim().isEmpty) {
+      dictProvider.onSearchQueryChanged(text);
+      return;
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 180), () {
+      if (!mounted) return;
+      dictProvider.onSearchQueryChanged(text);
     });
   }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();

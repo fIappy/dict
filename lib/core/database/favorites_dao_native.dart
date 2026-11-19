@@ -36,10 +36,30 @@ class FavoritesDao {
 
   Future<void> insertGroup(FavoriteGroup group) async {
     final db = await _appDb.database;
-    await db.insert(
-      'favorite_groups',
-      group.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
+    // Not ConflictAlgorithm.replace: SQLite implements REPLACE as DELETE +
+    // INSERT, and with `foreign_keys = ON` that cascades the group's favorites
+    // away. An upsert keeps the row (and its children) in place.
+    await db.rawInsert(
+      '''
+      INSERT INTO favorite_groups
+        (id, name, description, color, icon, sort_order, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        description = excluded.description,
+        color = excluded.color,
+        icon = excluded.icon,
+        sort_order = excluded.sort_order
+      ''',
+      [
+        group.id,
+        group.name,
+        group.description,
+        group.color,
+        group.icon,
+        group.sortOrder,
+        group.createdAt.millisecondsSinceEpoch,
+      ],
     );
   }
 

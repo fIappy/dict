@@ -62,7 +62,9 @@ class FavoriteGroup {
       icon: map['icon'] as String?,
       sortOrder: map['sort_order'] as int? ?? 0,
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
-      wordCount: (map['word_count'] as int?) ?? wordCount,
+      wordCount: wordCount != 0
+          ? wordCount
+          : (map['word_count'] as int? ?? 0),
     );
   }
 }

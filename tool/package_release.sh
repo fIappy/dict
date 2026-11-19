@@ -13,9 +13,17 @@
 #   tool/package_release.sh windows        # or web / apk / all / install
 #   tool/package_release.sh all --no-build # only re-stage the models
 #   tool/package_release.sh install        # adb-install the APK for this device
+#   tool/package_release.sh apk --publish  # first fold this machine's 自定义
+#                                          # library into assets/seed/
 #
 # `all` builds the three targets at the same time: they write to different trees,
 # and on a many-core machine the sequential time was mostly waiting.
+#
+# The built-in 自定义/AI/收藏 content is baked into the bundle, so what ships is
+# the committed `assets/seed/` — not whatever is on the machine running this
+# script. `--publish` is the deliberate step that folds this machine's app data
+# into it; the tool refuses when this machine has not merged the committed seed
+# yet, so a build on another device cannot roll the library back.
 #
 # Without a model the app still runs: 整句朗读 falls back to the next engine and
 # the training UI says which one is in use. This script just makes the shipped
@@ -24,13 +32,15 @@ set -uo pipefail
 
 TARGETS=()
 BUILD=1
+PUBLISH=0
 
-usage() { sed -n '2,18p' "$0"; }
+usage() { sed -n '2,28p' "$0"; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
     windows|web|apk|all|install) TARGETS+=("$1"); shift ;;
     --no-build) BUILD=0; shift ;;
+    --publish) PUBLISH=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -67,16 +77,21 @@ if [ ! -f "$ZIP" ]; then
   python tool/fetch_kokoro_model.py --zip-only
 fi
 
-# 2. This machine's own content becomes the build's built-in library: the
-# passages, groups, favorites and AI archive written here are published into
-# assets/seed/ before Flutter packs the bundle. Skipped where those stores do
-# not exist (a clean CI box), so a build there keeps the committed seed.
+# 2. The built-in library is baked in at build time, so what ships is the
+# committed `assets/seed/` — never whatever happens to be on the machine running
+# the build. `--publish` is the deliberate step that folds *this* machine's app
+# data into it; without the flag a build on another device cannot quietly
+# replace (or roll back) the library that was committed.
 APP_DATA="${APPDATA:-$HOME/Library/Application Support}/com.example/local_dict"
-if [ -f "$APP_DATA/shared_preferences.json" ] || [ -f "$APP_DATA/custom_texts.json" ]; then
-  echo "publishing this machine's library into assets/seed…"
-  python tool/publish_library.py || { echo "publish failed" >&2; exit 1; }
+if [ "$PUBLISH" -eq 1 ]; then
+  if [ -f "$APP_DATA/shared_preferences.json" ] || [ -f "$APP_DATA/custom_texts.json" ]; then
+    echo "publishing this machine's library into assets/seed…"
+    python tool/publish_library.py || { echo "publish failed" >&2; exit 1; }
+  else
+    echo "no local library at $APP_DATA — nothing to publish, keeping the committed seed"
+  fi
 else
-  echo "no local library at $APP_DATA — keeping the committed seed"
+  echo "keeping the committed seed (pass --publish to fold this machine's library in)"
 fi
 
 stage_models() {
@@ -173,8 +188,9 @@ build_target() {
 run_targets() {
   local targets=("$@")
   if [ "${#targets[@]}" -eq 1 ]; then
+    # `return` without the status swallowed a failed build into a clean exit.
     build_target "${targets[0]}"
-    return
+    return $?
   fi
   local pids=() names=() failed=0
   for target in "${targets[@]}"; do
@@ -191,7 +207,10 @@ run_targets() {
   return "$failed"
 }
 
-run_targets "${TARGETS[@]}"
+if ! run_targets "${TARGETS[@]}"; then
+  echo "release failed" >&2
+  exit 1
+fi
 
 echo
 echo "done. what each artefact needs to be shippable:"

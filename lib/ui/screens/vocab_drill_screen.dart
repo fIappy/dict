@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -40,6 +42,23 @@ class _VocabDrillScreenState extends State<VocabDrillScreen> {
   int _loopToken = 0;
   String? _speaking;
 
+  /// The scene never changes under one route, so its flattened word list and
+  /// gloss map are built once: as getters they rebuilt a map of the whole deck
+  /// for every visible row on every frame.
+  List<String>? _wordsCache;
+  Map<String, String>? _glossesCache;
+
+  @override
+  void initState() {
+    super.initState();
+    // On a phone this page is pushed from the theme screen, where nothing has
+    // initialized the provider yet.
+    final vocabulary = context.read<VocabularyProvider>();
+    if (!vocabulary.isInitialized) {
+      unawaited(vocabulary.initialize().then((_) => vocabulary.ensureSeeded()));
+    }
+  }
+
   @override
   void dispose() {
     _loopToken++;
@@ -50,9 +69,10 @@ class _VocabDrillScreenState extends State<VocabDrillScreen> {
 
   ThemeScene get scene => widget.scene;
 
-  List<String> get _words => [for (final group in scene.groups) ...group.words];
+  List<String> get _words =>
+      _wordsCache ??= [for (final group in scene.groups) ...group.words];
 
-  Map<String, String> get _glosses => {
+  Map<String, String> get _glosses => _glossesCache ??= {
         for (final group in scene.groups) ...group.glosses,
       };
 

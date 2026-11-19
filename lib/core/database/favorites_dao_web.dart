@@ -83,14 +83,16 @@ class FavoritesDao {
   Future<void> insertGroup(FavoriteGroup group) async {
     final rows = await WebStore.readList(_groupsKey);
     rows.removeWhere((m) => m['id'] == group.id);
-    rows.add({...group.toMap(), 'word_count': group.wordCount});
+    // No word_count: it is derived from the items on every read, and storing a
+    // snapshot here froze the count at whatever the caller happened to hold.
+    rows.add(group.toMap());
     await WebStore.writeList(_groupsKey, rows);
   }
 
   Future<void> updateGroup(FavoriteGroup group) async {
     final rows = await WebStore.readList(_groupsKey);
     final index = rows.indexWhere((m) => m['id'] == group.id);
-    final payload = {...group.toMap(), 'word_count': group.wordCount};
+    final payload = group.toMap();
     if (index == -1) {
       rows.add(payload);
     } else {
