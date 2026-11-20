@@ -495,6 +495,16 @@ python tool/generate_number_audio.py --source edge         # 换用神经语音�
 现在用 `Future.any` 与延时赛跑（`audio_manager_*.dart` 里 `playSpeechClip` 有注释），
 并用「时长 + 1.5 s 下限」的兜底，保证不会把词切短。
 
+联网引擎的句子会先落进本机队列（`lib/core/audio/online_audio_cache*.dart`）：
+一次朗读、下一轮重播、两个窗口共用同一台机器，都不必再请求一遍。
+key 不是句子本身，而是 `引擎 + 口音 + 该引擎实际收到的语速 + 句子` 的双 32 位 hash
+（16 位十六进制，不落明文；Google 不吃语速、百度把语速折成 7 档，各自按真实请求算 key）。
+队列最多 1000 条、96 MB：满了先淘汰命中次数最少的，次数相同按先进先出；
+同一句正在请求时第二次调用复用它，不会并发拉两遍。
+`index.json` 记命中次数（600 ms 防抖落盘，避免每句都写一次索引），
+写盘与索引之间崩溃留下的孤儿音频，下次启动会被收编而非越积越多。
+浏览器端同一套淘汰策略，只放内存（没有文件系统，HTTP 缓存负责跨刷新）。
+
 词表是两侧共同遵守的契约：Python 侧 `NUMBER_WORDS` 决定生成哪些片段，Dart 侧
 `lib/core/numbers/number_audio.dart` 决定能播哪些词，`test/number_module_test.dart` 会同时校验
 「两边词表一致」「每个词两个口音都有片段」「拼写器产出的每个词都有片段」，任一侧改名都会直接失败。

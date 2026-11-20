@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../core/audio/audio_manager.dart';
+import '../core/audio/online_audio_cache.dart';
 import '../core/audio/online_tts.dart';
 import '../core/audio/pcm_audio.dart';
 import '../core/audio/kokoro_voice.dart';
@@ -55,7 +56,9 @@ class EntrySpeechProvider extends ChangeNotifier {
     OnlineSynthesizer? online,
   })  : _player = player ?? AudioManager(),
         _kokoro = kokoro ?? KokoroVoice(),
-        _online = online ?? OnlineTts.synthesize;
+        // Every online line goes through the disk queue: the same sentences are
+        // read again and again in a drill.
+        _online = online ?? OnlineAudioCache.instance.synthesize;
 
   final SpeechClipPlayer _player;
   final KokoroVoice? _kokoro;
