@@ -48,6 +48,10 @@ class _StubKokoro extends KokoroVoice {
 /// abandoned run resume and talk over the run that replaced it. Gates are
 /// released individually, so one run can be resumed while another stays parked.
 class _GatedPlayer implements SpeechClipPlayer {
+  Duration? playbackAt;
+
+  @override
+  Duration? get playbackPosition => playbackAt;
   final List<Uint8List> onlineClips = [];
   final List<String> played = [];
   final List<Uint8List> buffers = [];
@@ -84,7 +88,7 @@ class _GatedPlayer implements SpeechClipPlayer {
   }
 
   @override
-  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0, Future<void>? cancel}) async {
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0, Duration startAt = Duration.zero, Future<void>? cancel}) async {
     // Kokoro plays through here, so it parks too — otherwise a run would never
     // be caught mid-await.
     buffers.add(bytes);
@@ -96,7 +100,7 @@ class _GatedPlayer implements SpeechClipPlayer {
   }
 
   @override
-  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0, Future<void>? cancel}) async {
+  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0, Duration startAt = Duration.zero, Future<void>? cancel}) async {
     onlineClips.add(bytes);
     return true;
   }
@@ -119,6 +123,10 @@ class _GatedPlayer implements SpeechClipPlayer {
 }
 
 class _RecordingPlayer implements SpeechClipPlayer {
+  Duration? playbackAt;
+
+  @override
+  Duration? get playbackPosition => playbackAt;
   _RecordingPlayer({this.supportsSentences = false});
 
   final List<Uint8List> onlineClips = [];
@@ -150,7 +158,7 @@ class _RecordingPlayer implements SpeechClipPlayer {
   }
 
   @override
-  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0, Future<void>? cancel}) async {
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0, Duration startAt = Duration.zero, Future<void>? cancel}) async {
     onPlay?.call(played.length);
     buffers.add(bytes);
     played.add('bytes:${bytes.length}');
@@ -159,7 +167,7 @@ class _RecordingPlayer implements SpeechClipPlayer {
   }
 
   @override
-  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0, Future<void>? cancel}) async {
+  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0, Duration startAt = Duration.zero, Future<void>? cancel}) async {
     onlineClips.add(bytes);
     return true;
   }

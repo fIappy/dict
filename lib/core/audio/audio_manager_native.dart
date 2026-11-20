@@ -16,7 +16,11 @@ import 'speech_clip_player.dart';
 class AudioManager implements SpeechClipPlayer {
   static final AudioManager _instance = AudioManager._();
   factory AudioManager() => _instance;
-  AudioManager._();
+  AudioManager._() {
+    _player.onPositionChanged.listen((position) {
+      _lastPosition = position;
+    });
+  }
 
   final AudioPlayer _player = AudioPlayer();
   final DictionaryService _dictService = DictionaryService();
@@ -318,22 +322,37 @@ class AudioManager implements SpeechClipPlayer {
 
   /// Plays audio the module built itself (a spliced sentence, or Piper's
   /// samples) — one buffer, so nothing is read from disk on any platform.
+  /// Last position the player reported, kept for a pause that arrives between
+  /// two platform events. The getter API is a stream; reading it here avoids an
+  /// async round trip racing the stop.
+  Duration? _lastPosition;
+
+  @override
+  Duration? get playbackPosition => _lastPosition;
+
+  @override
   @override
   Future<bool> playAudioBytes(Uint8List bytes,
-          {double rate = 1.0, Future<void>? cancel}) =>
+          {double rate = 1.0,
+          Duration startAt = Duration.zero,
+          Future<void>? cancel}) =>
       _playBytes(bytes,
           extension: 'wav',
           mimeType: 'audio/wav',
           rate: rate,
+          startAt: startAt,
           cancel: cancel);
 
   @override
   Future<bool> playOnlineClip(Uint8List bytes,
-          {double rate = 1.0, Future<void>? cancel}) =>
+          {double rate = 1.0,
+          Duration startAt = Duration.zero,
+          Future<void>? cancel}) =>
       _playBytes(bytes,
           extension: 'mp3',
           mimeType: 'audio/mpeg',
           rate: rate,
+          startAt: startAt,
           cancel: cancel);
 
   Future<bool> _playBytes(
@@ -341,6 +360,7 @@ class AudioManager implements SpeechClipPlayer {
     required String extension,
     required String mimeType,
     required double rate,
+    Duration startAt = Duration.zero,
     Future<void>? cancel,
   }) async {
     // The Windows backend of audioplayers does not play a byte buffer: the clip
@@ -361,6 +381,7 @@ class AudioManager implements SpeechClipPlayer {
           tag: 'bytes_${bytes.length}_$extension',
           label: '${bytes.length} bytes of $extension (staged)',
           rate: rate,
+          startAt: startAt,
           cancel: cancel,
         );
         try {
@@ -378,6 +399,7 @@ class AudioManager implements SpeechClipPlayer {
       tag: 'bytes_${bytes.length}_$extension',
       label: '${bytes.length} bytes of $extension',
       rate: rate,
+      startAt: startAt,
       cancel: cancel,
     );
   }
@@ -387,10 +409,12 @@ class AudioManager implements SpeechClipPlayer {
     required String tag,
     required String label,
     required double rate,
+    Duration startAt = Duration.zero,
     Future<void>? cancel,
   }) async {
     _currentlyPlayingTag = tag;
     _isPlaying = true;
+    _lastPosition = Duration.zero;
     AudioBackground.begin();
     try {
       // Completion is what advances the queue: the clip must finish sounding
@@ -417,6 +441,14 @@ class AudioManager implements SpeechClipPlayer {
               debugPrint('Playback rate $rate unsupported: $e');
             }
           }
+          if (startAt > Duration.zero) {
+            // 继续 from a pause: pick the sentence up where it stopped.
+            try {
+              await _player.seek(startAt);
+            } catch (e) {
+              debugPrint('Seek to $startAt unsupported: $e');
+            }
+          }
         },
         cancel: cancel,
         minPlausible: _minPlausiblePlayback,
@@ -426,7 +458,12 @@ class AudioManager implements SpeechClipPlayer {
         // playback "stalled" halfway through (it would then start the next line
         // over the one still sounding).
         stallGuard: (reported) {
-          final base = _clipStallGuard(reported);
+          // The remaining part of the clip, not the whole of it: resuming at
+          // 3 s of a 4 s line must not wait out 4 s plus the guard again.
+          final remaining = reported == null
+              ? null
+              : (reported > startAt ? reported - startAt : Duration.zero);
+          final base = _clipStallGuard(remaining);
           if (rate == 1.0) return base;
           return base * (1 / rate.clamp(0.25, 4.0)) +
               const Duration(milliseconds: 300);
@@ -564,6 +601,7 @@ class AudioManager implements SpeechClipPlayer {
   Future<void> stop() async {
     // A sentence is spoken by a child process (or played from a rendered file),
     // so stopping means killing the process and silencing the player.
+    _lastPosition = null;
     cancelSystemVoice();
     AudioBackground.stopNow();
     try {

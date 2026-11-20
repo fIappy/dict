@@ -33,7 +33,11 @@ class AudioManager implements SpeechClipPlayer {
 
   static final AudioManager _instance = AudioManager._();
   factory AudioManager() => _instance;
-  AudioManager._();
+  AudioManager._() {
+    _player.onPositionChanged.listen((position) {
+      _lastPosition = position;
+    });
+  }
 
   final AudioPlayer _player = AudioPlayer();
   final DictionaryService _dictService = DictionaryService();
@@ -232,25 +236,40 @@ class AudioManager implements SpeechClipPlayer {
   /// Plays audio the module built itself (a spliced sentence, or Piper's
   /// samples). On web `BytesSource` becomes a blob URL, so nothing is written to
   /// disk.
+  /// Last position the player reported, kept for a pause that arrives between
+  /// two platform events. The getter API is a stream; reading it here avoids an
+  /// async round trip racing the stop.
+  Duration? _lastPosition;
+
+  @override
+  Duration? get playbackPosition => _lastPosition;
+
+  @override
   @override
   Future<bool> playAudioBytes(Uint8List bytes,
-          {double rate = 1.0, Future<void>? cancel}) =>
+          {double rate = 1.0,
+          Duration startAt = Duration.zero,
+          Future<void>? cancel}) =>
       _playToCompletion(
         BytesSource(bytes, mimeType: 'audio/wav'),
         tag: 'bytes_${bytes.length}',
         label: '${bytes.length} bytes of WAV',
         rate: rate,
+        startAt: startAt,
         cancel: cancel,
       );
 
   @override
   Future<bool> playOnlineClip(Uint8List bytes,
-          {double rate = 1.0, Future<void>? cancel}) =>
+          {double rate = 1.0,
+          Duration startAt = Duration.zero,
+          Future<void>? cancel}) =>
       _playToCompletion(
         BytesSource(bytes, mimeType: 'audio/mpeg'),
         tag: 'mp3_${bytes.length}',
         label: '${bytes.length} bytes of MP3',
         rate: rate,
+        startAt: startAt,
         cancel: cancel,
       );
 
@@ -259,6 +278,7 @@ class AudioManager implements SpeechClipPlayer {
     required String tag,
     required String label,
     required double rate,
+    Duration startAt = Duration.zero,
     Future<void>? cancel,
   }) async {
     _currentlyPlayingTag = tag;
@@ -283,6 +303,13 @@ class AudioManager implements SpeechClipPlayer {
               await _player.setPlaybackRate(rate);
             } catch (e) {
               debugPrint('Playback rate $rate unsupported: $e');
+            }
+          }
+          if (startAt > Duration.zero) {
+            try {
+              await _player.seek(startAt);
+            } catch (e) {
+              debugPrint('Seek to $startAt unsupported: $e');
             }
           }
         },
@@ -357,6 +384,7 @@ class AudioManager implements SpeechClipPlayer {
 
   @override
   Future<void> stop() async {
+    _lastPosition = null;
     cancelSystemVoice();
     try {
       await _player.stop();

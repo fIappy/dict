@@ -84,6 +84,9 @@ class EntrySpeechProvider extends ChangeNotifier {
   /// A pause landed inside the current line (not in the gap after it).
   bool _pausedInLine = false;
 
+  /// Where the interrupted line stopped, so 继续 picks it up there.
+  Duration _resumeFrom = Duration.zero;
+
   /// Ends the line's playback wait at once when the reader pauses or stops.
   ///
   /// The player is told to stop separately; this is what stops the *await* from
@@ -219,6 +222,7 @@ class EntrySpeechProvider extends ChangeNotifier {
     _currentIndex = null;
     _inLine = false;
     _pausedInLine = false;
+    _resumeFrom = Duration.zero;
     notifyListeners();
     try {
       // Render ahead, not one line but a window of them: a word or a short
@@ -274,7 +278,9 @@ class EntrySpeechProvider extends ChangeNotifier {
           _pausedInLine = false;
           _lineAbort = Completer<void>();
           final clip = await clipAt(index);
-          await _playClip(clip, run: run);
+          final startAt = _resumeFrom;
+          _resumeFrom = Duration.zero;
+          await _playClip(clip, run: run, startAt: startAt);
           _inLine = false;
           _lineAbort = null;
           if (run != _run) return;
@@ -327,7 +333,14 @@ class EntrySpeechProvider extends ChangeNotifier {
   void pause() {
     if (!_isPlaying || _isPaused) return;
     _isPaused = true;
-    if (_inLine) _pausedInLine = true;
+    if (_inLine) {
+      _pausedInLine = true;
+      // Read before stop(): the player clears its cached position when the
+      // source is torn down. A clip that had not reported a position yet
+      // resumes from its start, which is only a fraction of a second of loss.
+      final at = _player.playbackPosition;
+      if (at != null && at > Duration.zero) _resumeFrom = at;
+    }
     _lineAbort?.complete();
     _player.stop();
     notifyListeners();
@@ -384,7 +397,9 @@ class EntrySpeechProvider extends ChangeNotifier {
       _pausedInLine = false;
       _lineAbort = Completer<void>();
       final line = await _render(item.text, rate: rate);
-      await _playClip(line, run: run);
+      final startAt = _resumeFrom;
+      _resumeFrom = Duration.zero;
+      await _playClip(line, run: run, startAt: startAt);
       _inLine = false;
       _lineAbort = null;
       if (_pausedInLine) {
@@ -395,6 +410,7 @@ class EntrySpeechProvider extends ChangeNotifier {
     } finally {
       _inLine = false;
       _pausedInLine = false;
+      _resumeFrom = Duration.zero;
       _lineAbort = null;
       if (run == _run) {
         _isPlaying = false;
@@ -441,6 +457,7 @@ class EntrySpeechProvider extends ChangeNotifier {
     _lineEpoch++;
     _inLine = false;
     _pausedInLine = false;
+    _resumeFrom = Duration.zero;
     _lineAbort?.complete();
     _lineAbort = null;
     _player.stop();
@@ -521,6 +538,7 @@ class EntrySpeechProvider extends ChangeNotifier {
   Future<bool> _playClip(
     _Line? line, {
     required int run,
+    Duration startAt = Duration.zero,
   }) async {
     if (run != _run || _isPaused) return false;
     if (line == null) return false;
@@ -555,12 +573,14 @@ class EntrySpeechProvider extends ChangeNotifier {
         played = await wait(_player.playOnlineClip(
           bytes,
           rate: _engine.bakesRate ? 1.0 : _rate,
+          startAt: startAt,
           cancel: abort?.future,
         ));
       case _PcmLine(:final clip):
         played = await wait(_player.playAudioBytes(
           encodeWav(clip.samples, sampleRate: clip.sampleRate),
           rate: 1.0,
+          startAt: startAt,
           cancel: abort?.future,
         ));
     }
