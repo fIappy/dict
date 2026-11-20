@@ -84,7 +84,7 @@ class _GatedPlayer implements SpeechClipPlayer {
   }
 
   @override
-  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0, Future<void>? cancel}) async {
     // Kokoro plays through here, so it parks too — otherwise a run would never
     // be caught mid-await.
     buffers.add(bytes);
@@ -96,7 +96,7 @@ class _GatedPlayer implements SpeechClipPlayer {
   }
 
   @override
-  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0, Future<void>? cancel}) async {
     onlineClips.add(bytes);
     return true;
   }
@@ -150,7 +150,7 @@ class _RecordingPlayer implements SpeechClipPlayer {
   }
 
   @override
-  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0, Future<void>? cancel}) async {
     onPlay?.call(played.length);
     buffers.add(bytes);
     played.add('bytes:${bytes.length}');
@@ -159,7 +159,7 @@ class _RecordingPlayer implements SpeechClipPlayer {
   }
 
   @override
-  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0, Future<void>? cancel}) async {
     onlineClips.add(bytes);
     return true;
   }

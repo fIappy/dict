@@ -48,10 +48,15 @@ Future<bool> awaitPlayback({
   required Duration minPlausible,
   required Duration durationWait,
   required Duration Function(Duration? reported) stallGuard,
+  Future<void>? cancel,
 }) async {
   final finished = Completer<void>();
   final reported = Completer<Duration?>();
   final started = Stopwatch()..start();
+  // The caller stopping the sound is not this playback finishing: report it as
+  // "did not complete", so a fallback path does not mistake it for a silence
+  // the player produced.
+  var cancelled = false;
 
   final completeSub = completions.listen((_) {
     if (started.elapsed >= minPlausible && !finished.isCompleted) {
@@ -62,18 +67,22 @@ Future<bool> awaitPlayback({
     if (!reported.isCompleted) reported.complete(value);
   });
 
+  unawaited(cancel?.then((_) {
+    cancelled = true;
+    if (!finished.isCompleted) finished.complete();
+  }));
   try {
     await start();
     final duration = await Future.any<Duration?>([
       reported.future,
       Future<Duration?>.delayed(durationWait),
     ]);
-    if (finished.isCompleted) return true;
+    if (finished.isCompleted && !cancelled) return true;
     await Future.any<void>([
       finished.future,
       Future<void>.delayed(stallGuard(duration)),
     ]);
-    return finished.isCompleted;
+    return finished.isCompleted && !cancelled;
   } finally {
     await completeSub.cancel();
     await durationSub.cancel();

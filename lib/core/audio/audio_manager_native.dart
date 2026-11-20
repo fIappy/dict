@@ -319,18 +319,29 @@ class AudioManager implements SpeechClipPlayer {
   /// Plays audio the module built itself (a spliced sentence, or Piper's
   /// samples) — one buffer, so nothing is read from disk on any platform.
   @override
-  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) =>
-      _playBytes(bytes, extension: 'wav', mimeType: 'audio/wav', rate: rate);
+  Future<bool> playAudioBytes(Uint8List bytes,
+          {double rate = 1.0, Future<void>? cancel}) =>
+      _playBytes(bytes,
+          extension: 'wav',
+          mimeType: 'audio/wav',
+          rate: rate,
+          cancel: cancel);
 
   @override
-  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0}) =>
-      _playBytes(bytes, extension: 'mp3', mimeType: 'audio/mpeg', rate: rate);
+  Future<bool> playOnlineClip(Uint8List bytes,
+          {double rate = 1.0, Future<void>? cancel}) =>
+      _playBytes(bytes,
+          extension: 'mp3',
+          mimeType: 'audio/mpeg',
+          rate: rate,
+          cancel: cancel);
 
   Future<bool> _playBytes(
     Uint8List bytes, {
     required String extension,
     required String mimeType,
     required double rate,
+    Future<void>? cancel,
   }) async {
     // The Windows backend of audioplayers does not play a byte buffer: the clip
     // never starts and `_playToCompletion` just waits out its stall guard. That
@@ -350,6 +361,7 @@ class AudioManager implements SpeechClipPlayer {
           tag: 'bytes_${bytes.length}_$extension',
           label: '${bytes.length} bytes of $extension (staged)',
           rate: rate,
+          cancel: cancel,
         );
         try {
           if (file.existsSync()) file.deleteSync();
@@ -366,6 +378,7 @@ class AudioManager implements SpeechClipPlayer {
       tag: 'bytes_${bytes.length}_$extension',
       label: '${bytes.length} bytes of $extension',
       rate: rate,
+      cancel: cancel,
     );
   }
 
@@ -374,6 +387,7 @@ class AudioManager implements SpeechClipPlayer {
     required String tag,
     required String label,
     required double rate,
+    Future<void>? cancel,
   }) async {
     _currentlyPlayingTag = tag;
     _isPlaying = true;
@@ -404,6 +418,7 @@ class AudioManager implements SpeechClipPlayer {
             }
           }
         },
+        cancel: cancel,
         minPlausible: _minPlausiblePlayback,
         durationWait: const Duration(milliseconds: 600),
         // A slower clip is allowed to take correspondingly longer: the reported

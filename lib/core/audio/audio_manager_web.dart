@@ -233,21 +233,25 @@ class AudioManager implements SpeechClipPlayer {
   /// samples). On web `BytesSource` becomes a blob URL, so nothing is written to
   /// disk.
   @override
-  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) =>
+  Future<bool> playAudioBytes(Uint8List bytes,
+          {double rate = 1.0, Future<void>? cancel}) =>
       _playToCompletion(
         BytesSource(bytes, mimeType: 'audio/wav'),
         tag: 'bytes_${bytes.length}',
         label: '${bytes.length} bytes of WAV',
         rate: rate,
+        cancel: cancel,
       );
 
   @override
-  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0}) =>
+  Future<bool> playOnlineClip(Uint8List bytes,
+          {double rate = 1.0, Future<void>? cancel}) =>
       _playToCompletion(
         BytesSource(bytes, mimeType: 'audio/mpeg'),
         tag: 'mp3_${bytes.length}',
         label: '${bytes.length} bytes of MP3',
         rate: rate,
+        cancel: cancel,
       );
 
   Future<bool> _playToCompletion(
@@ -255,6 +259,7 @@ class AudioManager implements SpeechClipPlayer {
     required String tag,
     required String label,
     required double rate,
+    Future<void>? cancel,
   }) async {
     _currentlyPlayingTag = tag;
     _isPlaying = true;
@@ -267,6 +272,7 @@ class AudioManager implements SpeechClipPlayer {
       // The wait is in `awaitPlayback`, which explains why `stream.first` (and
       // the `timeout(onTimeout:)` variant before it) both cut clips short.
       final completed = await awaitPlayback(
+        cancel: cancel,
         completions: _player.onPlayerComplete,
         durations: _player.onDurationChanged,
         start: () async {

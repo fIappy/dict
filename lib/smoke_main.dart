@@ -161,13 +161,13 @@ class _RecordingAudio implements SpeechClipPlayer {
   }
 
   @override
-  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0, Future<void>? cancel}) async {
     buffers.add(bytes);
     return true;
   }
 
   @override
-  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0, Future<void>? cancel}) async {
     onlineClips.add(bytes);
     return true;
   }

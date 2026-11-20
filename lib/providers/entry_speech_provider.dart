@@ -73,6 +73,23 @@ class EntrySpeechProvider extends ChangeNotifier {
   bool _isPaused = false;
   int _run = 0;
 
+  /// Whether a line's render/playback is in flight right now.
+  ///
+  /// Pausing during the gap between lines and pausing during a line need
+  /// different answers on resume: the first keeps walking, the second says
+  /// that line again. The paused flag alone cannot tell them apart once the
+  /// listener presses 继续 before the cut playback returns.
+  bool _inLine = false;
+
+  /// A pause landed inside the current line (not in the gap after it).
+  bool _pausedInLine = false;
+
+  /// Ends the line's playback wait at once when the reader pauses or stops.
+  ///
+  /// The player is told to stop separately; this is what stops the *await* from
+  /// sitting out the clip's own completion or the stall guard.
+  Completer<void>? _lineAbort;
+
   /// How many lines the engine may render ahead of the one sounding.
   ///
   /// Ten short lines is a few hundred kilobytes of PCM and covers a render that
@@ -200,6 +217,8 @@ class EntrySpeechProvider extends ChangeNotifier {
     _isPlaying = true;
     _isPaused = false;
     _currentIndex = null;
+    _inLine = false;
+    _pausedInLine = false;
     notifyListeners();
     try {
       // Render ahead, not one line but a window of them: a word or a short
@@ -251,8 +270,13 @@ class EntrySpeechProvider extends ChangeNotifier {
           notifyListeners();
           // Keep the window full as lines move out of it.
           prefetchFrom(index + 1);
+          _inLine = true;
+          _pausedInLine = false;
+          _lineAbort = Completer<void>();
           final clip = await clipAt(index);
           await _playClip(clip, run: run);
+          _inLine = false;
+          _lineAbort = null;
           if (run != _run) return;
 
           // A repeat asked for during the line lands here, after it finished.
@@ -264,6 +288,16 @@ class EntrySpeechProvider extends ChangeNotifier {
           }
 
           // Paused mid-line: hold, then say this line again from its start.
+          // The flag survives an early 继续: pressing play while the cut
+          // playback is still returning used to look like "the line ended"
+          // and the reader heard nothing until the next line.
+          if (_pausedInLine) {
+            _pausedInLine = false;
+            index--;
+            await _waitWhilePaused(run);
+            if (run != _run) return;
+            continue; // the for's ++ lands on the same line, with no gap
+          }
           if (_isPaused) {
             index--;
             await _waitWhilePaused(run);
@@ -281,6 +315,8 @@ class EntrySpeechProvider extends ChangeNotifier {
       if (run == _run) {
         _isPlaying = false;
         _isPaused = false;
+        _inLine = false;
+        _pausedInLine = false;
         _currentIndex = null;
         notifyListeners();
       }
@@ -291,6 +327,8 @@ class EntrySpeechProvider extends ChangeNotifier {
   void pause() {
     if (!_isPlaying || _isPaused) return;
     _isPaused = true;
+    if (_inLine) _pausedInLine = true;
+    _lineAbort?.complete();
     _player.stop();
     notifyListeners();
   }
@@ -342,9 +380,22 @@ class EntrySpeechProvider extends ChangeNotifier {
     _currentIndex = 0;
     notifyListeners();
     try {
+      _inLine = true;
+      _pausedInLine = false;
+      _lineAbort = Completer<void>();
       final line = await _render(item.text, rate: rate);
       await _playClip(line, run: run);
+      _inLine = false;
+      _lineAbort = null;
+      if (_pausedInLine) {
+        _pausedInLine = false;
+        await _waitWhilePaused(run);
+        if (run == _run) await _playClip(line, run: run);
+      }
     } finally {
+      _inLine = false;
+      _pausedInLine = false;
+      _lineAbort = null;
       if (run == _run) {
         _isPlaying = false;
         _currentIndex = null;
@@ -388,6 +439,10 @@ class EntrySpeechProvider extends ChangeNotifier {
     _currentIndex = null;
     _repeatFrom = null;
     _lineEpoch++;
+    _inLine = false;
+    _pausedInLine = false;
+    _lineAbort?.complete();
+    _lineAbort = null;
     _player.stop();
     notifyListeners();
   }
@@ -470,30 +525,44 @@ class EntrySpeechProvider extends ChangeNotifier {
     if (run != _run || _isPaused) return false;
     if (line == null) return false;
     final epoch = _lineEpoch;
+    final abort = _lineAbort;
+    // Stopping must end the wait, not just the sound: a paused line used to sit
+    // on its playback future until the stall guard ran out, and 继续 pressed
+    // meanwhile found the state already "finished" — silence until next line.
+    Future<bool> wait(Future<bool> call, {bool acceptCancel = false}) {
+      if (abort == null) return call;
+      return Future.any<bool>([
+        call,
+        abort.future.then((_) => false),
+      ]);
+    }
+
     final bool played;
     switch (line) {
       case _SpokenLine():
         // The platform voice speaks the line itself; there is no clip to play.
         final index = _currentIndex;
         if (index == null || index < 0 || index >= _items.length) return false;
-        return _player.speakSentence(
+        return wait(_player.speakSentence(
           _items[index].text,
           accent: _accent,
           rate: _rate,
-        );
+        ));
       case _Mp3Line(:final bytes):
         // Edge and 百度 bake the speed into the clip; scaling it again would
         // apply the slider twice. Google's endpoint ignores speed, so there the
         // player does the work (and shifts pitch with it).
-        played = await _player.playOnlineClip(
+        played = await wait(_player.playOnlineClip(
           bytes,
           rate: _engine.bakesRate ? 1.0 : _rate,
-        );
+          cancel: abort?.future,
+        ));
       case _PcmLine(:final clip):
-        played = await _player.playAudioBytes(
+        played = await wait(_player.playAudioBytes(
           encodeWav(clip.samples, sampleRate: clip.sampleRate),
           rate: 1.0,
-        );
+          cancel: abort?.future,
+        ));
     }
     if (run != _run || _isPaused || epoch != _lineEpoch) return false;
     return played;
