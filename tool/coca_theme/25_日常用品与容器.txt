@@ -1,0 +1,170 @@
+== 日常用品与容器（169 词）==
+477	paper	纸
+519	piece	块
+730	box	盒子
+811	card	卡片
+900	stuff	东西、物品（泛指、口语）；材料、原料 *
+910	bag	袋子
+930	item	项目
+989	key	钥匙
+1042	object	物体
+1344	tape	胶带，磁带
+1519	package	包装；套餐
+1569	bottle	瓶子
+1627	chain	链
+1651	frame	框架，画框
+1669	mirror	镜子
+1885	cigarette	香烟
+2329	label	标签
+2354	bell	铃
+2373	string	细绳；一串
+2475	pole	杆，柱；极点；波兰人（Pole） *
+2553	net	网
+2732	barrel	桶 *
+2882	basket	篮
+2930	rope	绳
+2937	patch	补丁，小块
+2977	container	容器
+3170	pen	钢笔
+3238	pad	垫子；便签本
+3252	towel	毛巾
+3345	hook	钩
+3356	needle	针
+3419	envelope	信封
+3456	candle	蜡烛
+3692	clip	夹子；片段
+3742	jar	广口瓶
+3791	cord	电线，绳 *
+3817	soap	肥皂
+3822	pin	大头针
+3829	purse	钱包 *
+3879	trash	垃圾
+3885	pencil	铅笔
+3887	spray	喷雾，喷洒
+3895	notebook	笔记本
+3906	tag	标签
+3931	sack	麻布袋；大口袋 *
+3934	tray	托盘 *
+4029	debris	碎片 *
+4107	lid	眼睑；盖子
+4182	fragment	碎片
+4207	disc	圆盘；圆片 *
+4234	marker	记号笔；标记
+4236	bucket	桶
+4307	bulb	灯泡；球茎
+4467	knot	结
+4518	junk	垃圾
+4524	stamp	邮票；印章
+4658	cane	手杖 *
+4685	banner	旗帜
+4697	strand	股；一缕
+4778	holder	支架；持有者
+4902	wallet	皮夹
+4905	scrap	碎片、小块；废料、废金属 *
+4925	suitcase	行李箱
+4977	umbrella	伞
+5005	cigar	雪茄
+5192	strap	带 *
+5387	decoration	装饰
+5480	packet	小包
+5603	flashlight	手电筒
+5665	backpack	远足用的背包
+5763	cleaner	清洁剂；清洁工
+5765	compartment	分隔间 *
+5851	rag	碎布 *
+5887	sticker	贴纸
+5978	badge	徽章
+6160	staple	主要产品；主食；订书钉 *
+6187	vase	花瓶
+6265	folder	文件夹
+6318	torch	火把，火炬；（英式）手电筒 *
+6398	glue	胶，胶水，黏合剂；粘合，粘贴 *
+6713	paste	糊状物，糨糊；（面团状的）糊 *
+6746	packaging	包装
+6754	briefcase	公事包 *
+6814	parcel	包裹 *
+6823	ornament	装饰品 *
+6831	flake	小薄片
+6872	crate	板条箱 *
+7021	hoop	箍，圈，环；（篮球）篮圈 *
+7091	cooler	冷藏箱；冷却器
+7248	lighter	打火机
+7344	lantern	灯笼 *
+7504	handkerchief	手帕
+8173	belongings	财物
+8225	carton	硬纸盒 *
+8238	sponge	海绵 *
+8278	pouch	小袋 *
+8345	broom	扫帚
+8540	jug	（带把手和嘴的）大壶，罐；（美式英语）大罐 *
+8596	coaster	杯垫；过山车
+8727	wreath	花环、花冠（环形装饰，用花、叶、枝条编成）；花圈（尤指丧葬用） *
+8887	emblem	徽章，象征 *
+8895	tack	图钉；方针
+9153	packing	包装
+9503	memorabilia	值得纪念的事物
+9510	shard	（陶瓷、玻璃、金属等的）碎片，破片；也可指考古中的陶片 *
+9523	wrapper	包装纸
+9589	funnel	漏斗 *
+9624	vial	小瓶 *
+9772	trough	槽
+9865	hanger	挂钩
+9868	canister	罐 *
+10109	parchment	羊皮纸 *
+10154	wad	一叠，一团 *
+10533	pellet	小球；颗粒
+10765	ashtray	烟灰缸 *
+11003	mop	拖把；擦
+11134	tarp	防水布 *
+11201	splinter	碎片
+11239	detergent	洗涤剂
+11260	peg	木钉，挂钩
+11262	sheath	鞘
+11328	binder	活页夹；黏合剂
+11474	cork	软木塞
+11783	covering	覆盖物
+11803	memento	纪念物
+11820	urn	瓮
+12071	clipboard	有纸夹的写字板
+12306	toothpick	牙签
+12458	toothbrush	牙刷
+12531	wrapping	用于包裹的材料
+12605	vat	大桶
+12651	flask	细颈瓶
+12706	toothpaste	牙膏
+12735	pail	桶
+12809	pallet	托盘
+12985	shaker	摇动器；盐瓶
+13069	duffel	粗呢袋
+13158	stationery	文具
+13585	stub	存根；残端
+13669	paraphernalia	随身用具
+13681	twine	麻绳
+13700	scrapbook	剪贴簿
+13874	garland	花环
+13972	dumpster	废料箱
+14082	canteen	食堂；水壶
+14173	stamped	盖上邮戳的
+14860	spool	线轴
+14998	eraser	橡皮擦
+15034	keg	小桶
+15278	satchel	挎包
+15443	thermos	热水瓶
+15813	knapsack	背包
+15831	boxed	装箱的；…的
+15927	wick	灯芯
+16117	stopper	塞子
+16149	trinket	小件饰物
+16154	candlestick	烛台
+16167	notepad	记事本
+16446	cleanser	清洁剂
+16462	receptacle	插座；容器
+16660	crock	陶罐
+16728	washcloth	洗脸巾
+16761	embellishment	装饰
+16864	soapy	涂着肥皂的
+16892	duster	掸子
+17232	lightbulb	灯泡
+17309	quill	羽毛笔
+17351	glassware	玻璃器具
+17428	adornment	装饰品

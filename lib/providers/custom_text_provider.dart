@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -8,8 +9,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/custom/custom_text.dart';
 import '../core/custom/playback_order.dart';
 import '../core/mdx/entry_speech.dart';
+import '../core/providers/safe_change_notifier.dart';
 import '../core/storage/text_library_store.dart';
 import '../core/ui/ui_memory.dart';
+
+Object? _tryDecodeJson(String raw) {
+  try {
+    return jsonDecode(raw);
+  } catch (e) {
+    debugPrint('Custom text store unreadable: $e');
+    return null;
+  }
+}
 
 /// Holds the user's 自定义短语 / 自定义短文 and their groups.
 ///
@@ -18,7 +29,7 @@ import '../core/ui/ui_memory.dart';
 /// in its own files, not in `shared_preferences` — that store rewrites its whole
 /// document on every write, and with megabytes of passages in it every unrelated
 /// flag (window frame, split position) dragged the library along.
-class CustomTextProvider extends ChangeNotifier {
+class CustomTextProvider extends ChangeNotifier with SafeChangeNotifier {
   static const String _textsKey = TextLibraryStore.legacyTextsKey;
   static const String _groupsKey = TextLibraryStore.legacyGroupsKey;
 
@@ -41,12 +52,20 @@ class CustomTextProvider extends ChangeNotifier {
   /// whenever the shipped file does.
   static const String _seedFingerprintKey = 'custom_library_fingerprint';
   static const String _seedAsset = 'assets/seed/custom_home.json';
+  static const String _seedMetaAsset = 'assets/seed/custom_home.meta.json';
 
   final List<CustomText> _texts = [];
   final List<CustomTextGroup> _groups = [];
   String _selectedGroupId = ungroupedId;
   String? _selectedId;
   bool _initialized = false;
+  Map<String, int>? _countsCache;
+  List<CustomText>? _visibleCache;
+
+  void _invalidateCountsAndVisible() {
+    _countsCache = null;
+    _visibleCache = null;
+  }
 
   List<CustomText> get allTexts => List.unmodifiable(_texts);
   List<CustomTextGroup> get groups => List.unmodifiable(_groups);
@@ -60,8 +79,19 @@ class CustomTextProvider extends ChangeNotifier {
   static String groupIdOf(CustomText item) => item.groupId ?? ungroupedId;
 
   /// How many entries [groupId] holds.
-  int countIn(String groupId) =>
-      _texts.where((item) => groupIdOf(item) == groupId).length;
+  int countIn(String groupId) {
+    final counts = _countsCache ??= _buildCounts();
+    return counts[groupId] ?? 0;
+  }
+
+  Map<String, int> _buildCounts() {
+    final counts = <String, int>{};
+    for (final item in _texts) {
+      final gid = groupIdOf(item);
+      counts[gid] = (counts[gid] ?? 0) + 1;
+    }
+    return counts;
+  }
 
   String get selectedGroupName {
     for (final group in _groups) {
@@ -72,11 +102,10 @@ class CustomTextProvider extends ChangeNotifier {
 
   /// The entries of the selected group, oldest first.
   List<CustomText> get visibleTexts {
-    final filtered = _texts
-        .where((item) => groupIdOf(item) == _selectedGroupId)
-        .toList()
-      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    return filtered;
+    return _visibleCache ??= List.unmodifiable(
+      _texts.where((item) => groupIdOf(item) == _selectedGroupId).toList()
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt)),
+    );
   }
 
   CustomText? get selected {
@@ -140,18 +169,19 @@ class CustomTextProvider extends ChangeNotifier {
     // A library left in preferences by an older build moves to disk here; after
     // that the two keys are gone and preferences stay small.
     await TextLibraryStore.migrate(prefs);
+    final groupsRaw =
+        await TextLibraryStore.readGroups() ?? prefs.getString(_groupsKey);
+    final textsRaw =
+        await TextLibraryStore.readTexts() ?? prefs.getString(_textsKey);
+    final decodedGroups = await _decodeRawJsonAsync(groupsRaw);
+    final decodedTexts = await _decodeRawJsonAsync(textsRaw);
     _groups
       ..clear()
-      ..addAll(_decodeList(
-        await TextLibraryStore.readGroups() ?? prefs.getString(_groupsKey),
-        CustomTextGroup.fromJson,
-      ));
+      ..addAll(_decodeListFromObject(decodedGroups, CustomTextGroup.fromJson));
     _texts
       ..clear()
-      ..addAll(_decodeList(
-        await TextLibraryStore.readTexts() ?? prefs.getString(_textsKey),
-        CustomText.fromJson,
-      ));
+      ..addAll(_decodeListFromObject(decodedTexts, CustomText.fromJson));
+    _invalidateCountsAndVisible();
     // Reopen the group that was on screen, unless it was deleted meanwhile.
     final remembered = prefs.getString(UiMemory.customGroup);
     if (remembered != null &&
@@ -184,14 +214,34 @@ class CustomTextProvider extends ChangeNotifier {
   Future<void> ensureSeeded() async {
     final prefs = await SharedPreferences.getInstance();
     try {
+      String? metaFingerprint;
+      try {
+        final metaRaw = await rootBundle.loadString(_seedMetaAsset);
+        final meta = jsonDecode(metaRaw);
+        if (meta is Map) {
+          metaFingerprint = meta['fingerprint']?.toString();
+        }
+      } catch (_) {
+        // Fallback for builds/tests that do not ship custom_home.meta.json.
+      }
+      final storedFingerprint = prefs.getString(_seedFingerprintKey);
+      if (metaFingerprint != null &&
+          metaFingerprint.isNotEmpty &&
+          storedFingerprint == metaFingerprint) {
+        return;
+      }
+
       final raw = await rootBundle.loadString(_seedAsset);
       final fingerprint = _fingerprintOf(raw);
-      if (prefs.getString(_seedFingerprintKey) == fingerprint) return;
+      if (storedFingerprint == fingerprint) return;
 
-      final data = jsonDecode(raw);
+      final data = await _decodeRawJsonAsync(raw);
       if (data is! Map) return;
 
       final merged = _mergeLibrary(data);
+      if (merged.added > 0 || merged.updated > 0) {
+        _invalidateCountsAndVisible();
+      }
       await prefs.setString(_seedFingerprintKey, fingerprint);
       await prefs.setInt(
         _seedVersionKey,
@@ -267,6 +317,9 @@ class CustomTextProvider extends ChangeNotifier {
     }
     final texts = data['texts'];
     if (texts is List) {
+      final textIndexById = <String, int>{
+        for (var i = 0; i < _texts.length; i++) _texts[i].id: i,
+      };
       for (final entry in texts) {
         if (entry is! Map) continue;
         final item = CustomText.fromJson(entry.cast<String, Object?>());
@@ -276,8 +329,9 @@ class CustomTextProvider extends ChangeNotifier {
             ? item
             : item.copyWith(groupId: target);
 
-        final index = _texts.indexWhere((existing) => existing.id == item.id);
-        if (index == -1) {
+        final index = textIndexById[item.id];
+        if (index == null) {
+          textIndexById[seeded.id] = _texts.length;
           _texts.add(seeded);
           added++;
           continue;
@@ -294,6 +348,9 @@ class CustomTextProvider extends ChangeNotifier {
         );
         updated++;
       }
+    }
+    if (added > 0 || updated > 0) {
+      _invalidateCountsAndVisible();
     }
     return (added: added, updated: updated);
   }
@@ -337,14 +394,15 @@ class CustomTextProvider extends ChangeNotifier {
     if (_selectedGroupId == groupId) return;
     _selectedGroupId = groupId;
     _selectedId = null;
-    UiMemory.writeString(UiMemory.customGroup, groupId);
-    UiMemory.writeString(UiMemory.customText, '');
+    _visibleCache = null;
+    unawaited(UiMemory.writeString(UiMemory.customGroup, groupId));
+    unawaited(UiMemory.writeString(UiMemory.customText, ''));
     notifyListeners();
   }
 
   void select(String? id) {
     _selectedId = id;
-    UiMemory.writeString(UiMemory.customText, id ?? '');
+    unawaited(UiMemory.writeString(UiMemory.customText, id ?? ''));
     notifyListeners();
   }
 
@@ -362,6 +420,7 @@ class CustomTextProvider extends ChangeNotifier {
       createdAt: DateTime.now(),
     );
     _texts.add(item);
+    _invalidateCountsAndVisible();
     notifyListeners();
     await _persistTexts();
     return item;
@@ -371,15 +430,17 @@ class CustomTextProvider extends ChangeNotifier {
     final index = _texts.indexWhere((existing) => existing.id == item.id);
     if (index == -1) return;
     _texts[index] = item;
+    _invalidateCountsAndVisible();
     notifyListeners();
     await _persistTexts();
   }
 
   Future<void> remove(String id) async {
     _texts.removeWhere((item) => item.id == id);
+    _invalidateCountsAndVisible();
     if (_selectedId == id) {
       _selectedId = null;
-      UiMemory.writeString(UiMemory.customText, '');
+      unawaited(UiMemory.writeString(UiMemory.customText, ''));
     }
     notifyListeners();
     await _persistTexts();
@@ -394,6 +455,7 @@ class CustomTextProvider extends ChangeNotifier {
       name: trimmed,
     );
     _groups.add(group);
+    _invalidateCountsAndVisible();
     notifyListeners();
     await _persistGroups();
     return group;
@@ -404,6 +466,7 @@ class CustomTextProvider extends ChangeNotifier {
     final trimmed = name.trim();
     if (index == -1 || trimmed.isEmpty) return;
     _groups[index] = CustomTextGroup(id: id, name: trimmed);
+    _invalidateCountsAndVisible();
     notifyListeners();
     await _persistGroups();
   }
@@ -418,9 +481,10 @@ class CustomTextProvider extends ChangeNotifier {
         changed = true;
       }
     }
+    _invalidateCountsAndVisible();
     if (_selectedGroupId == id) {
       _selectedGroupId = ungroupedId;
-      UiMemory.writeString(UiMemory.customGroup, ungroupedId);
+      unawaited(UiMemory.writeString(UiMemory.customGroup, ungroupedId));
     }
     notifyListeners();
     await _persistGroups();
@@ -443,21 +507,22 @@ class CustomTextProvider extends ChangeNotifier {
     await prefs.setString(_groupsKey, raw);
   }
 
-  static List<T> _decodeList<T>(
-    String? raw,
+  static Future<Object?> _decodeRawJsonAsync(String? raw) async {
+    if (raw == null || raw.isEmpty) return null;
+    if (!kIsWeb && raw.length > 100000) {
+      return compute(_tryDecodeJson, raw);
+    }
+    return _tryDecodeJson(raw);
+  }
+
+  static List<T> _decodeListFromObject<T>(
+    Object? decoded,
     T Function(Map<String, Object?>) decode,
   ) {
-    if (raw == null || raw.isEmpty) return [];
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) return [];
-      return [
-        for (final entry in decoded)
-          if (entry is Map) decode(entry.cast<String, Object?>()),
-      ];
-    } catch (e) {
-      debugPrint('Custom text store unreadable: $e');
-      return [];
-    }
+    if (decoded is! List) return [];
+    return [
+      for (final entry in decoded)
+        if (entry is Map) decode(entry.cast<String, Object?>()),
+    ];
   }
 }

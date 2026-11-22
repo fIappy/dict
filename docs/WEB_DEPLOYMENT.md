@@ -77,7 +77,7 @@ graph LR
 | 词典原声发音 | **后端** | 从 `.mdd` 按需抽取 MP3 字节流，支持 HTTP Range |
 | 音标（IPA）学习 | 前端（离线） | 打包在 `assets/audio/ipa/` |
 | 26 字母发音 | 前端（离线） | 打包在 `assets/audio/letters/` |
-| 词频排行榜 | 前端（离线） | 打包在 `assets/data/frequency_5000.json` |
+| 词频排行榜 | 前端（离线） | 打包在 `assets/data/coca_60000.json` |
 | 生词本 / 查词历史 | 前端（离线） | 浏览器 localStorage |
 
 后端与桌面端/安卓端**复用同一套解析器**（`lib/core/mdx/*`），不存在第二份实现。

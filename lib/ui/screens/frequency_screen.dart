@@ -134,7 +134,10 @@ class _FrequencyScreenState extends State<FrequencyScreen> {
 
                 // Range indicator or inline inputs
                 if (!_isEditingRange)
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -151,9 +154,8 @@ class _FrequencyScreenState extends State<FrequencyScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
                       Text(
-                        '共 ${freqProvider.totalItems} 词',
+                        '共 ${freqProvider.totalItems} 词 / 词库 ${freqProvider.maxRank}',
                         style: TextStyle(fontSize: 12, color: theme.hintColor),
                       ),
                     ],
@@ -167,7 +169,7 @@ class _FrequencyScreenState extends State<FrequencyScreen> {
                           keyboardType: TextInputType.number,
                           decoration: const InputDecoration(
                             labelText: '起始排名',
-                            hintText: '如 400',
+                            hintText: '如 1',
                             isDense: true,
                             border: OutlineInputBorder(),
                             contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -182,12 +184,12 @@ class _FrequencyScreenState extends State<FrequencyScreen> {
                         child: TextField(
                           controller: _endRangeCtrl,
                           keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: '结束排名',
-                            hintText: '如 1000',
+                            hintText: '1~${freqProvider.maxRank}',
                             isDense: true,
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            border: const OutlineInputBorder(),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                           ),
                         ),
                       ),
@@ -210,11 +212,12 @@ class _FrequencyScreenState extends State<FrequencyScreen> {
                       children: [
                         _buildPresetChip('前100词', 1, 100, freqProvider),
                         _buildPresetChip('前500词', 1, 500, freqProvider),
-                        _buildPresetChip('400-1000', 400, 1000, freqProvider),
-                        _buildPresetChip('1000-3000', 1000, 3000, freqProvider),
-                        _buildPresetChip('5000-6000', 5000, 6000, freqProvider),
-                        _buildPresetChip('6000-10000', 6000, 10000, freqProvider),
+                        _buildPresetChip('500-2000', 500, 2000, freqProvider),
+                        _buildPresetChip('2000-5000', 2000, 5000, freqProvider),
+                        _buildPresetChip('5000-10000', 5000, 10000, freqProvider),
                         _buildPresetChip('10000-20000', 10000, 20000, freqProvider),
+                        _buildPresetChip('20000-35000', 20000, 35000, freqProvider),
+                        _buildPresetChip('35000-5.4万', 35000, freqProvider.maxRank, freqProvider),
                       ],
                     ),
                   ),

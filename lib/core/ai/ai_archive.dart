@@ -71,6 +71,29 @@ class AiArchiveItem {
 
   DateTime get created => DateTime.fromMillisecondsSinceEpoch(createdAt);
 
+  AiArchiveItem copyWith({
+    String? sceneId,
+    String? sceneLabel,
+  }) =>
+      AiArchiveItem(
+        id: id,
+        sceneId: sceneId ?? this.sceneId,
+        sceneLabel: sceneLabel ?? this.sceneLabel,
+        kind: kind,
+        level: level,
+        createdAt: createdAt,
+        model: model,
+        word: word,
+        title: title,
+        lines: lines,
+        text: text,
+        phrases: phrases,
+        words: words,
+        length: length,
+        style: style,
+        reasoning: reasoning,
+      );
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'sceneId': sceneId,
@@ -190,16 +213,33 @@ class AiArchiveStore {
 
       await prefs.setInt(_seedVersionKey, version);
       final existing = await load();
-      final known = {for (final item in existing) item.id};
-      final added = <AiArchiveItem>[];
+      final byId = <String, AiArchiveItem>{
+        for (final item in existing) item.id: item,
+      };
+      var changed = false;
       for (final entry in entries) {
         if (entry is! Map) continue;
         final item = AiArchiveItem.fromJson(entry.cast<String, dynamic>());
-        if (item == null || !known.add(item.id)) continue;
-        added.add(item);
+        if (item == null) continue;
+        final prior = byId[item.id];
+        if (prior != null) {
+          // If the shipped seed migrated a scene id/label (e.g. legacy slug -> tXX),
+          // re-anchor the already-imported seed item without touching user prose.
+          if (prior.sceneId != item.sceneId &&
+              const {'medical', 'food', 'entertainment'}.contains(prior.sceneId)) {
+            byId[item.id] = prior.copyWith(
+              sceneId: item.sceneId,
+              sceneLabel: item.sceneLabel,
+            );
+            changed = true;
+          }
+          continue;
+        }
+        byId[item.id] = item;
+        changed = true;
       }
-      if (added.isEmpty) return existing;
-      final all = [...added, ...existing]
+      if (!changed) return existing;
+      final all = byId.values.toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       final kept = all.length > maxItems ? all.sublist(0, maxItems) : all;
       await _write(kept);

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,8 +9,8 @@ import '../../core/ai/openai_client.dart';
 import '../../core/audio/speech_engine.dart';
 import '../../core/audio/audio_manager.dart';
 import '../../core/audio/kokoro_model_store.dart';
+import '../../core/audio/word_audio_cache.dart';
 import '../../providers/settings_provider.dart';
-import 'dictionary_manager_screen.dart';
 
 /// Everything that shapes the app rather than the current word: theme, the
 /// dictionary registry, and how the entry's phrases and examples are read.
@@ -33,7 +35,7 @@ class SettingsScreen extends StatelessWidget {
     final content = ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
-        _SectionTitle('外观'),
+        const _SectionTitle('外观'),
         SegmentedButton<ThemeMode>(
           segments: const [
             ButtonSegment(
@@ -57,34 +59,10 @@ class SettingsScreen extends StatelessWidget {
               settings.setThemeMode(selection.first),
         ),
         const SizedBox(height: 24),
-        _SectionTitle('词典'),
-        Card(
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
-          ),
-          child: ListTile(
-            leading: const Icon(Icons.folder_copy_outlined),
-            title: const Text('本地词典管理'),
-            subtitle: Text(
-              (dictionaries?.hasDictionaries ?? false)
-                  ? '已加载 ${dictionaries!.allDictionaries.length} 本'
-                  : '尚未添加词典',
-            ),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const DictionaryManagerScreen(),
-              ),
-            ),
-          ),
-        ),
+        const _SectionTitle('学习库与词音缓存'),
+        _LexiconAndWordCacheCard(dictionaries: dictionaries),
         const SizedBox(height: 24),
-        _SectionTitle('发音引擎'),
+        const _SectionTitle('发音引擎'),
         // Five engines no longer fit one row of segments; a chip per engine
         // wraps, and the line below says whether the choice leaves the machine.
         Wrap(
@@ -123,7 +101,7 @@ class SettingsScreen extends StatelessWidget {
           onChanged: settings.setSpeechVolume,
         ),
         const SizedBox(height: 24),
-        _SectionTitle('朗读短语与例句'),
+        const _SectionTitle('朗读短语与例句'),
         _SliderTile(
           icon: Icons.speed_rounded,
           title: '播放语速',
@@ -145,7 +123,7 @@ class SettingsScreen extends StatelessWidget {
           onChanged: settings.setSentenceGapSeconds,
         ),
         const SizedBox(height: 24),
-        _SectionTitle('AI 练习'),
+        const _SectionTitle('AI 练习'),
         _AiSettingsCard(settings: settings),
       ],
     );
@@ -258,7 +236,10 @@ class _AiSettingsCard extends StatefulWidget {
 
 class _AiSettingsCardState extends State<_AiSettingsCard> {
   bool _loadingModels = false;
+  bool _obscureKey = true;
   String? _modelsError;
+  final Map<TextEditingController, Timer> _saveTimers = {};
+  final Map<TextEditingController, Future<void> Function(String)> _saveHandlers = {};
 
   late final TextEditingController _base = TextEditingController(
     text: widget.settings.aiBaseUrl,
@@ -270,8 +251,20 @@ class _AiSettingsCardState extends State<_AiSettingsCard> {
     text: widget.settings.aiModel,
   );
 
+  void _flushPendingSaves() {
+    for (final timer in _saveTimers.values) {
+      timer.cancel();
+    }
+    _saveTimers.clear();
+    for (final entry in _saveHandlers.entries) {
+      unawaited(entry.value(entry.key.text));
+    }
+    _saveHandlers.clear();
+  }
+
   @override
   void dispose() {
+    _flushPendingSaves();
     _base.dispose();
     _key.dispose();
     _model.dispose();
@@ -306,7 +299,15 @@ class _AiSettingsCardState extends State<_AiSettingsCard> {
               'API Key',
               'sk-...',
               widget.settings.setAiApiKey,
-              obscure: true,
+              obscure: _obscureKey,
+              suffix: IconButton(
+                icon: Icon(
+                  _obscureKey ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  size: 18,
+                ),
+                tooltip: _obscureKey ? '显示密钥' : '隐藏密钥',
+                onPressed: () => setState(() => _obscureKey = !_obscureKey),
+              ),
             ),
             const SizedBox(height: 10),
             _field(
@@ -364,6 +365,7 @@ class _AiSettingsCardState extends State<_AiSettingsCard> {
 
   /// The model list as the endpoint reports it; picking one writes the field.
   Future<void> _fetchModels() async {
+    _flushPendingSaves();
     setState(() {
       _loadingModels = true;
       _modelsError = null;
@@ -426,6 +428,12 @@ class _AiSettingsCardState extends State<_AiSettingsCard> {
     bool obscure = false,
     Widget? suffix,
   }) {
+    void commitNow(String value) {
+      _saveTimers.remove(controller)?.cancel();
+      _saveHandlers.remove(controller);
+      unawaited(save(value));
+    }
+
     return TextField(
       controller: controller,
       obscureText: obscure,
@@ -439,11 +447,16 @@ class _AiSettingsCardState extends State<_AiSettingsCard> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         suffixIcon: suffix,
       ),
-      // Written through on every keystroke: a field this short costs nothing to
-      // persist, and leaving the page must not lose it.
       onChanged: (value) {
-        save(value);
+        _saveHandlers[controller] = save;
+        _saveTimers.remove(controller)?.cancel();
+        _saveTimers[controller] = Timer(
+          const Duration(milliseconds: 300),
+          () => commitNow(controller.text),
+        );
       },
+      onSubmitted: commitNow,
+      onEditingComplete: () => commitNow(controller.text),
     );
   }
 }
@@ -507,6 +520,105 @@ class _EngineStatusState extends State<_EngineStatus> {
             child: Text(
               _status ?? '正在检测…',
               style: TextStyle(fontSize: 11.5, height: 1.4, color: theme.hintColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LexiconAndWordCacheCard extends StatefulWidget {
+  const _LexiconAndWordCacheCard({required this.dictionaries});
+
+  final DictionaryProvider? dictionaries;
+
+  @override
+  State<_LexiconAndWordCacheCard> createState() =>
+      _LexiconAndWordCacheCardState();
+}
+
+class _LexiconAndWordCacheCardState extends State<_LexiconAndWordCacheCard> {
+  WordAudioCacheStats? _stats;
+  bool _clearing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      final stats = await AudioManager().wordCache.stats();
+      if (!mounted) return;
+      setState(() => _stats = stats);
+    } catch (_) {}
+  }
+
+  Future<void> _clearCache() async {
+    if (_clearing) return;
+    setState(() => _clearing = true);
+    try {
+      await AudioManager().wordCache.clear();
+      await _loadStats();
+    } finally {
+      if (mounted) {
+        setState(() => _clearing = false);
+      }
+    }
+  }
+
+  static String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ready = widget.dictionaries?.hasDictionaries ?? false;
+    final entryCount = widget.dictionaries?.totalEntries ?? 0;
+    final stats = _stats;
+
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: Icon(
+              Icons.auto_stories_outlined,
+              color: ready ? theme.colorScheme.primary : theme.hintColor,
+            ),
+            title: const Text('COCA 5.4万 AI 学习库'),
+            subtitle: Text(
+              ready
+                  ? '已就绪 · $entryCount 词 · 原生释义/搭配/例句/短文'
+                  : '未检测到 coca_learn.db（部分查询将不可用）',
+            ),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.cached_rounded),
+            title: const Text('在线单词发音缓存（独立 LRU）'),
+            subtitle: Text(
+              stats == null
+                  ? '正在读取缓存统计…（与句子朗读缓存独立）'
+                  : '已缓存 ${stats.wordCount} / ${stats.maxWords} 词'
+                      ' · ${stats.clipCount} 条音频'
+                      ' · ${_formatBytes(stats.totalBytes)}（独立于句子朗读缓存）',
+            ),
+            trailing: TextButton(
+              onPressed:
+                  (_clearing || (stats?.wordCount ?? 0) == 0) ? null : _clearCache,
+              child: const Text('清空缓存'),
             ),
           ),
         ],

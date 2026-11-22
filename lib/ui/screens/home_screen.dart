@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/audio/speech_engine.dart';
 import '../../providers/dictionary_provider.dart';
 import '../../providers/entry_speech_provider.dart';
 import '../../providers/favorites_provider.dart';
@@ -45,21 +46,11 @@ class _HomeScreenState extends State<HomeScreen> {
   static const int _mobileDestinationCount = 10;
 
   int _selectedIndex = 0;
+  final Set<int> _mountedMobileTabs = <int>{0};
 
   /// The middle pane's width. A notifier, not a plain field: dragging the
   /// divider must re-lay the panes out, not rebuild the shell and its lists.
   final ValueNotifier<double> _middlePaneWidth = ValueNotifier<double>(360);
-
-  /// Built panes kept across shell rebuilds.
-  ///
-  /// A window resize re-runs this build with new constraints; the panes' *data*
-  /// has not changed, so handing Flutter the same widget instance turns the
-  /// resize into a pure layout pass instead of rebuilding the editor and every
-  /// list on the way. The key covers everything the pane is built from.
-  String? _railKey;
-  Widget? _railCache;
-  String? _rightKey;
-  Widget? _rightCache;
 
   @override
   void dispose() {
@@ -70,21 +61,28 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      context.read<DictionaryProvider>().initialize();
+      unawaited(context.read<DictionaryProvider>().initialize());
       final favorites = context.read<FavoritesProvider>();
-      unawaited(favorites.initialize().then((_) => favorites.ensureSeeded()));
-      context.read<HistoryProvider>().initialize();
-      context.read<FrequencyProvider>().initialize();
-      context.read<NumbersProvider>().initialize();
-      context.read<ThemesProvider>().initialize();
-      context.read<SettingsProvider>().initialize();
+      unawaited(favorites.initialize().then((_) {
+        if (mounted) unawaited(favorites.ensureSeeded());
+      }));
+      unawaited(context.read<HistoryProvider>().initialize());
+      unawaited(context.read<FrequencyProvider>().initialize());
+      unawaited(context.read<NumbersProvider>().initialize());
+      unawaited(context.read<ThemesProvider>().initialize());
+      final settings = context.read<SettingsProvider>();
+      final entrySpeech = context.read<EntrySpeechProvider>();
+      unawaited(settings.initialize().then((_) {
+        if (mounted && settings.speechEngine == SpeechEngine.kokoro) {
+          entrySpeech.warmUp();
+        }
+      }));
       final custom = context.read<CustomTextProvider>();
-      unawaited(custom.initialize().then((_) => custom.ensureSeeded()));
-      // Loads the speech model in its worker isolate now, so the first 播放 does
-      // not wait for it.
-      context.read<EntrySpeechProvider>().warmUp();
-      context.read<IpaProvider>().restore();
-      context.read<AlphabetProvider>().restore();
+      unawaited(custom.initialize().then((_) {
+        if (mounted) unawaited(custom.ensureSeeded());
+      }));
+      unawaited(context.read<IpaProvider>().restore());
+      unawaited(context.read<AlphabetProvider>().restore());
       await _restoreLayout();
     });
   }
@@ -100,6 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       if (section != null) {
         _selectedIndex = section.clamp(0, maxSection);
+        _mountedMobileTabs.add(_selectedIndex);
       }
       if (paneWidth != null) {
         _middlePaneWidth.value = paneWidth.clamp(220.0, 900.0);
@@ -109,12 +108,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _selectSection(int index) {
     if (_selectedIndex == index) return;
-    setState(() => _selectedIndex = index);
-    UiMemory.writeInt(UiMemory.section, index);
+    setState(() {
+      _selectedIndex = index;
+      _mountedMobileTabs.add(index);
+    });
+    unawaited(UiMemory.writeInt(UiMemory.section, index));
   }
 
   void _rememberPaneWidth() =>
-      UiMemory.writeDouble(UiMemory.paneWidth, _middlePaneWidth.value);
+      unawaited(UiMemory.writeDouble(UiMemory.paneWidth, _middlePaneWidth.value));
 
   @override
   Widget build(BuildContext context) {
@@ -134,174 +136,8 @@ class _HomeScreenState extends State<HomeScreen> {
     // 设置 (index 9) exists only in the phone bar; a section restored under a
     // wider window falls back to the last rail destination.
     final index = _selectedIndex.clamp(0, _railDestinationCount - 1);
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final dictProvider = context.watch<DictionaryProvider>();
-    final ipaProvider = context.watch<IpaProvider>();
-    final alphabetProvider = context.watch<AlphabetProvider>();
-    final customProvider = context.watch<CustomTextProvider>();
-
-    // Built once per shell build. The divider drag only changes a width, and a
-    // width is a layout input: rebuilding these three panes on every pointer
-    // move is what made the splitter feel heavy with the passage editor open.
-    final String railKey = '$index|$isDark';
-    if (_railCache == null || _railKey != railKey) {
-      _railKey = railKey;
-      // 1. Navigation Rail
-      _railCache = NavigationRail(
-          selectedIndex: index,
-          onDestinationSelected: _selectSection,
-          leading: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        theme.colorScheme.primary,
-                        theme.colorScheme.secondary,
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.menu_book_rounded,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          trailing: Expanded(
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: IconButton(
-                  icon: Icon(
-                    Icons.settings_rounded,
-                    color: theme.colorScheme.primary,
-                  ),
-                  tooltip: '设置',
-                  onPressed: () => showDialog<void>(
-                    context: context,
-                    builder: (_) => Dialog(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: 460,
-                          maxHeight: 620,
-                        ),
-                        child: const SettingsScreen(isPaneView: true),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // Nine destinations no longer fit the 720 px default window with
-          // a label under every icon (历史/词典 were already clipped before the
-          // numbers module was added). Showing the label of the selected item
-          // only — the rest keep their tooltips — fits them all. `scrollable`
-          // is not an option here: it hands the trailing widget unbounded
-          // height, and the trailing widget is an Expanded settings button.
-          labelType: NavigationRailLabelType.selected,
-          destinations: const [
-            NavigationRailDestination(
-              icon: Icon(Icons.search_rounded),
-              selectedIcon: Icon(Icons.search_rounded),
-              label: Text('查词'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.bookmark_outline_rounded),
-              selectedIcon: Icon(Icons.bookmark_rounded),
-              label: Text('生词本'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.trending_up_rounded),
-              selectedIcon: Icon(Icons.trending_up_rounded),
-              label: Text('词频'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.category_outlined),
-              selectedIcon: Icon(Icons.category_rounded),
-              label: Text('主题'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.record_voice_over_outlined),
-              selectedIcon: Icon(Icons.record_voice_over_rounded),
-              label: Text('音标'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.text_fields_outlined),
-              selectedIcon: Icon(Icons.text_fields_rounded),
-              label: Text('字母'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.numbers_outlined),
-              selectedIcon: Icon(Icons.numbers_rounded),
-              label: Text('数字'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.history_rounded),
-              selectedIcon: Icon(Icons.history_rounded),
-              label: Text('历史'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.edit_note_outlined),
-              selectedIcon: Icon(Icons.edit_note_rounded),
-              label: Text('自定义'),
-            ),
-          ],
-        );
-    }
-    final Widget rail = _railCache!;
-
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final Widget middlePane = _buildMiddlePane(index);
-    final String rightKey = '$index|$isDark'
-        '|${customProvider.selectedId}|${customProvider.selectedGroupId}'
-        '|${dictProvider.currentWord}|${ipaProvider.currentPhoneme.symbol}'
-        '|${alphabetProvider.currentLetter.upper}';
-    if (_rightCache == null || _rightKey != rightKey) {
-      _rightKey = rightKey;
-      _rightCache = index == 4
-          ? IpaDetailView(
-                    isPaneView: true,
-                    phoneme: ipaProvider.currentPhoneme,
-                  )
-                : (index == 5
-                    ? AlphabetDetailView(
-                        isPaneView: true,
-                        letter: alphabetProvider.currentLetter,
-                      )
-                    : (index == 6
-                        ? const NumbersDetailView(isPaneView: true)
-                        : (index == 8
-                            ? CustomDetailView(
-                                // Re-seeded per group as well: a new entry
-                                // lands in the group that is open.
-                                key: ValueKey('${customProvider.selectedId}|'
-                                    '${customProvider.selectedGroupId}'),
-                                itemId: customProvider.selectedId,
-                                isPaneView: true,
-                              )
-                            : WordDetailScreen(
-                                isPaneView: true,
-                                word: dictProvider.currentWord ?? 'hello',
-                              ))));
-    }
-    final Widget rightPane = _rightCache!;
 
     final double maxMiddle = (constraints.maxWidth - 440.0).clamp(280.0, 900.0);
     return Scaffold(
@@ -309,7 +145,12 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           // Each pane repaints on its own: dragging the divider must not
           // repaint the rail, and the rail must not repaint the editor.
-          RepaintBoundary(child: rail),
+          RepaintBoundary(
+            child: _DesktopNavigationRail(
+              selectedIndex: index,
+              onDestinationSelected: _selectSection,
+            ),
+          ),
           const VerticalDivider(width: 1),
           RepaintBoundary(
             child: _SizedPane(
@@ -330,7 +171,11 @@ class _HomeScreenState extends State<HomeScreen> {
               _rememberPaneWidth();
             },
           ),
-          Expanded(child: RepaintBoundary(child: rightPane)),
+          Expanded(
+            child: RepaintBoundary(
+              child: _DesktopRightPane(index: index),
+            ),
+          ),
         ],
       ),
     );
@@ -361,21 +206,42 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Widget _buildMobileTab(int index) {
+    switch (index) {
+      case 0:
+        return const SearchScreen(isPaneView: false);
+      case 1:
+        return const FavoritesScreen(isPaneView: false);
+      case 2:
+        return const FrequencyScreen(isPaneView: false);
+      case 3:
+        return const ThemesScreen(isPaneView: false);
+      case 4:
+        return const IpaScreen(isPaneView: false);
+      case 5:
+        return const AlphabetScreen(isPaneView: false);
+      case 6:
+        return const NumbersScreen(isPaneView: false);
+      case 7:
+        return const HistoryScreen(isPaneView: false);
+      case 8:
+        return const CustomScreen(isPaneView: false);
+      case 9:
+        return const SettingsScreen(isPaneView: true);
+      default:
+        return const SearchScreen(isPaneView: false);
+    }
+  }
+
   Widget _buildMobileLayout(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
-        children: const [
-          SearchScreen(isPaneView: false),
-          FavoritesScreen(isPaneView: false),
-          FrequencyScreen(isPaneView: false),
-          ThemesScreen(isPaneView: false),
-          IpaScreen(isPaneView: false),
-          AlphabetScreen(isPaneView: false),
-          NumbersScreen(isPaneView: false),
-          HistoryScreen(isPaneView: false),
-          CustomScreen(isPaneView: false),
-          SettingsScreen(isPaneView: true),
+        children: [
+          for (var i = 0; i < _mobileDestinationCount; i++)
+            _mountedMobileTabs.contains(i) || i == _selectedIndex
+                ? _buildMobileTab(i)
+                : const SizedBox.shrink(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -435,6 +301,176 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+}
+
+/// A pane whose width follows [width] without rebuilding [child].
+class _DesktopNavigationRail extends StatelessWidget {
+  const _DesktopNavigationRail({
+    required this.selectedIndex,
+    required this.onDestinationSelected,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onDestinationSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return NavigationRail(
+      selectedIndex: selectedIndex,
+      onDestinationSelected: onDestinationSelected,
+      leading: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Column(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    theme.colorScheme.primary,
+                    theme.colorScheme.secondary,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.menu_book_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+          ],
+        ),
+      ),
+      trailing: Expanded(
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: IconButton(
+              icon: Icon(
+                Icons.settings_rounded,
+                color: theme.colorScheme.primary,
+              ),
+              tooltip: '设置',
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (_) => Dialog(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: 460,
+                      maxHeight: 620,
+                    ),
+                    child: const SettingsScreen(isPaneView: true),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      // Nine destinations no longer fit the 720 px default window with
+      // a label under every icon (历史/词典 were already clipped before the
+      // numbers module was added). Showing the label of the selected item
+      // only — the rest keep their tooltips — fits them all. `scrollable`
+      // is not an option here: it hands the trailing widget unbounded
+      // height, and the trailing widget is an Expanded settings button.
+      labelType: NavigationRailLabelType.selected,
+      destinations: const [
+        NavigationRailDestination(
+          icon: Icon(Icons.search_rounded),
+          selectedIcon: Icon(Icons.search_rounded),
+          label: Text('查词'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.bookmark_outline_rounded),
+          selectedIcon: Icon(Icons.bookmark_rounded),
+          label: Text('生词本'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.trending_up_rounded),
+          selectedIcon: Icon(Icons.trending_up_rounded),
+          label: Text('词频'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.category_outlined),
+          selectedIcon: Icon(Icons.category_rounded),
+          label: Text('主题'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.record_voice_over_outlined),
+          selectedIcon: Icon(Icons.record_voice_over_rounded),
+          label: Text('音标'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.text_fields_outlined),
+          selectedIcon: Icon(Icons.text_fields_rounded),
+          label: Text('字母'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.numbers_outlined),
+          selectedIcon: Icon(Icons.numbers_rounded),
+          label: Text('数字'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.history_rounded),
+          selectedIcon: Icon(Icons.history_rounded),
+          label: Text('历史'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.edit_note_outlined),
+          selectedIcon: Icon(Icons.edit_note_rounded),
+          label: Text('自定义'),
+        ),
+      ],
+    );
+  }
+}
+
+class _DesktopRightPane extends StatelessWidget {
+  const _DesktopRightPane({required this.index});
+
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    if (index == 4) {
+      final phoneme = context.select((IpaProvider p) => p.currentPhoneme);
+      return IpaDetailView(isPaneView: true, phoneme: phoneme);
+    }
+    if (index == 5) {
+      final letter = context.select((AlphabetProvider p) => p.currentLetter);
+      return AlphabetDetailView(isPaneView: true, letter: letter);
+    }
+    if (index == 6) {
+      return const NumbersDetailView(isPaneView: true);
+    }
+    if (index == 8) {
+      final selected = context.select(
+        (CustomTextProvider p) => (id: p.selectedId, groupId: p.selectedGroupId),
+      );
+      return CustomDetailView(
+        // Re-seeded per group as well: a new entry lands in the group that is
+        // open.
+        key: ValueKey('${selected.id}|${selected.groupId}'),
+        itemId: selected.id,
+        isPaneView: true,
+      );
+    }
+    final word = context.select(
+      (DictionaryProvider p) => p.currentWord ?? 'hello',
+    );
+    return WordDetailScreen(isPaneView: true, word: word);
   }
 }
 

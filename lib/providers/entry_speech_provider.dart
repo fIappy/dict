@@ -52,13 +52,16 @@ class EntrySpeechProvider extends ChangeNotifier {
   EntrySpeechProvider({
     SpeechClipPlayer? player,
     KokoroVoice? kokoro,
+    bool? ownsKokoro,
     OnlineSynthesizer? online,
   })  : _player = player ?? AudioManager(),
         _kokoro = kokoro ?? KokoroVoice(),
+        _ownsKokoro = ownsKokoro ?? (kokoro == null),
         _online = online ?? OnlineTts.synthesize;
 
   final SpeechClipPlayer _player;
   final KokoroVoice? _kokoro;
+  final bool _ownsKokoro;
 
   /// How a sentence becomes MP3 for the online engines; injectable so a test can
   /// drive the fallback without a network.
@@ -141,6 +144,15 @@ class EntrySpeechProvider extends ChangeNotifier {
     if (!_isPlaying || _items.length != lines.length) return false;
     for (var i = 0; i < lines.length; i++) {
       if (_items[i].text != lines[i]) return false;
+    }
+    return true;
+  }
+
+  /// Variant of [isReading] that avoids allocating a text-only wrapper list.
+  bool isReadingUtterances(List<EntryUtterance> lines) {
+    if (!_isPlaying || _items.length != lines.length) return false;
+    for (var i = 0; i < lines.length; i++) {
+      if (_items[i].text != lines[i].text) return false;
     }
     return true;
   }
@@ -292,10 +304,21 @@ class EntrySpeechProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Completer<void>? _pauseCompleter;
+
+  void _wakePaused() {
+    final c = _pauseCompleter;
+    if (c != null && !c.isCompleted) {
+      c.complete();
+    }
+    _pauseCompleter = null;
+  }
+
   /// 继续: pick the interrupted line up again.
   void resume() {
     if (!_isPaused) return;
     _isPaused = false;
+    _wakePaused();
     notifyListeners();
   }
 
@@ -311,7 +334,8 @@ class EntrySpeechProvider extends ChangeNotifier {
 
   Future<void> _waitWhilePaused(int run) async {
     while (_isPaused && run == _run) {
-      await Future<void>.delayed(const Duration(milliseconds: 60));
+      final completer = _pauseCompleter ??= Completer<void>();
+      await completer.future;
     }
   }
 
@@ -324,14 +348,15 @@ class EntrySpeechProvider extends ChangeNotifier {
     double volume = 1.0,
   }) async {
     stop();
+    final run = ++_run;
     _engine = engine;
     // The engine reads these fields, not the parameters: without this the
     // platform voice and Google spoke at the previous run's accent and speed.
     _accent = accent;
     _rate = rate;
-    await _player.setVolume(volume);
-    final run = ++_run;
     _items = [item];
+    await _player.setVolume(volume);
+    if (run != _run) return;
     _kokoroReady = engine == SpeechEngine.system ? false : await _kokoroUsable();
     if (run != _run) return;
     _isPlaying = true;
@@ -340,10 +365,12 @@ class EntrySpeechProvider extends ChangeNotifier {
     notifyListeners();
     try {
       final line = await _render(item.text, rate: rate);
+      if (run != _run) return;
       await _playClip(line, run: run);
     } finally {
       if (run == _run) {
         _isPlaying = false;
+        _isPaused = false;
         _currentIndex = null;
         notifyListeners();
       }
@@ -382,6 +409,7 @@ class EntrySpeechProvider extends ChangeNotifier {
     _run++;
     _isPlaying = false;
     _isPaused = false;
+    _wakePaused();
     _currentIndex = null;
     _repeatFrom = null;
     _lineEpoch++;
@@ -392,8 +420,12 @@ class EntrySpeechProvider extends ChangeNotifier {
   @override
   void dispose() {
     _run++;
+    _isPaused = false;
+    _wakePaused();
     _player.stop();
-    _kokoro?.dispose();
+    if (_ownsKokoro) {
+      _kokoro?.dispose();
+    }
     super.dispose();
   }
 
@@ -488,7 +520,7 @@ class EntrySpeechProvider extends ChangeNotifier {
         );
       case _PcmLine(:final clip):
         played = await _player.playAudioBytes(
-          encodeWav(clip.samples, sampleRate: clip.sampleRate),
+          clip.wavBytes ?? encodeWav(clip.samples, sampleRate: clip.sampleRate),
           rate: 1.0,
         );
     }

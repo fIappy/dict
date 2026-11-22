@@ -41,6 +41,7 @@ import tempfile
 
 SEED_DIR = os.path.join('assets', 'seed')
 CUSTOM = os.path.join(SEED_DIR, 'custom_home.json')
+CUSTOM_META = os.path.join(SEED_DIR, 'custom_home.meta.json')
 AI = os.path.join(SEED_DIR, 'ai_archive.json')
 FAVORITES = os.path.join(SEED_DIR, 'favorites.json')
 
@@ -116,6 +117,14 @@ def merged_seed_version(store, key='flutter.custom_library_version'):
     return int(value)
 
 
+def fnv1a_32_utf16(text):
+    u16 = text.encode('utf-16-le')
+    h = 0x811C9DC5
+    for i in range(0, len(u16), 2):
+        h = ((h ^ (u16[i] | (u16[i + 1] << 8))) * 0x01000193) & 0xFFFFFFFF
+    return format(h, 'x')
+
+
 def publish_custom(store, dry_run, force):
     """Replaces the asset with this machine's library.
 
@@ -143,8 +152,14 @@ def publish_custom(store, dry_run, force):
                 int(data.get('version', 1)), False)
     changed = (groups != data.get('groups', []) or texts != data.get('texts', []))
     version = int(data.get('version', 1)) + (1 if changed else 0)
-    if not dry_run and changed:
-        write_library(CUSTOM, {'groups': groups, 'texts': texts}, version, changed)
+    if not dry_run and (changed or not os.path.exists(CUSTOM_META)):
+        if changed:
+            write_library(CUSTOM, {'groups': groups, 'texts': texts}, version, changed)
+        with open(CUSTOM, 'r', encoding='utf-8') as f:
+            meta = {'version': version, 'fingerprint': fnv1a_32_utf16(f.read())}
+        with open(CUSTOM_META, 'w', encoding='utf-8') as f:
+            json.dump(meta, f, ensure_ascii=False)
+            f.write('\n')
     return len(groups), len(texts), version, changed
 
 

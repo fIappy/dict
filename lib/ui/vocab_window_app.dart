@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../core/frequency/frequency_service.dart';
 import '../core/themes/theme_service.dart';
 import '../providers/dictionary_provider.dart';
 import '../providers/entry_speech_provider.dart';
@@ -64,10 +65,10 @@ class _VocabWindowState extends State<_VocabWindow> {
     try {
       await windowManager.ensureInitialized();
       await windowManager.waitUntilReadyToShow(
-        WindowOptions(
-          size: const Size(1180, 820),
+        const WindowOptions(
+          size: Size(1180, 820),
           center: true,
-          minimumSize: const Size(720, 520),
+          minimumSize: Size(720, 520),
           title: '背词',
         ),
         () async {
@@ -86,6 +87,7 @@ class _VocabWindowState extends State<_VocabWindow> {
     // library version; the reader's own ratings win.
     await vocabulary.ensureSeeded();
     await themes.initialize();
+    await FrequencyService().init();
     // The dictionary is the slow one (it opens the .mdx files); the word list
     // is readable before it answers.
     await dictionary.initialize(restoreWord: false);
@@ -106,7 +108,9 @@ class _VocabWindowState extends State<_VocabWindow> {
 
   @override
   Widget build(BuildContext context) {
-    final settings = context.watch<SettingsProvider>();
+    final themeMode = context.select<SettingsProvider, ThemeMode>(
+      (settings) => settings.themeMode,
+    );
     final Widget body;
     if (_failed) {
       body = const Center(
@@ -126,10 +130,9 @@ class _VocabWindowState extends State<_VocabWindow> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      themeMode: settings.themeMode,
+      themeMode: themeMode,
       home: Scaffold(
         body: SafeArea(child: body),
-        backgroundColor: Theme.of(context).colorScheme.surface,
       ),
     );
   }

@@ -1,0 +1,164 @@
+== 功能词与语法核心（163 词）==
+1	the	（定冠词）这/那
+2	be	是
+3	and	和
+4	of	……的
+5	a	一个
+6	in	在……里
+7	to	到，向
+8	have	有
+9	it	它
+10	i	我
+11	that	那个
+12	for	为了
+13	you	你
+14	he	他
+15	with	和……一起
+16	on	在……上
+19	this	这个
+20	they	他们
+21	at	在
+22	but	但是
+23	we	我们
+24	his	他的
+25	from	从
+26	not	不
+27	n't	不（not 的缩写）
+28	by	由，通过
+29	she	她
+30	or	或者
+31	as	作为，如同
+32	what	什么
+34	their	他们的
+35	can	能
+36	who	谁
+38	if	如果
+39	would	将会
+40	her	她的
+42	my	我的
+44	about	关于
+46	will	将要
+52	so	所以
+54	when	当……时
+55	which	哪一个
+56	them	他们
+58	me	我
+62	into	进入
+65	him	他
+66	your	你的
+68	could	能够
+70	than	比
+72	other	其他
+73	how	如何
+75	its	它的
+76	our	我们的
+79	these	这些
+86	because	因为
+98	those	那些
+103	any	任何
+107	us	我们
+112	may	可能
+113	after	在……之后
+114	should	应该
+133	something	某事
+135	another	另一个
+142	while	当……时
+146	why	为什么
+157	where	在哪里
+163	might	可能
+167	against	反对
+169	such	这样的
+181	during	在……期间
+200	without	没有
+201	before	在……之前
+204	must	必须
+225	though	虽然
+239	since	自从
+248	until	直到
+257	among	在……之中
+292	nothing	没有什么
+297	whether	是否
+304	anything	任何事物
+309	others	其他人
+339	himself	他自己
+347	although	尽管
+357	everything	一切
+361	including	包括
+386	someone	某人
+405	else	其他
+414	themselves	他们自己
+440	according	根据
+485	whose	谁的
+487	everyone	每个人
+510	itself	它本身
+512	either	任一的
+602	anyone	任何人
+606	myself	我自己
+612	per	每一
+635	upon	在……之上
+677	despite	尽管
+711	whatever	无论什么
+727	herself	她自己
+736	everybody	每个人
+831	yourself	你自己
+840	onto	在...之上
+903	somebody	某人
+919	whom	谁
+961	nor	也不
+982	none	没有一个
+1077	am	是（be 单数第一人称）
+1205	unless	除非
+1247	anybody	任何人
+1580	ought	应该
+1601	ourselves	我们自己
+1614	neither	皆不
+1653	except	除
+1926	regarding	关于
+1964	shall	将
+2041	vs	对
+2065	whenever	不论何时
+2291	via	经由
+2425	whereas	然而 *
+2727	etc	及其他
+2797	yours	你的
+2801	versus	对 *
+3010	concerning	关于
+3273	wherever	无论哪里
+3374	amid	在其间
+3390	provided	倘若 *
+3396	hers	她的
+3600	ours	我们的
+3722	whoever	任何人
+4304	till	直到 *
+4368	considering	考虑到
+4759	theirs	他们的
+5335	albeit	尽管 *
+5353	whatsoever	任何（用于强调否定）
+5655	ya	你（口语） *
+6705	oneself	自己
+6895	amongst	在…之中
+7349	ye	你们（古体）
+7509	whereby	借此，凭此 *
+7655	thou	你（古体）
+7811	lest	以免 *
+8562	unto	到，向（古体） *
+8740	amidst	在…之中 *
+8865	thy	你的（古体） *
+9236	notwithstanding	尽管 *
+9407	thee	你（古体）
+9483	whichever	无论哪个
+10613	y'all	你们（口语） *
+10702	wherein	在其中 *
+11163	thereof	由此，其 *
+11555	therein	在其中 *
+12297	vis-a-vis	与…相对，关于 *
+12759	barring	除…之外
+13067	respecting	关于
+13482	excluding	把...排除在外
+13808	whomever	无论谁
+15470	whereupon	于是，随后 *
+15516	inasmuch	因为（inasmuch as） *
+16161	whence	从何处 *
+16693	you-all	你们（口语）
+16934	yer	你的（口语）
+17188	whilst	当…时（英式） *

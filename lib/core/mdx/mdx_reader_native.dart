@@ -54,10 +54,12 @@ class MdxReader {
   Map<String, int> _exactIndex = {};
   List<int> get allOffsets => _offsets;
 
-  // Simple LRU cache for decompressed record blocks
+  // LRU cache for decompressed record blocks (bounded by both count and bytes).
   final Map<int, Uint8List> _recordBlockCache = {};
   final List<int> _recordBlockLru = [];
+  int _cachedBytes = 0;
   static const int _maxCacheBlocks = 16;
+  static const int _maxCacheBytes = 24 * 1024 * 1024;
 
   MdxReader._(
     this._raf, {
@@ -243,6 +245,8 @@ class MdxReader {
 
   List<String> get allKeys => _keys;
 
+  bool containsKey(String word) => _exactIndex.containsKey(word.trim().toLowerCase());
+
   /// Find words matching prefix or partial query
   List<String> search(String query, {int limit = 50, bool prefixOnly = false}) {
     if (query.trim().isEmpty) return const [];
@@ -306,6 +310,27 @@ class MdxReader {
     return results;
   }
 
+  /// Substring matches outside [excludeLower], without re-running exact/prefix scans.
+  List<String> searchInfix(
+    String query, {
+    int limit = 50,
+    Set<String>? excludeLower,
+  }) {
+    if (query.trim().isEmpty || limit <= 0) return const [];
+    final q = query.trim().toLowerCase();
+    final results = <String>[];
+    final seen = <String>{...?excludeLower};
+    for (final k in _keys) {
+      final lower = k.toLowerCase();
+      if (!seen.contains(lower) && lower.contains(q)) {
+        results.add(k);
+        seen.add(lower);
+        if (results.length >= limit) break;
+      }
+    }
+    return results;
+  }
+
   /// Get entry HTML for a given word, resolving @@@LINK redirects.
   ///
   /// A headword may own several records: the SIO series stores the Forvo audio
@@ -364,12 +389,16 @@ class MdxReader {
     final compData = Uint8List.fromList(_raf.readSync(rb.compSize));
     final decomp = MdictCrypto.decodeBlock(compData);
 
-    if (_recordBlockCache.length >= _maxCacheBlocks) {
+    while ((_recordBlockCache.length >= _maxCacheBlocks ||
+            _cachedBytes + decomp.length > _maxCacheBytes) &&
+        _recordBlockLru.isNotEmpty) {
       final oldest = _recordBlockLru.removeAt(0);
-      _recordBlockCache.remove(oldest);
+      final removed = _recordBlockCache.remove(oldest);
+      if (removed != null) _cachedBytes -= removed.length;
     }
     _recordBlockCache[blockIndex] = decomp;
     _recordBlockLru.add(blockIndex);
+    _cachedBytes += decomp.length;
 
     return decomp;
   }
@@ -397,6 +426,9 @@ class MdxReader {
     final targetRb = _recordBlocks[targetRbIdx];
     final decompRb = _getRecordBlock(targetRbIdx);
     final inBlockOffset = offset - targetRb.decompAccumOffset;
+    if (inBlockOffset < 0 || inBlockOffset >= decompRb.length) return null;
+
+    final isUtf16 = encoding == 'UTF-16LE';
 
     // The terminator is two NUL bytes for a UTF-16LE record and one otherwise:
     // in UTF-16 every ASCII character carries a NUL in its second byte, so a
@@ -404,39 +436,58 @@ class MdxReader {
     final nullIdx = findRecordTerminator(
       decompRb,
       inBlockOffset,
-      utf16: encoding == 'UTF-16LE',
+      utf16: isUtf16,
+      align: false,
     );
 
     if (nullIdx != -1) {
       final slice = decompRb.sublist(inBlockOffset, nullIdx);
-      return encoding == 'UTF-16LE'
+      return isUtf16
           ? _decodeUtf16Le(slice)
           : utf8.decode(slice, allowMalformed: true);
     }
 
     // Spans across record block boundary
     final builder = BytesBuilder();
-    builder.add(decompRb.sublist(inBlockOffset));
+    final firstTail = decompRb.sublist(inBlockOffset);
+    builder.add(firstTail);
+    int? lastByte = firstTail.isEmpty ? null : firstTail.last;
 
     int nextIdx = targetRbIdx + 1;
     while (nextIdx < _recordBlocks.length) {
       final nextDecomp = _getRecordBlock(nextIdx);
+      if (nextDecomp.isEmpty) {
+        nextIdx++;
+        continue;
+      }
+
+      // If a UTF-16LE record hits a block boundary mid-character (odd byte
+      // count so far), the next block's byte 0 is the second half of that code
+      // unit — or the second half of a split 0x00 0x00 terminator.
+      final oddBoundary = isUtf16 && builder.length.isOdd;
+      if (oddBoundary && lastByte == 0 && nextDecomp[0] == 0) {
+        final raw = builder.toBytes();
+        return _decodeUtf16Le(raw.sublist(0, raw.length - 1));
+      }
+
+      final startAt = oddBoundary ? 1 : 0;
       final term = findRecordTerminator(
         nextDecomp,
-        0,
-        utf16: encoding == 'UTF-16LE',
+        startAt,
+        utf16: isUtf16,
+        align: !oddBoundary,
       );
       if (term != -1) {
         builder.add(nextDecomp.sublist(0, term));
         break;
-      } else {
-        builder.add(nextDecomp);
-        nextIdx++;
       }
+      builder.add(nextDecomp);
+      lastByte = nextDecomp.last;
+      nextIdx++;
     }
 
     final bytes = builder.toBytes();
-    return encoding == 'UTF-16LE'
+    return isUtf16
         ? _decodeUtf16Le(bytes)
         : utf8.decode(bytes, allowMalformed: true);
   }
@@ -444,6 +495,7 @@ class MdxReader {
   void close() {
     _recordBlockCache.clear();
     _recordBlockLru.clear();
+    _cachedBytes = 0;
     _raf.closeSync();
   }
 

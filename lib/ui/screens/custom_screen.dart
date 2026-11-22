@@ -377,8 +377,10 @@ class _CustomScreenState extends State<CustomScreen> {
     final speech = context.watch<EntrySpeechProvider>();
     final settings = context.watch<SettingsProvider>();
     final theme = Theme.of(context);
-    final totalSentences =
-        provider.visibleTexts.fold<int>(0, (sum, it) => sum + it.utterances.length);
+    final totalSentences = provider.visibleTexts.fold<int>(
+      0,
+      (sum, it) => sum + _sentencesOf(it).length,
+    );
     final playing = speech.isPlaying;
     final index = speech.currentIndex;
 

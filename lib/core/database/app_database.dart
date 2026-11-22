@@ -18,29 +18,50 @@ class AppDatabase {
   Future<Database> get database {
     final open = _db;
     if (open != null) return Future<Database>.value(open);
-    return _opening ??= _initDatabase().then((db) {
-      _db = db;
-      return db;
-    });
+    final existing = _opening;
+    if (existing != null) return existing;
+    late final Future<Database> opening;
+    opening = _initDatabase().then(
+      (db) {
+        if (identical(_opening, opening)) {
+          _db = db;
+        }
+        return db;
+      },
+      onError: (Object error, StackTrace stack) {
+        if (identical(_opening, opening)) {
+          _opening = null;
+        }
+        Error.throwWithStackTrace(error, stack);
+      },
+    );
+    _opening = opening;
+    return opening;
   }
 
   Future<Database> _initDatabase() async {
+    final isTest = Platform.environment['FLUTTER_TEST'] == 'true';
     if (Platform.isWindows || Platform.isLinux) {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
     }
 
-    // App data lives in the app support folder. Documents is not guaranteed to
-    // exist or be writable — on Windows it can be redirected to OneDrive or
-    // locked down by policy, where `createSync` fails with "path not found"
-    // and every provider that touches the registry dies on startup.
-    final supportDir = await getApplicationSupportDirectory();
-    final dbDir = Directory(p.join(supportDir.path, 'local_dict'));
-    if (!dbDir.existsSync()) {
-      dbDir.createSync(recursive: true);
+    final String dbPath;
+    if (isTest) {
+      dbPath = inMemoryDatabasePath;
+    } else {
+      // App data lives in the app support folder. Documents is not guaranteed to
+      // exist or be writable — on Windows it can be redirected to OneDrive or
+      // locked down by policy, where `createSync` fails with "path not found"
+      // and every provider that touches the registry dies on startup.
+      final supportDir = await getApplicationSupportDirectory();
+      final dbDir = Directory(p.join(supportDir.path, 'local_dict'));
+      if (!dbDir.existsSync()) {
+        dbDir.createSync(recursive: true);
+      }
+      dbPath = p.join(dbDir.path, 'dict_app.db');
+      await _adoptLegacyDatabase(dbPath);
     }
-    final dbPath = p.join(dbDir.path, 'dict_app.db');
-    await _adoptLegacyDatabase(dbPath);
 
     return await openDatabase(
       dbPath,
@@ -48,7 +69,9 @@ class AppDatabase {
       onConfigure: (db) async {
         // Two windows share this file; WAL + a busy timeout is what stops them
         // from failing with SQLITE_BUSY the moment both write at once.
-        await db.execute('PRAGMA journal_mode = WAL');
+        if (!isTest) {
+          await db.execute('PRAGMA journal_mode = WAL');
+        }
         await db.execute('PRAGMA busy_timeout = 5000');
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -177,9 +200,17 @@ class AppDatabase {
   }
 
   Future<void> close() async {
-    if (_db != null) {
-      await _db!.close();
-      _db = null;
+    final pending = _opening;
+    _opening = null;
+    Database? db = _db;
+    if (db == null && pending != null) {
+      try {
+        db = await pending;
+      } catch (_) {}
+    }
+    _db = null;
+    if (db != null) {
+      await db.close();
     }
   }
 }

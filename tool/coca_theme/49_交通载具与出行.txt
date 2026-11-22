@@ -1,0 +1,302 @@
+== 交通载具与出行（301 词）==
+267	car	汽车
+450	road	道路
+451	drive	开车；驱动
+508	street	街道
+774	station	车站
+853	fly	飞
+870	trip	旅行
+977	travel	旅行
+1039	plane	飞机
+1101	ship	船；运输
+1108	driver	驾驶员
+1114	boat	船
+1120	truck	卡车
+1161	ride	骑
+1170	vehicle	车辆
+1172	flight	航班；飞行
+1209	path	路径
+1311	bus	公共汽车
+1327	tour	旅游
+1366	train	火车
+1420	ticket	票
+1543	traffic	交通
+1592	airport	机场
+1595	pilot	飞行员
+1603	guide	向导；指南
+1744	route	路线
+1857	passenger	乘客
+1902	airline	航空公司
+1936	bike	自行车
+2070	parking	停车
+2116	transportation	运输
+2134	tourist	游客
+2147	journey	旅程
+2297	highway	公路
+2332	vacation	假期
+2414	port	港口
+2472	deck	甲板
+2486	aircraft	飞机
+2513	crash	碰撞，坠毁
+2524	tire	轮胎
+2698	reservation	预订；保留
+2746	helicopter	直升机
+2775	auto	汽车
+2786	jet	喷气机
+2827	arrival	到达
+2897	carrier	承运人；载体
+2964	captain	船长；队长
+2989	rail	铁轨，栏杆 *
+3111	airplane	飞机
+3119	van	厢式货车
+3223	railroad	铁路
+3256	landing	着陆，登陆
+3277	driving	驾驶；驱动
+3324	sidewalk	人行道
+3347	traveler	旅行者
+3351	attraction	景点；吸引力
+3354	pickup	皮卡（车）；接人
+3371	rider	骑手
+3407	departure	出发
+3421	destination	目的地
+3424	exploration	探险
+3515	automobile	汽车
+3558	cart	手推车；运货马车 *
+3565	trailer	拖车
+3622	sail	航行
+3632	lane	车道
+3680	wagon	四轮马车
+3704	cab	出租车
+3840	bicycle	自行车
+4072	steer	驾驶；引导
+4091	transport	运输
+4103	expedition	远征
+4130	cruise	巡航；邮轮旅行
+4136	brake	刹车
+4162	tourism	旅游业
+4205	fare	费用
+4276	transit	运输 *
+4312	cargo	货物
+4318	dock	码头
+4370	anchor	锚
+4387	aboard	在船上
+4429	sailor	水手
+4542	taxi	出租车
+4725	subway	地铁
+4847	visa	签证
+4943	collision	碰撞
+5062	intersection	十字路口
+5077	harbor	港口
+5159	runway	跑道
+5314	motorcycle	摩托车
+5342	avenue	大街
+5392	freeway	高速公路
+5485	passport	护照
+5534	crossing	十字路口；横穿
+5566	steering	转向（系统）
+5632	navigate	导航
+5697	ferry	渡轮
+5735	carriage	马车
+5741	pavement	人行道
+5743	tractor	拖拉机 *
+5764	hub	枢纽，中心 *
+5803	canoe	独木舟 *
+5808	voyage	航行
+5872	hull	船体；外壳
+6016	commuter	通勤者
+6034	commute	通勤
+6123	shipment	装运，货物
+6126	sedan	轿车 *
+6169	windshield	挡风玻璃
+6174	shipping	装运
+6241	metro	地铁
+6297	cockpit	驾驶舱
+6334	wreck	毁坏；残骸
+6413	baggage	行李
+6449	luggage	行李
+6483	raft	筏
+6534	camping	野营
+6547	roadside	路旁
+6597	yacht	游艇 *
+6601	liner	邮轮；内衬
+6675	pedestrian	行人
+6733	automaker	<美>汽车制造商
+6795	long-distance	长途的
+6799	outing	郊游
+6845	explorer	探险家
+6865	pedal	踏板
+6918	pier	码头 *
+6986	aviation	航空
+6996	revisit	再访
+7099	souvenir	纪念品 *
+7123	headlight	前灯
+7272	navigation	导航
+7291	boarding	登机，住宿
+7309	excursion	远足
+7394	railway	铁路
+7557	freight	货运 *
+7638	helm	舵 *
+7702	automotive	汽车的
+7806	wreckage	残骸 *
+7922	congestion	拥堵
+8062	trek	长途跋涉
+8086	crossroads	十字路口
+8135	camper	露营者
+8138	paddle	划桨
+8221	tanker	油轮；加油机
+8241	limo	豪华轿车（加长型） *
+8320	one-way	单行道的
+8350	motorist	驾车者
+8367	flier	传单；飞行员
+8422	traveling	旅行的
+8511	limousine	豪华轿车，加长轿车 *
+8526	maritime	海事的
+8575	parachute	降落伞 *
+8595	mileage	里程
+8646	berth	泊位
+8800	logistics	物流
+8839	barge	驳船 *
+8846	chopper	菜刀；直升机
+8897	sailing	航行
+8979	biker	骑行者
+9058	caravan	旅行队
+9108	minivan	小型厢式旅行车，多功能休旅车（北美常用）；小型客货两用车 *
+9160	skid	打滑
+9208	convertible	敞篷车 *
+9279	beacon	灯塔；信标
+9418	derail	使出轨
+9421	bumper	（汽车前后的）保险杠；丰盛的、创纪录的（作形容词时） *
+9426	kayak	独木舟 *
+9502	roadway	车行道
+9587	overboard	落水；过火 *
+9701	jeep	吉普车
+9751	rearview	后视镜
+9839	shortcut	捷径
+9891	backseat	后座
+9955	hitch	搭便车；钩住
+9989	afloat	飘浮着的
+9990	galley	（古代）桨帆船、单层甲板大帆船；（船/飞机上的）厨房 *
+9994	itinerary	行程
+10035	rut	车辙；一成不变
+10036	riding	骑
+10044	tandem	双人自行车；串联
+10097	roadblock	路障
+10115	flagship	旗舰 *
+10177	accelerator	油门；加速器
+10291	dashboard	仪表板
+10315	boulevard	林荫大道 *
+10316	touring	游览
+10451	locomotive	机车
+10466	mast	船桅，桅杆；〈集合名词〉橡树、山毛榉等的果实（橡子、栗子等，作猪饲料） *
+10605	airliner	客机
+10744	fender	挡泥板 *
+10790	trolley	手推车；电车 *
+10850	detour	绕路 *
+10935	paved	铺砌的
+10973	airway	航道
+10998	handlebar	车把
+11199	sailboat	帆船
+11255	gridlock	交通全面大堵塞
+11284	honk	按喇叭
+11332	scuttle	凿沉；疾走
+11346	airfield	机场
+11418	coupe	双门轿跑车
+11431	marina	游艇码头
+11511	trucker	卡车驾驶员
+11713	scooter	小型摩托车
+11800	junction	交叉路口
+11993	buggy	婴儿车；马车
+12002	siding	侧线
+12003	chassis	底盘
+12072	carrying	运载
+12246	interchange	立交桥；互换
+12266	snowmobile	雪地摩托
+12387	safari	野生动物观察旅行
+12467	pothole	坑洞
+12516	mainline	主线
+12597	buoy	浮标；鼓舞
+12689	unmanned	无人的
+12728	manned	有人驾驶的
+12852	payload	有效载荷
+12925	parked	已泊车的
+12979	oar	桨
+13019	chauffeur	私人司机
+13025	booking	预订
+13028	adrift	漂浮着的
+13060	tarmac	停机坪
+13074	starboard	右舷
+13080	freighter	货船
+13125	congested	拥堵的
+13200	odyssey	漫长历程
+13323	ballast	压载物
+13393	tram	有轨电车
+13578	thoroughfare	大道
+13627	wiper	雨刷
+13667	skipper	船长
+13697	refuel	补给燃料
+13741	boater	船夫；平顶草帽
+14043	bulkhead	舱壁
+14065	aviator	飞行员
+14156	gondola	平底船；缆车
+14176	motorized	机动的
+14247	streetcar	有轨电车
+14261	airfare	飞机票价
+14394	lifeboat	救生艇
+14486	nautical	航海的
+14549	aft	在船尾
+14551	off-road	越野的
+14556	sightseeing	观光
+14620	sojourn	逗留
+14634	itinerant	流动的；巡回者
+14702	curbside	路边
+14710	airspace	空域
+14772	skiff	小艇
+14774	crewman	机组乘员
+14816	fuselage	机身
+14838	dead-end	死胡同
+14885	navigator	导航员
+14900	glider	滑翔机
+14964	rudder	舵
+15019	motorcade	车队
+15082	stateroom	特等舱
+15111	round-trip	往返旅程的
+15125	truckload	货车荷载
+15157	sleigh	雪橇
+15381	blowout	爆胎；惨败
+15475	drive-by	驾车经过的
+15497	riverboat	江河中行驶的船
+15538	docking	对接；停靠
+15625	carmaker	汽车制造商
+15656	co-pilot	副驾驶员
+15785	wharf	码头
+15837	wayside	路旁
+15850	seaman	船员
+15881	shipwreck	沉船；海难
+15930	shifter	换挡杆
+15939	horse-drawn	用马拖的
+16071	speeding	超速行驶
+16084	two-lane	双车道
+16213	airstrip	飞机跑道
+16228	schooner	纵帆船
+16253	moor	停泊
+16302	rollover	翻车；转存
+16314	vacationer	休假者
+16370	carry-on	手提行李
+16487	navigational	导航的
+16526	trawler	拖网渔船
+16786	jaunt	短途旅行
+16812	four-wheel	四轮的
+16863	landfall	初见陆地
+16926	superhighway	超级高速公路
+16963	backpacker	背包旅行者
+16964	disembark	上岸
+16973	autopilot	自动驾驶仪
+17074	trucking	货车运输业
+17090	hauler	运输车
+17151	stoplight	交通信号灯
+17155	u-turn	U形转弯
+17160	hitchhike	搭便车
+17178	keel	龙骨；倾覆
+17186	overdrive	超速档
+17219	jetty	突堤
+17328	jetliner	喷气客机

@@ -22,12 +22,14 @@ class DictionaryService {
 
   bool _isInitialized = false;
   bool _isBackendConnected = false;
+  String? _lastLookupDictionaryName;
   List<DictionaryInfo> _dictionaries = const [];
 
   /// The backend owns the archive set; the browser cannot import files.
   bool get supportsLocalDictionaries => false;
 
   bool get isBackendConnected => _isBackendConnected;
+  String? get lastLookupDictionaryName => _lastLookupDictionaryName;
 
   String? get backendBaseUrl => ApiConfig.baseUrl;
 
@@ -88,7 +90,7 @@ class DictionaryService {
       dictionaryId: hit.dictionaryId,
       dictionaryName: hit.dictionaryName,
       briefDefinition: freq?.briefZh,
-      frequencyBadge: freq?.frequencyLabel,
+      frequencyBadge: freq?.rank != null ? freq!.frequencyLabel : null,
     );
   }
 
@@ -110,6 +112,10 @@ class DictionaryService {
     try {
       final entry = await _api.lookup(trimmed);
       _isBackendConnected = true;
+      if (entry != null) {
+        _lastLookupDictionaryName =
+            _dictionaries.where((d) => d.isEnabled).firstOrNull?.name;
+      }
       return entry;
     } catch (e) {
       debugPrint('Lookup failed against ${ApiConfig.baseUrl}: $e');

@@ -762,12 +762,16 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
     );
   }
 
-  void _applyPassageLength(int raw) {
-    final value = raw.clamp(20, 10000);
-    setState(() => _passageLength = value);
+  void _setLengthControllerText(int value) {
     _lengthController.text = '$value';
     _lengthController.selection =
         TextSelection.collapsed(offset: _lengthController.text.length);
+  }
+
+  void _applyPassageLength(int raw) {
+    final value = raw.clamp(20, 10000);
+    setState(() => _passageLength = value);
+    _setLengthControllerText(value);
     context.read<SettingsProvider>().setPassageLength(value);
   }
 
@@ -787,7 +791,11 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
             label: '约 $_passageLength 词',
             onChanged: provider.isGenerating
                 ? null
-                : (value) => setState(() => _passageLength = value.round()),
+                : (value) {
+                    final rounded = value.round();
+                    setState(() => _passageLength = rounded);
+                    _setLengthControllerText(rounded);
+                  },
             onChangeEnd: (value) =>
                 context.read<SettingsProvider>().setPassageLength(_passageLength),
           ),

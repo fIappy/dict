@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'mdict_crypto.dart';
+import 'mdx_record_scan.dart';
 
 class MddKeyBlockMeta {
   final int count;
@@ -41,11 +42,14 @@ class MddReader {
   final RandomAccessFile _raf;
   final List<MddKeyBlockMeta> _keyBlocks = [];
   final List<MddRecordBlockMeta> _recordBlocks = [];
+  int _totalRecordDecompSize = 0;
 
-  // LRU cache for decompressed record blocks
+  // LRU cache for decompressed record blocks (bounded by both count and bytes).
   final Map<int, Uint8List> _recordBlockCache = {};
   final List<int> _recordBlockLru = [];
+  int _cachedBytes = 0;
   static const int _maxCacheBlocks = 16;
+  static const int _maxCacheBytes = 24 * 1024 * 1024;
 
   MddReader._(
     this._raf, {
@@ -69,15 +73,11 @@ class MddReader {
 
   void _init() {
     final hlen = ByteData.sublistView(_raf.readSync(4)).getUint32(0, Endian.big);
-    final headerBytes = _raf.readSync(hlen);
+    final headerBytes = Uint8List.fromList(_raf.readSync(hlen));
     _raf.readSync(4); // checksum
-    String header;
-    try {
-      header = utf8.decode(headerBytes);
-    } catch (_) {
-      // Older MDD files (LDOCE5++ …) write the header as UTF-16LE.
-      header = _utf16LeDecode(headerBytes);
-    }
+    final header = looksUtf16Le(headerBytes)
+        ? _utf16LeDecode(headerBytes)
+        : utf8.decode(headerBytes, allowMalformed: true);
     // The audio archive is encrypted the same way the text one is.
     final encryption = MdictCrypto.encryptionFlag(header);
 
@@ -137,6 +137,7 @@ class MddReader {
       curRbPos += compSize;
       accumDecomp += decompSize;
     }
+    _totalRecordDecompSize = accumDecomp;
   }
 
   Uint8List? getResource(String rawKey) {
@@ -146,7 +147,7 @@ class MddReader {
 
     // 1. Binary search target key block
     int low = 0, high = _keyBlocks.length - 1;
-    MddKeyBlockMeta? targetBlock;
+    int targetBlockIdx = -1;
     while (low <= high) {
       int mid = (low + high) ~/ 2;
       final kb = _keyBlocks[mid];
@@ -155,12 +156,13 @@ class MddReader {
       } else if (target.compareTo(kb.lastKey.toLowerCase()) > 0) {
         low = mid + 1;
       } else {
-        targetBlock = kb;
+        targetBlockIdx = mid;
         break;
       }
     }
 
-    if (targetBlock == null) return null;
+    if (targetBlockIdx == -1) return null;
+    final targetBlock = _keyBlocks[targetBlockIdx];
 
     // 2. Read target key block
     _raf.setPositionSync(targetBlock.filePos);
@@ -195,6 +197,10 @@ class MddReader {
 
     if (foundOffset == null) return null;
 
+    if (nextOffset == null && targetBlockIdx + 1 < _keyBlocks.length) {
+      nextOffset = _firstOffsetOfKeyBlock(targetBlockIdx + 1);
+    }
+
     // 3. Find record block
     int rlow = 0, rhigh = _recordBlocks.length - 1;
     int targetRbIdx = -1;
@@ -217,16 +223,17 @@ class MddReader {
     final targetRb = _recordBlocks[targetRbIdx];
     final decompRb = _getRecordBlock(targetRbIdx);
     final inBlockOffset = foundOffset - targetRb.decompAccumOffset;
+    if (inBlockOffset < 0 || inBlockOffset >= decompRb.length) return null;
 
     int length;
     if (nextOffset != null && nextOffset > foundOffset) {
       length = nextOffset - foundOffset;
     } else {
-      // The key is the last one in its block, so there is no next key to stop
-      // at: the recording ends where the record block ends. Using the whole
-      // decompressed block ran this file into the following recordings.
-      length = targetRb.decompSize - inBlockOffset;
+      // No following key offset: the recording runs until the end of the
+      // record stream (it may still span across following record blocks).
+      length = _totalRecordDecompSize - foundOffset;
     }
+    if (length <= 0) return null;
 
     if (inBlockOffset + length <= decompRb.length) {
       return Uint8List.fromList(decompRb.sublist(inBlockOffset, inBlockOffset + length));
@@ -247,6 +254,16 @@ class MddReader {
     }
   }
 
+  int? _firstOffsetOfKeyBlock(int blockIndex) {
+    final kb = _keyBlocks[blockIndex];
+    if (kb.count <= 0) return null;
+    _raf.setPositionSync(kb.filePos);
+    final kbData = Uint8List.fromList(_raf.readSync(kb.compSize));
+    final decompKb = MdictCrypto.decodeBlock(kbData);
+    if (decompKb.length < 8) return null;
+    return ByteData.sublistView(decompKb).getUint64(0, Endian.big);
+  }
+
   Uint8List _getRecordBlock(int blockIndex) {
     if (_recordBlockCache.containsKey(blockIndex)) {
       _recordBlockLru.remove(blockIndex);
@@ -259,12 +276,16 @@ class MddReader {
     final compData = _raf.readSync(rb.compSize);
     final decomp = MdictCrypto.decodeBlock(compData);
 
-    if (_recordBlockCache.length >= _maxCacheBlocks) {
+    while ((_recordBlockCache.length >= _maxCacheBlocks ||
+            _cachedBytes + decomp.length > _maxCacheBytes) &&
+        _recordBlockLru.isNotEmpty) {
       final oldest = _recordBlockLru.removeAt(0);
-      _recordBlockCache.remove(oldest);
+      final removed = _recordBlockCache.remove(oldest);
+      if (removed != null) _cachedBytes -= removed.length;
     }
     _recordBlockCache[blockIndex] = decomp;
     _recordBlockLru.add(blockIndex);
+    _cachedBytes += decomp.length;
 
     return decomp;
   }
@@ -272,6 +293,7 @@ class MddReader {
   void close() {
     _recordBlockCache.clear();
     _recordBlockLru.clear();
+    _cachedBytes = 0;
     _raf.closeSync();
   }
 

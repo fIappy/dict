@@ -96,7 +96,7 @@ class _SearchScreenState extends State<SearchScreen> {
       appBar: widget.isPaneView
           ? null
           : AppBar(
-              title: const Text('本地词典查词', style: TextStyle(fontWeight: FontWeight.bold)),
+              title: const Text('AI 词汇学习查词', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
       body: Column(
         children: [
@@ -117,7 +117,7 @@ class _SearchScreenState extends State<SearchScreen> {
               autofocus: !widget.isPaneView,
               style: const TextStyle(fontSize: 16),
               decoration: InputDecoration(
-                hintText: '输入单词进行部分/前缀/模糊匹配...',
+                hintText: '搜英文词、词组搭配或中文释义...',
                 hintStyle: TextStyle(
                   color: isDark ? Colors.white38 : Colors.black38,
                   fontSize: 15,

@@ -50,6 +50,7 @@ app.*.map.json
 # Dictionary archives: ~1.7 GB, distributed separately and never committed.
 # The bundled app assets under assets/audio/ and assets/data/ are unaffected.
 /Dictionary.com 20260913_hahaya/
+/SIO*/
 *.mdx
 *.mdd
 *.zip
@@ -61,3 +62,7 @@ app.*.map.json
 
 # ONNX Runtime fetched by tool/fetch_sherpa_runtime.py
 /windows/dlls/
+
+# Large generated COCA AI corpus packs & local server pronunciation cache.
+/content/coca-ai/
+/.word_audio_cache/

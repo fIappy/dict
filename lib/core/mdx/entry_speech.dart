@@ -89,11 +89,22 @@ List<EntryUtterance> extractEntryUtterances(String html) =>
 /// than the lines being rendered as separate widgets because the entry is drawn
 /// by `HtmlWidget` from one HTML string — pointing at the original elements
 /// keeps every existing style rule and the surrounding flow intact.
+final Map<String, ({String html, List<EntryUtterance> utterances})>
+    _preparedSpeechCache = {};
+const int _maxPreparedCacheEntries = 4;
+
 ({String html, List<EntryUtterance> utterances}) prepareEntrySpeech(
   String html, {
   int? speaking,
 }) {
   if (html.trim().isEmpty) return (html: html, utterances: const []);
+  if (speaking == null) {
+    final cached = _preparedSpeechCache.remove(html);
+    if (cached != null) {
+      _preparedSpeechCache[html] = cached;
+      return cached;
+    }
+  }
 
   final document = html_parser.parse(html);
   final utterances = <EntryUtterance>[];
@@ -135,10 +146,17 @@ List<EntryUtterance> extractEntryUtterances(String html) =>
     }
   }
 
-  return (
+  final result = (
     html: document.body?.innerHtml ?? html,
-    utterances: utterances,
+    utterances: List<EntryUtterance>.unmodifiable(utterances),
   );
+  if (speaking == null) {
+    _preparedSpeechCache[html] = result;
+    if (_preparedSpeechCache.length > _maxPreparedCacheEntries) {
+      _preparedSpeechCache.remove(_preparedSpeechCache.keys.first);
+    }
+  }
+  return result;
 }
 
 /// The English wording of [element], without the Chinese, the source book and

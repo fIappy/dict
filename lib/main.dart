@@ -41,13 +41,18 @@ void main(List<String> args) async {
   await WindowFrame.restore();
 
   // One engine for the whole app: it owns a worker isolate with the model
-  // loaded (~150 MB), so a second instance would double that.
+  // loaded (~150 MB), so a second instance would double that. Provider owns
+  // its disposal so neither consumer double-disposes it.
   final voice = KokoroVoice();
 
   runApp(
     WindowFrameKeeper(
       child: MultiProvider(
         providers: [
+          Provider<KokoroVoice>(
+            create: (_) => voice,
+            dispose: (_, v) => v.dispose(),
+          ),
           ChangeNotifierProvider(create: (_) => SettingsProvider()),
           ChangeNotifierProvider(create: (_) => DictionaryProvider()),
           ChangeNotifierProvider(create: (_) => FavoritesProvider()),
@@ -55,13 +60,22 @@ void main(List<String> args) async {
           ChangeNotifierProvider(create: (_) => FrequencyProvider()),
           ChangeNotifierProvider(create: (_) => IpaProvider()),
           ChangeNotifierProvider(create: (_) => AlphabetProvider()),
-          ChangeNotifierProvider(create: (_) => NumbersProvider(kokoro: voice)),
+          ChangeNotifierProxyProvider<SettingsProvider, NumbersProvider>(
+            create: (_) => NumbersProvider(kokoro: voice, ownsKokoro: false),
+            update: (_, settings, numbers) {
+              final provider =
+                  numbers ?? NumbersProvider(kokoro: voice, ownsKokoro: false);
+              provider.speechEngine = settings.speechEngine;
+              return provider;
+            },
+          ),
           ChangeNotifierProvider(create: (_) => ThemesProvider()),
           // 背词 opens as a pushed page off the theme screen away from the
           // desktop child window, so the provider has to live here too.
           ChangeNotifierProvider(create: (_) => VocabularyProvider()),
           ChangeNotifierProvider(
-              create: (_) => EntrySpeechProvider(kokoro: voice)),
+            create: (_) => EntrySpeechProvider(kokoro: voice, ownsKokoro: false),
+          ),
           ChangeNotifierProvider(create: (_) => CustomTextProvider()),
           ChangeNotifierProvider(create: (_) => AiPracticeProvider()),
         ],
@@ -76,14 +90,16 @@ class LocalDictApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final settings = context.watch<SettingsProvider>();
+    final themeMode = context.select<SettingsProvider, ThemeMode>(
+      (settings) => settings.themeMode,
+    );
 
     return MaterialApp(
       title: '本地词典 - Local Dictionary',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      themeMode: settings.themeMode,
+      themeMode: themeMode,
       home: const HomeScreen(),
     );
   }

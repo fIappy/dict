@@ -29,6 +29,7 @@ class GroupSelectorDialog extends StatefulWidget {
 }
 
 class _GroupSelectorDialogState extends State<GroupSelectorDialog> {
+  late final List<FavoriteGroup> _groups = List.of(widget.groups);
   late String _selectedGroupId;
   late TextEditingController _noteController;
   bool _isCreatingNew = false;
@@ -118,7 +119,7 @@ class _GroupSelectorDialogState extends State<GroupSelectorDialog> {
                   },
                   child: Column(
                     children: [
-                      for (final g in widget.groups)
+                      for (final g in _groups)
                         RadioListTile<String>(
                           dense: true,
                           value: g.id,
@@ -177,7 +178,11 @@ class _GroupSelectorDialogState extends State<GroupSelectorDialog> {
                         final name = _newGroupNameController.text.trim();
                         if (name.isNotEmpty) {
                           final newGroup = await widget.onCreateGroup(name, _selectedColor);
+                          if (!mounted) return;
                           setState(() {
+                            if (!_groups.any((g) => g.id == newGroup.id)) {
+                              _groups.add(newGroup);
+                            }
                             _selectedGroupId = newGroup.id;
                             _isCreatingNew = false;
                             _newGroupNameController.clear();

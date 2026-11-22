@@ -277,6 +277,7 @@ class _CustomDetailViewState extends State<CustomDetailView> {
         const SizedBox(width: 8),
         Expanded(
           child: DropdownButtonFormField<String?>(
+            key: ValueKey(_groupId),
             initialValue: _groupId,
             // A long group name must not widen the field or overlap the plus
             // button next to it.

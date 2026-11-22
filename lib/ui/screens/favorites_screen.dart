@@ -161,17 +161,20 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           Expanded(
             child: favorites.isEmpty
                 ? _buildEmptyState(theme, favProvider)
-                : ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: favorites.length,
-                    itemBuilder: (context, index) {
-                      final item = favorites[index];
-                      final group = groups.firstWhere(
-                        (g) => g.id == item.groupId,
-                        orElse: () => groups.first,
-                      );
-                      return _buildFavoriteCard(context, item, group, theme, isDark, favProvider);
-                    },
+                : ValueListenableBuilder<int>(
+                    valueListenable: FrequencyService().versionListenable,
+                    builder: (context, _, _) => ListView.builder(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: favorites.length,
+                      itemBuilder: (context, index) {
+                        final item = favorites[index];
+                        final group = groups.firstWhere(
+                          (g) => g.id == item.groupId,
+                          orElse: () => groups.first,
+                        );
+                        return _buildFavoriteCard(context, item, group, theme, isDark, favProvider);
+                      },
+                    ),
                   ),
           ),
         ],
@@ -383,69 +386,108 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   }
 
   void _showCreateGroupDialog(BuildContext context, FavoritesProvider favProvider) {
-    final nameCtrl = TextEditingController();
-    int color = 0xFF2E7D32;
-
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDlgState) => AlertDialog(
-          title: const Text('新建生词本分组'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: '分组名称',
-                  hintText: '如: 托福真词 / 错题本',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text('选择分组标签颜色', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: [
-                  0xFF3F51B5, 0xFF2E7D32, 0xFFEF6C00, 0xFFC2185B,
-                  0xFF673AB7, 0xFF0097A7, 0xFF5D4037, 0xFF455A64,
-                ].map((c) => InkWell(
-                  onTap: () => setDlgState(() => color = c),
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: Color(c),
-                      shape: BoxShape.circle,
-                      border: color == c ? Border.all(color: Colors.white, width: 2.5) : null,
-                      boxShadow: color == c ? [const BoxShadow(color: Colors.black26, blurRadius: 4)] : null,
-                    ),
-                  ),
-                )).toList(),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              child: const Text('取消'),
-              onPressed: () => Navigator.pop(ctx),
-            ),
-            FilledButton(
-              child: const Text('创建'),
-              onPressed: () async {
-                final text = nameCtrl.text.trim();
-                if (text.isNotEmpty) {
-                  await favProvider.createGroup(text, color);
-                  if (ctx.mounted) Navigator.pop(ctx);
-                }
-              },
-            ),
-          ],
-        ),
+      builder: (_) => _CreateFavoriteGroupDialog(
+        onCreate: (name, color) => favProvider.createGroup(name, color),
       ),
+    );
+  }
+}
+
+class _CreateFavoriteGroupDialog extends StatefulWidget {
+  const _CreateFavoriteGroupDialog({required this.onCreate});
+
+  final Future<void> Function(String name, int color) onCreate;
+
+  @override
+  State<_CreateFavoriteGroupDialog> createState() =>
+      _CreateFavoriteGroupDialogState();
+}
+
+class _CreateFavoriteGroupDialogState extends State<_CreateFavoriteGroupDialog> {
+  final TextEditingController _nameController = TextEditingController();
+  int _color = 0xFF2E7D32;
+  bool _saving = false;
+
+  static const List<int> _palette = [
+    0xFF3F51B5, 0xFF2E7D32, 0xFFEF6C00, 0xFFC2185B,
+    0xFF673AB7, 0xFF0097A7, 0xFF5D4037, 0xFF455A64,
+  ];
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final text = _nameController.text.trim();
+    if (text.isEmpty || _saving) return;
+    setState(() => _saving = true);
+    try {
+      await widget.onCreate(text, _color);
+      if (mounted) Navigator.pop(context);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('新建生词本分组'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _nameController,
+            autofocus: true,
+            onSubmitted: (_) => _submit(),
+            decoration: const InputDecoration(
+              labelText: '分组名称',
+              hintText: '如: 托福真词 / 错题本',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text('选择分组标签颜色', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: _palette
+                .map((c) => InkWell(
+                      onTap: () => setState(() => _color = c),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: Color(c),
+                          shape: BoxShape.circle,
+                          border: _color == c
+                              ? Border.all(color: Colors.white, width: 2.5)
+                              : null,
+                          boxShadow: _color == c
+                              ? const [BoxShadow(color: Colors.black26, blurRadius: 4)]
+                              : null,
+                        ),
+                      ),
+                    ))
+                .toList(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: const Text('创建'),
+        ),
+      ],
     );
   }
 }

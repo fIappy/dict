@@ -2,21 +2,22 @@ import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 import '../api/api_config.dart';
-import '../services/dictionary_service.dart';
 import 'ipa_asset.dart';
+import 'online_tts.dart';
 import 'playback_wait.dart';
 import 'prepared_pronunciation.dart';
 import 'sentence_voice.dart';
 import 'speech_clip_player.dart';
+import 'word_audio_cache_web.dart';
 
 /// Web implementation of the audio manager.
 ///
-/// Pronunciation audio comes from the backend's `.mdd` archive when available
-/// (identical recordings to the desktop build); otherwise it streams from an
-/// online dictionary voice endpoint. Bundled IPA and alphabet assets always
-/// play locally.
+/// Word pronunciation uses online voice endpoints (proxied & cached up to
+/// 10,000 words when the backend proxy is reachable, with direct streaming
+/// fallback). Bundled IPA and alphabet assets always play locally.
 class AudioManager implements SpeechClipPlayer {
   /// A completion arriving sooner than this after a playback starts cannot be
   /// that playback finishing — it is the previous source being torn down.
@@ -36,7 +37,12 @@ class AudioManager implements SpeechClipPlayer {
   AudioManager._();
 
   final AudioPlayer _player = AudioPlayer();
-  final DictionaryService _dictService = DictionaryService();
+  final WordAudioCache _wordCache = WordAudioCache();
+  final http.Client _http = http.Client();
+  final StreamController<void> _cancellations = StreamController<void>.broadcast();
+  int _playId = 0;
+
+  WordAudioCache get wordCache => _wordCache;
 
   bool _isPlaying = false;
   String? _currentlyPlayingTag;
@@ -76,31 +82,34 @@ class AudioManager implements SpeechClipPlayer {
     String accent = 'us',
     void Function(bool isPlaying)? onStateChanged,
   }) async {
-    await ApiConfig.resolve();
-
-    // 1. Server-side .mdd archive: the same recording the native build plays.
-    for (final key in [soundKey, '$word.mp3']) {
-      if (key == null || key.isEmpty) continue;
-      final bytes = await _dictService.getAudioBytes(key);
-      if (bytes != null && bytes.isNotEmpty) {
-        await _play(
-          '${word}_$accent',
-          BytesSource(bytes),
-          onStateChanged: onStateChanged,
-          resetAfter: const Duration(milliseconds: 1500),
-        );
-        return;
-      }
+    final normAccent = normalizeWordCacheAccent(accent);
+    final cached = await _wordCache.getBytes(word, normAccent);
+    if (cached != null) {
+      await _play(
+        '${word}_$normAccent',
+        BytesSource(cached, mimeType: 'audio/mpeg'),
+        onStateChanged: onStateChanged,
+        resetAfter: const Duration(milliseconds: 1500),
+      );
+      return;
     }
 
-    // 2. Fallback: stream from an online dictionary voice endpoint.
-    //    type=1 -> British voice, type=2 -> American voice.
-    final type = accent == 'uk' ? 1 : 2;
-    final url =
-        'https://dict.youdao.com/dictvoice?audio=${Uri.encodeComponent(word)}&type=$type';
+    final clip = await prepareWord(
+      word: word,
+      soundKey: soundKey,
+      accent: normAccent,
+    );
+    final Source source;
+    if (clip.bytes != null) {
+      source = BytesSource(clip.bytes!, mimeType: 'audio/mpeg');
+    } else if (clip.url != null) {
+      source = UrlSource(clip.url!);
+    } else {
+      return;
+    }
     await _play(
-      '${word}_$accent',
-      UrlSource(url),
+      '${word}_$normAccent',
+      source,
       onStateChanged: onStateChanged,
       resetAfter: const Duration(milliseconds: 1500),
     );
@@ -113,15 +122,26 @@ class AudioManager implements SpeechClipPlayer {
     String? soundKey,
     String accent = 'us',
   }) async {
-    await ApiConfig.resolve();
-    for (final key in [soundKey, '$word.mp3']) {
-      if (key == null || key.isEmpty) continue;
-      final bytes = await _dictService.getAudioBytes(key);
-      if (bytes != null && bytes.isNotEmpty) {
-        return PreparedPronunciation(word: word, bytes: bytes);
-      }
+    final normAccent = normalizeWordCacheAccent(accent);
+    final cached = await _wordCache.getBytes(word, normAccent);
+    if (cached != null) {
+      return PreparedPronunciation(word: word, bytes: cached);
     }
-    final type = accent == 'uk' ? 1 : 2;
+
+    await ApiConfig.resolve();
+    try {
+      final uri = ApiConfig.endpoint('/api/word-audio', {
+        'word': word,
+        'accent': normAccent,
+      });
+      final res = await _http.get(uri).timeout(const Duration(seconds: 4));
+      if (res.statusCode == 200 && OnlineTts.looksLikeAudio(res.bodyBytes)) {
+        await _wordCache.put(word, normAccent, res.bodyBytes);
+        return PreparedPronunciation(word: word, bytes: res.bodyBytes);
+      }
+    } catch (_) {}
+
+    final type = normAccent == 'uk' ? 1 : 2;
     return PreparedPronunciation(
       word: word,
       url: 'https://dict.youdao.com/dictvoice'
@@ -174,6 +194,8 @@ class AudioManager implements SpeechClipPlayer {
 
   /// Cuts the pronunciation in flight.
   Future<void> stopPronunciation() async {
+    _playId++;
+    if (!_cancellations.isClosed) _cancellations.add(null);
     _currentlyPlayingTag = null;
     _isPlaying = false;
     try {
@@ -256,6 +278,7 @@ class AudioManager implements SpeechClipPlayer {
     required String label,
     required double rate,
   }) async {
+    final playId = ++_playId;
     _currentlyPlayingTag = tag;
     _isPlaying = true;
     try {
@@ -269,10 +292,12 @@ class AudioManager implements SpeechClipPlayer {
       final completed = await awaitPlayback(
         completions: _player.onPlayerComplete,
         durations: _player.onDurationChanged,
+        cancellations: _cancellations.stream,
         start: () async {
+          if (playId != _playId) return;
           await _player.play(source);
           // After `play`: loading the source resets the element's rate.
-          if (rate != 1.0) {
+          if (rate != 1.0 && playId == _playId) {
             try {
               await _player.setPlaybackRate(rate);
             } catch (e) {
@@ -284,7 +309,7 @@ class AudioManager implements SpeechClipPlayer {
         durationWait: const Duration(milliseconds: 600),
         stallGuard: _clipStallGuard,
       );
-      if (!completed) {
+      if (!completed && playId == _playId) {
         debugPrint('Speech clip $label did not report completion');
       }
       return completed;
@@ -292,13 +317,13 @@ class AudioManager implements SpeechClipPlayer {
       debugPrint('Speech clip $label failed: $e');
       return false;
     } finally {
-      if (_currentlyPlayingTag == tag) {
+      if (playId == _playId) {
         _isPlaying = false;
         _currentlyPlayingTag = null;
+        try {
+          await _player.setPlaybackRate(1.0);
+        } catch (_) {}
       }
-      try {
-        await _player.setPlaybackRate(1.0);
-      } catch (_) {}
     }
   }
 
@@ -351,6 +376,8 @@ class AudioManager implements SpeechClipPlayer {
 
   @override
   Future<void> stop() async {
+    _playId++;
+    if (!_cancellations.isClosed) _cancellations.add(null);
     cancelSystemVoice();
     try {
       await _player.stop();
@@ -360,6 +387,12 @@ class AudioManager implements SpeechClipPlayer {
   }
 
   void dispose() {
+    _playId++;
+    if (!_cancellations.isClosed) {
+      _cancellations.add(null);
+      _cancellations.close();
+    }
+    _http.close();
     _player.dispose();
   }
 }

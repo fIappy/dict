@@ -77,9 +77,8 @@ param(
 # the COM object needs a name of its own.
 function List-Sapi {
   $sapi = New-Object -ComObject SAPI.SpVoice
-  $sapi.Volume = $Volume
   foreach ($candidate in $sapi.GetVoices()) {
-    "$($candidate.GetDescription())|$([int]$candidate.GetAttribute('Language'))|sapi"
+    "$($candidate.GetDescription())|$($candidate.GetAttribute('Language'))|sapi"
   }
 }
 
@@ -145,6 +144,7 @@ if ($Voice) {
 }
 # Picked off the same measured table as the OneCore path (see speech_rate.dart),
 # so `rate` means one thing across both engines.
+$sapi.Volume = [Math]::Max(0, [Math]::Min(100, $Volume))
 $sapi.Rate = $SapiRate
 [void]$sapi.Speak($Text)
 """, flush: true);
@@ -192,6 +192,10 @@ Future<String?> synthesizeWithVoice(
   try {
     final dir = await getTemporaryDirectory();
     var hash = 17;
+    for (final unit in voice.name.codeUnits) {
+      hash = (hash * 31 + unit) & 0x7fffffff;
+    }
+    hash = (hash * 31 + 13) & 0x7fffffff;
     for (final unit in text.codeUnits) {
       hash = (hash * 31 + unit) & 0x7fffffff;
     }

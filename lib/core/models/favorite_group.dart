@@ -53,7 +53,7 @@ class FavoriteGroup {
     };
   }
 
-  factory FavoriteGroup.fromMap(Map<String, dynamic> map, {int wordCount = 0}) {
+  factory FavoriteGroup.fromMap(Map<String, dynamic> map, {int? wordCount}) {
     return FavoriteGroup(
       id: map['id'] as String,
       name: map['name'] as String,
@@ -62,9 +62,7 @@ class FavoriteGroup {
       icon: map['icon'] as String?,
       sortOrder: map['sort_order'] as int? ?? 0,
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
-      wordCount: wordCount != 0
-          ? wordCount
-          : (map['word_count'] as int? ?? 0),
+      wordCount: wordCount ?? (map['word_count'] as int? ?? 0),
     );
   }
 }

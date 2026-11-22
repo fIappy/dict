@@ -1,20 +1,51 @@
 import 'package:flutter/foundation.dart';
 
+import '../core/providers/safe_change_notifier.dart';
 import '../core/themes/theme_service.dart';
 import '../core/ui/ui_memory.dart';
 
-/// State of the 主题 module: which scene is open, what the search box holds, and
-/// which facets (人 / 事 / 物 …) the reader has opened.
+/// Broad macro-domain tabs grouping the curated COCA themes (`t01`–`t57`).
+class ThemeDomain {
+  const ThemeDomain({
+    required this.id,
+    required this.label,
+    required this.minNumber,
+    required this.maxNumber,
+  });
+
+  final String id;
+  final String label;
+  final int minNumber;
+  final int maxNumber;
+
+  bool containsSceneNumber(int? number) =>
+      id == 'all' ||
+      (number != null && number >= minNumber && number <= maxNumber);
+}
+
+/// State of the 主题 module: which scene is open, which domain/search filter is
+/// active, and pagination inside a theme.
 ///
-/// Only the open scene is persisted: the search box and the unfolded facets
-/// start empty, because a filter restored behind the reader's back looks like a
+/// Only the open scene is persisted: the search box, domain filter, and paging
+/// start fresh, because a filter restored behind the reader's back looks like a
 /// missing scene.
-class ThemesProvider extends ChangeNotifier {
-  /// Facets longer than this page; shorter ones render in one go. 通用高频's
-  /// 情况 facet holds ~3.4k words, and handing that to a single `Wrap` stalls.
+class ThemesProvider extends ChangeNotifier with SafeChangeNotifier {
+  static const List<ThemeDomain> domains = [
+    ThemeDomain(id: 'all', label: '全部', minNumber: 0, maxNumber: 999),
+    ThemeDomain(id: 'foundation', label: '语言基础', minNumber: 1, maxNumber: 8),
+    ThemeDomain(id: 'action', label: '动作社交', minNumber: 9, maxNumber: 16),
+    ThemeDomain(id: 'mind', label: '言谈心理', minNumber: 17, maxNumber: 24),
+    ThemeDomain(id: 'life', label: '生活实用', minNumber: 25, maxNumber: 33),
+    ThemeDomain(id: 'society', label: '职场社会', minNumber: 34, maxNumber: 41),
+    ThemeDomain(id: 'culture', label: '文教体史', minNumber: 42, maxNumber: 49),
+    ThemeDomain(id: 'nature', label: '自然时空', minNumber: 50, maxNumber: 57),
+  ];
+
+  /// Scenes longer than this page at [facetPageSize] words so large themes
+  /// render crisply in one viewport.
   static const int facetPageThreshold = 50;
 
-  /// Words per page for facets above [facetPageThreshold].
+  /// Words per page for scenes above [facetPageThreshold].
   static const int facetPageSize = 50;
 
   final ThemeService _service = ThemeService();
@@ -22,18 +53,41 @@ class ThemesProvider extends ChangeNotifier {
   bool _isLoading = true;
   String? _sceneId;
   String _query = '';
+  String _domainId = 'all';
 
-  /// Facets the reader opened. Everything starts folded so a scene's six facet
-  /// headers are visible at once instead of 人 filling the whole viewport.
+  /// Expanded facets when a scene carries multiple sub-groups.
   final Set<String> _expandedFacets = {};
   final Map<String, int> _facetPages = {};
 
   bool get isLoading => _isLoading;
   String get query => _query;
+  String get domainId => _domainId;
   String get source => _service.source;
   int get sceneCount => _service.scenes.length;
   int get totalWords => _service.totalWords;
   List<ThemeScene> get scenes => _service.scenes;
+
+  static int? sceneNumberOf(ThemeScene scene) {
+    final m = RegExp(r'^t(\d+)$').firstMatch(scene.id);
+    return m == null ? null : int.tryParse(m.group(1)!);
+  }
+
+  ThemeDomain get _activeDomain {
+    for (final d in domains) {
+      if (d.id == _domainId) return d;
+    }
+    return domains.first;
+  }
+
+  /// Scenes matching the active domain filter (before text search).
+  List<ThemeScene> get domainScenes {
+    final domain = _activeDomain;
+    if (domain.id == 'all') return _service.scenes;
+    return [
+      for (final scene in _service.scenes)
+        if (domain.containsSceneNumber(sceneNumberOf(scene))) scene,
+    ];
+  }
 
   ThemeScene? get selectedScene {
     final id = _sceneId;
@@ -44,18 +98,25 @@ class ThemesProvider extends ChangeNotifier {
     return null;
   }
 
-  /// The scenes as the list shows them: filtered by the search box when one is
-  /// open, so a word can be found without knowing which scene holds it.
+  /// The scenes as the list shows them: narrowed by domain and search box, so
+  /// a word can be found without knowing which scene holds it.
   List<ThemeScene> get visibleScenes {
+    final base = domainScenes;
     final query = _query.trim().toLowerCase();
-    if (query.isEmpty) return _service.scenes;
+    if (query.isEmpty) return base;
     return [
-      for (final scene in _service.scenes)
+      for (final scene in base)
         if (scene.label.toLowerCase().contains(query) ||
             scene.hint.toLowerCase().contains(query) ||
             scene.words.any((word) => word.contains(query)))
           scene,
     ];
+  }
+
+  void setDomain(String id) {
+    if (_domainId == id) return;
+    _domainId = domains.any((d) => d.id == id) ? id : 'all';
+    notifyListeners();
   }
 
   /// The open scene's facets with the words the search box keeps, dropping

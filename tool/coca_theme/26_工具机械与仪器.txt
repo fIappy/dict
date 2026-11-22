@@ -1,0 +1,198 @@
+== 工具机械与仪器（197 词）==
+923	machine	机器
+1091	fan	风扇
+1168	tool	工具
+1223	equipment	设备
+1359	device	装置
+1413	engine	引擎
+1450	panel	面板；专家组
+1789	wheel	轮子
+1792	cable	电缆
+2000	knife	小刀
+2113	wire	电线，金属丝 *
+2245	tube	管
+2319	gear	齿轮；装备
+2637	pipe	管
+2778	motor	马达
+2790	blade	刀刃；叶片
+3052	pump	泵
+3139	lens	透镜，镜片；（照相机等的）镜头 *
+3289	mechanical	机械的
+3428	indicator	指示器
+3474	starter	启动器；开胃菜
+3530	kit	成套工具，套件
+3551	automatic	自动的
+3640	equip	装备
+3845	filter	过滤器
+3904	installation	安装
+3968	ladder	梯
+4030	rod	竿 *
+4077	outlet	插座；出口
+4166	regulator	调节器
+4183	screw	螺丝；拧
+4191	drill	钻头；操练 *
+4210	radar	雷达
+4311	bolt	螺栓；门闩 *
+4433	suspension	悬挂 *
+4556	pipeline	管道
+4711	shaft	竖井；轴
+4813	detector	探测器
+4900	plug	插头；堵塞
+5070	machinery	机器
+5123	generator	发电机
+5218	valve	阀，阀门；（心脏、血管等的）瓣膜 *
+5304	gauge	测量仪器（仪表、量规）；标准、尺度 *
+5340	mold	模具；霉
+5405	roller	滚筒
+5470	hose	水管 *
+5475	hammer	锤
+5497	wedge	楔子
+5901	bearing	轴承；举止 *
+6132	apparatus	装置 *
+6179	tester	测试仪
+6369	shovel	铲
+6409	turbine	涡轮机 *
+6533	saw	看见（see 过去式）；锯
+6598	lever	杠杆、杠杆装置；（操纵用的）手柄、控制杆 *
+6711	binoculars	双筒望远镜 *
+6901	specification	规格
+7010	compass	指南针 *
+7233	socket	插座；眼窝
+7258	burner	燃烧器
+7313	rig	钻井平台；装置 *
+7324	microscope	显微镜
+7415	crane	起重机
+7603	hand-held	手提式的
+7630	duct	导管
+7657	crank	曲柄； crank
+7710	heater	加热器
+7748	buffer	缓冲器
+7786	hinge	铰链 *
+7835	rake	耙；搜寻
+7896	scissors	剪刀 *
+7919	jack	千斤顶；抬起
+7957	mixer	搅拌机；交际会
+8057	furnace	熔炉 *
+8063	gadget	小装置，小玩意
+8185	coil	（名词）线圈、卷；（动词）盘绕、卷成圈 *
+8304	cutter	切割机；裁剪者
+8506	mower	割草机
+8565	thermometer	温度计
+8739	typewriter	打字机
+8782	wiring	线路 *
+9214	fuse	保险丝；融合
+9242	wrench	扳手；猛拧 *
+9390	hydraulic	液压的
+9660	boiler	锅炉；热水器 *
+9769	overhaul	全面检修
+9917	throttle	节流阀，油门（控制发动机进气/供油量的装置）；使节流、抑制 *
+9938	ignition	点火
+9952	bulldozer	推土机 *
+10063	ax	斧头
+10101	eyepiece	目镜 *
+10102	axe	斧
+10128	washer	垫圈；洗衣机
+10368	coupling	联结，结合；耦合 *
+10379	tripod	三脚架；（摄影、测绘用的）三脚支架 *
+10485	breaker	断路器
+10696	pumping	泵送
+10759	conduit	管道，导管（输送水、电线的管子）；(喻) 渠道，中介 *
+10837	tubing	管材；管料 *
+10883	drilling	钻探；演练
+10945	casing	外壳；套管 *
+10994	engineered	设计的；工程化的
+10996	rotor	转子 *
+11138	propeller	螺旋桨 *
+11152	high-powered	高性能的
+11157	connector	连接器
+11217	pendulum	钟摆
+11221	rotary	旋转的
+11240	aperture	光圈；孔径
+11484	reflector	反射镜
+11695	grinder	研磨机
+11789	dredge	用挖泥机疏浚
+11815	axle	轴
+11862	sprinkler	洒水器
+11935	radiator	暖气装置
+11954	spade	铲子
+11964	nozzle	喷嘴
+12220	piping	管道，配管
+12270	spoke	轮辐
+12357	screwdriver	螺丝起子
+12413	lifeline	救生索
+12449	rung	梯级
+12463	mechanically	机械地
+12514	conveyor	传送带
+12583	calibrate	校准
+12635	buzzer	蜂鸣器
+12836	airlock	气闸
+13073	contraption	外形奇怪的机器
+13223	compressor	压缩机
+13281	blower	鼓风机
+13312	malfunction	故障
+13390	sonar	声纳
+13474	incinerator	焚烧炉
+13615	spinner	旋转器；纺纱工
+13620	piston	活塞
+13645	cleat	楔子
+13678	incubator	孵化器
+13724	slider	滑块；滑球
+13762	tongs	钳子
+13803	converter	转换器
+13806	welding	焊接
+13822	pivot	支点；核心
+13889	hopper	料斗
+13977	amplifier	放大器
+13988	hoe	锄头
+14034	thermostat	恒温器
+14129	sickle	镰刀
+14224	jigsaw	拼图；线锯
+14253	sampler	采样器
+14323	pulley	滑轮
+14328	machete	大砍刀
+14380	dispenser	分配器
+14562	molding	模具；成型
+14623	ventilator	通风设备
+14703	kiln	窑
+14787	barometer	气压计
+14812	refractor	折射器
+14827	derailleur	<法>变速器
+14830	milling	碾磨
+14887	barb	倒钩；讽刺
+14893	cam	凸轮
+14989	calibration	校准
+15206	wheelbarrow	手推车
+15280	transducer	换能器
+15312	fastener	扣件
+15461	chisel	凿
+15710	actuator	执行器
+15712	cog	齿轮；螺丝钉式员工
+15739	rev	加快转速
+15753	toolbox	工具箱
+15926	mallet	木槌
+15973	transformer	变压器
+16064	gizmo	小发明
+16180	air-conditioning	空调
+16204	trawl	拖网
+16218	hatchet	斧头
+16305	retrofit	改装
+16322	beater	搅拌器；打者
+16389	pliers	钳子
+16398	anvil	铁砧
+16465	analyzer	分析仪
+16478	spindle	纺锤
+16631	pneumatic	充气的
+16676	loader	装载机
+16894	divider	分隔物；圆规
+16943	chainsaw	链锯
+17036	clockwork	钟表装置
+17053	damper	减震器；扫兴的人
+17083	extinguisher	灭火器
+17116	muffler	消声器；围巾
+17180	clipper	剪刀；快船
+17182	sandpaper	砂纸
+17242	spectrometer	分光计
+17441	rigging	索具
+17504	workbench	工作台
+17533	counterweight	配重
+17604	prong	叉状物

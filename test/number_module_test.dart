@@ -318,8 +318,8 @@ void main() {
     test('clock time accepts a.m./p.m. and reads the part of the day', () {
       expect(uk('7:05 a.m.'), 'seven oh five in the morning');
       expect(uk('7:05 am'), 'seven oh five in the morning');
-      expect(uk('3 pm'), "three o'clock in the evening");
-      expect(uk('3:00 p.m.'), "three o'clock in the evening");
+      expect(uk('3 pm'), "three o'clock in the afternoon");
+      expect(uk('3:00 p.m.'), "three o'clock in the afternoon");
       expect(uk('12:00'), "twelve o'clock");
       expect(uk('0:00'), "twelve o'clock");
       // The 24-hour form still derives the part of the day by itself.
@@ -331,7 +331,7 @@ void main() {
       expect(uk('1990s'), 'the nineteen nineties');
       expect(uk('80s'), 'the eighties');
       expect(uk('2010s'), 'the twenty tens');
-      expect(uk('2000s'), 'the twenty thousands');
+      expect(uk('2000s'), 'the two thousands');
       expect(uk('1900s'), 'the nineteen hundreds');
       expect(uk('500 BC'), 'five hundred BC');
       expect(uk('AD 800'), 'AD eight hundred');

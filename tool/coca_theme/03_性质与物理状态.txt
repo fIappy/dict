@@ -1,0 +1,339 @@
+== 性质与物理状态（338 词）==
+422	strong	强壮的，强烈的
+463	full	充满的
+1001	fresh	新鲜的
+1153	strength	力量
+1471	balance	平衡
+1483	empty	空的
+1802	solid	固体的；结实的
+1847	weak	虚弱的
+2047	intense	强烈的
+2154	pure	纯的
+2392	broken	坏掉的
+2434	tight	紧的
+2526	loose	宽松的
+2569	stable	稳定的
+2580	steady	稳定的
+2624	stability	稳定
+2924	intensity	强度
+3042	bare	赤裸的
+3084	weakness	弱点；虚弱
+3093	missing	不见的
+3250	closed	关闭的
+3340	delicate	精致的；脆弱的
+3497	dynamic	动态的
+3516	artificial	人造的
+3583	stiff	僵硬的
+3614	faint	微弱的
+3664	mixed	混合的
+3684	sheer	完全的；陡峭的
+3709	flexible	灵活的；可弯曲的
+3718	functional	功能的
+3799	flexibility	灵活性
+3807	fixed	固定的
+3854	dried	干的，干燥的
+3978	density	密度
+4078	intact	完好的
+4083	elaborate	精心制作的
+4131	mobile	移动的
+4171	fragile	易碎的；脆弱的 *
+4221	integrated	整合的
+4277	dense	密集的
+4298	balanced	平衡的
+4373	intensive	密集的
+4415	crude	粗糙的；原油
+4523	mature	成熟的
+4668	established	已确立的
+4775	portable	可携带的
+4804	rigid	僵硬的；严格的
+5214	mighty	强大的
+5231	static	静态的
+5264	saturated	饱和的
+5428	abandoned	被抛弃的
+5436	crisp	脆的
+5445	compact	紧凑的
+5531	potent	有力的
+5601	handy	便利的
+5633	robust	强健的
+5703	sticky	粘的
+5769	spontaneous	自发的
+5802	sturdy	结实的
+5849	resistant	抗性的
+5931	vacant	空缺的
+5983	void	空白；无效
+5993	battered	破损的，磨损的；被殴打的；裹面糊炸的 *
+6010	hybrid	混合的；杂交
+6081	loosely	松弛地 *
+6094	incomplete	不完全的
+6095	instability	不稳定
+6148	slack	松弛；懈怠 *
+6176	susceptible	易受影响的
+6229	high-speed	高速的
+6246	unstable	不稳定的
+6258	exposed	暴露的
+6313	tangible	可触摸的，有形的；切实的 *
+6381	intricate	错综复杂的
+6385	floating	漂浮的
+6400	unified	统一的
+6468	controlled	受约束的
+6514	built-in	内置的
+6527	chaotic	混乱的
+6529	hollow	空的
+6545	intrinsic	内在的
+6787	refined	精炼的
+6804	thinly	薄薄地，稀疏地
+6824	orderly	有秩序的
+6853	residual	剩余的，残留的 *
+7006	durable	持久的
+7009	shaky	摇晃的，不稳的 *
+7069	twisted	扭曲的
+7220	systemic	系统性的
+7252	harden	使变硬
+7266	pristine	崭新的，完好如初的；原始纯净的 *
+7286	divided	分开的
+7290	adaptive	适应性强的
+7295	stainless	不锈的；无瑕疵的 *
+7345	packed	拥挤的，装满的
+7401	rotten	腐烂的
+7402	structured	结构化的
+7429	irregular	不规则的
+7498	crushed	压碎的
+7540	damaged	被损坏的
+7543	transparency	透明度
+7733	purity	纯净
+7735	sag	下垂
+7744	makeshift	权宜的
+7823	all-purpose	通用的
+7910	frail	脆弱的
+7987	untouched	未触摸过的
+8122	open-ended	开放式的
+8172	covered	覆盖的
+8239	powerless	无力的
+8262	cracked	有裂缝的
+8347	man-made	人造的
+8393	tangled	纠缠的 *
+8412	motionless	不动的
+8419	stuck	卡住的，困住的
+8508	rusty	生锈的
+8650	loaded	装载的；有钱的
+8658	devoid	全无的 *
+8674	stiffen	使变硬
+8712	holistic	整体的，全面的 *
+8731	disposable	一次性的，用完即弃的；可自由支配的（收入） *
+8748	torn	撕裂的
+8766	worn	磨损的；用旧的；疲惫的 *
+8864	powdered	粉状的
+8877	flowing	流动的
+8879	faulty	有缺陷的
+8884	forceful	有力的
+8903	adjustable	可调节的
+8917	stationary	不动的 *
+8974	precarious	不稳定的 *
+8977	concentrated	浓缩的
+8995	folding	可折叠的
+8998	sluggish	迟缓的
+9052	locked	上锁的
+9059	innate	先天的 *
+9064	handmade	手工的
+9067	fragmented	支离破碎的；碎片化的 *
+9088	brittle	易碎的
+9133	sealed	密封的
+9140	operative	运作的；侦探
+9221	hardy	耐寒的，强健的
+9275	sparse	稀疏的
+9287	taut	拉紧的，绷紧的；（气氛）紧张的 *
+9299	tattered	破烂的 *
+9313	melting	熔化的
+9400	watery	水样的
+9457	erratic	不稳定的，反复无常的；难以预测的 *
+9460	resilient	有弹性的，能恢复原状的；适应力强的 *
+9593	distorted	歪曲的
+9784	defective	有缺陷的
+9835	padded	有衬垫的
+9857	tenuous	薄弱的，牵强的；稀薄的 *
+9879	stillness	静止
+9907	usable	可用的
+9962	gaping	张开的，豁开的；目瞪口呆的 *
+10094	artificially	人工地
+10162	abnormality	异常
+10164	crumbling	崩塌的
+10221	barbed	有倒刺的
+10222	dormant	休眠的
+10229	stiffness	僵硬
+10344	solidly	牢固地，稳健地
+10415	durability	耐久性
+10490	densely	浓密地
+10493	elastic	有弹性的
+10504	ruined	毁灭的
+10545	enclosed	封闭的
+10661	waterproof	不透水的
+10666	burnt	烧焦的
+10691	processed	处理的
+10717	latent	潜在的
+10722	seamless	无缝的
+10813	hardened	硬化的
+10826	airtight	密封的
+10846	bent	弯曲的
+10897	cumbersome	笨重的
+10905	toughness	韧性
+10930	feeble	微弱的
+10939	sunken	沉没的
+10974	soaked	湿透的
+11098	securely	安全地
+11181	irregularity	不规则；异常
+11189	floppy	松软的，耷拉的；软盘 *
+11203	drained	精疲力竭的；排干的
+11224	laden	装满的
+11235	soggy	浸水的
+11238	melted	融化的
+11282	entrenched	根深蒂固的 *
+11291	full-blown	完全成熟的
+11348	inflated	膨胀的
+11398	compressed	被压缩的
+11405	waxed	上过蜡的
+11526	layered	层状的
+11582	cohesive	有凝聚力的
+11594	flimsy	脆弱的
+11615	fractured	断裂的
+11690	drying	干燥的
+11714	undisturbed	未被扰乱的
+11717	weakest	弱的
+11732	stiffly	呆板地
+11759	embedded	嵌入的
+11764	burned	烧焦的
+11793	personalized	个人化的
+11798	replete	充满的，充盈的；饱足的 *
+11845	sheltered	受庇护的
+11871	molten	熔化的
+11891	well-established	根深蒂固的
+11900	unrestricted	无限制的
+11933	stout	结实的 *
+11963	uncontrolled	不受抑制的
+11973	crumpled	弄皱了的
+12042	potency	效力
+12063	run-down	破旧的
+12111	heavy-duty	重型的
+12115	unbroken	未破损的
+12165	porous	多孔的
+12189	inactive	不活动的
+12204	fullness	丰满；充分
+12248	rusted	生锈的
+12268	impenetrable	不可穿透的，难以理解的 *
+12437	dilapidated	破败的
+12442	intangible	无形的，触摸不到的；难以明了的 *
+12490	unchecked	未加抑制的 *
+12496	rupture	破裂
+12515	wide-open	完全开放的
+12762	frayed	磨损散线的；（神经）紧绷的 *
+12776	elasticity	弹力
+12831	charred	烧焦的
+12840	rickety	摇摇欲坠的
+12846	monolithic	巨石的；单一的
+13108	inflatable	可充气的
+13112	streamlined	精简的；流线型的
+13146	freshness	新鲜
+13159	corrugated	波纹的
+13179	attached	附加的
+13203	supple	柔软的
+13215	removable	可移去的
+13290	wobbly	摇晃的，不稳的；发颤的 *
+13311	adaptable	能适应的
+13318	rigidity	僵化
+13382	leaky	有漏洞的
+13398	thickly	厚厚地，浓密地
+13413	blocked	堵塞的
+13466	steely	钢铁般的
+13487	impotence	无力
+13592	warped	扭曲的
+13636	sticking	粘住的
+13642	bubbly	起泡的；活泼的
+13651	greased	涂油的
+13706	condensed	浓缩的
+13722	insulated	隔热的
+13727	jerky	颠簸的；肉干
+13781	impervious	不受影响的
+13799	buoyant	有浮力的
+13838	ethereal	轻的
+13907	defunct	已废止的，不复存在的；报废的 *
+13924	indelible	难以消除的；不可磨灭的 *
+14022	impotent	无力的
+14035	ready-made	现成的
+14177	disordered	混乱的
+14189	stacked	堆叠的
+14215	weakened	虚弱的
+14218	amorphous	无定形的 *
+14258	packaged	包装过的
+14332	fragility	脆弱
+14376	tepid	微温的
+14381	unfettered	自由自在的 *
+14541	rigidly	严格地
+14581	wholeness	完整性
+14661	unwieldy	笨重的
+14720	shuttered	关闭的
+14737	unattended	无人看管的
+14738	lightness	轻盈；明亮
+14764	granulate	使成粒状
+14765	ordered	有序的，井然有序的
+14802	inanimate	无生命的
+14970	unsteady	不稳的，摇晃的；颤抖的 *
+15010	immobile	不动的 *
+15123	free-standing	独立的 *
+15175	ajar	微开的
+15182	movable	可动的
+15187	seamlessly	无缝地 *
+15232	precariously	摇摇欲坠地 *
+15321	sagging	下垂的
+15382	unbalanced	不平衡的
+15500	kink	扭结
+15537	inflexible	不灵活的，顽固的
+15547	frailty	脆弱
+15589	ramshackle	摇摇欲坠的
+15612	reversible	可逆的
+15649	articulated	铰接式的
+15798	adaptability	适应性
+15845	smashed	打碎的；喝醉的
+15854	inlaid	嵌入的
+15963	overpowering	压倒性的
+16000	mushy	糊状的；多愁善感的
+16007	wrought	制成的
+16041	flaky	易剥落的；不可靠的
+16094	hardness	硬度
+16100	blended	混合的
+16128	rolled	卷起的
+16130	deep-seated	根深蒂固的
+16133	snugly	舒适地 *
+16134	chipped	有缺口的
+16245	blown	吹制的；喘不过气
+16274	molded	模制的
+16328	worn-out	磨破的
+16368	refrigerated	冷藏
+16388	ripped	撕裂的；肌肉发达的
+16412	drooping	下垂的
+16432	crumbled	碎裂的
+16473	unopened	没有开的
+16475	reusable	可以再度使用的
+16542	crudely	粗糙地，粗鲁地 *
+16554	untapped	未开发的
+16555	collapsed	倒塌的
+16609	derelict	废弃的
+16659	tightness	紧张；紧密
+16703	flammable	易燃的
+16717	deformation	变形
+16720	wrecked	毁坏的
+16745	stringy	纤维状的
+16813	burned-out	烧坏的
+16868	malleable	有延展性的
+16919	multipurpose	多用途的
+16958	rubbery	橡胶似的
+17064	double-edged	双刃的
+17110	devastated	毁坏的
+17133	powdery	粉状的
+17134	fragmentary	碎片的
+17171	gooey	胶粘的
+17284	fluidity	流动性
+17292	perforation	穿孔
+17300	spongy	海绵状的
+17386	unevenly	不均匀地 *
+17436	softened	变软的
+17489	unoccupied	空着的
+17557	knotted	打结的

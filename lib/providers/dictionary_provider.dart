@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
-import '../core/database/dictionaries_dao.dart';
+import '../core/lexicon/coca_lexicon_service.dart';
 import '../core/mdx/mdx_entry.dart';
 import '../core/models/dictionary_info.dart';
+import '../core/models/lexeme_entry.dart';
 import '../core/models/search_result.dart';
-import '../core/services/dictionary_service.dart';
+import '../core/providers/safe_change_notifier.dart';
 import '../core/ui/ui_memory.dart';
 
-class DictionaryProvider extends ChangeNotifier {
-  final DictionaryService _service = DictionaryService();
-  final DictionariesDao _dao = DictionariesDao();
+class DictionaryProvider extends ChangeNotifier with SafeChangeNotifier {
+  DictionaryProvider({CocaLexiconService? lexicon})
+      : _lexicon = lexicon ?? CocaLexiconService();
+
+  final CocaLexiconService _lexicon;
 
   bool _isLoading = true;
   String? _initError;
@@ -17,9 +20,10 @@ class DictionaryProvider extends ChangeNotifier {
   bool _isSearching = false;
 
   String? _currentWord;
+  LexemeEntry? _currentLexeme;
   MdxEntry? _currentEntry;
+  String? _currentDictionaryName;
   bool _isLoadingEntry = false;
-  List<DictionaryInfo> _allDictionaries = [];
 
   bool get isLoading => _isLoading;
   String? get initError => _initError;
@@ -27,10 +31,14 @@ class DictionaryProvider extends ChangeNotifier {
   List<SearchResult> get searchResults => _searchResults;
   bool get isSearching => _isSearching;
   String? get currentWord => _currentWord;
+  LexemeEntry? get currentLexeme => _currentLexeme;
   MdxEntry? get currentEntry => _currentEntry;
+  String? get currentDictionaryName =>
+      _currentDictionaryName ?? (_lexicon.isReady ? _lexicon.libraryName : null);
   bool get isLoadingEntry => _isLoadingEntry;
-  List<DictionaryInfo> get allDictionaries => _allDictionaries;
-  bool get hasDictionaries => _service.hasDictionaries;
+  List<DictionaryInfo> get allDictionaries => const [];
+  bool get hasDictionaries => _lexicon.isReady;
+  int get totalEntries => _lexicon.entryCount;
 
   /// [restoreWord] is false in a child window (背词): that window looks words
   /// up on demand and must not reopen — or overwrite — the main window's word.
@@ -40,17 +48,17 @@ class DictionaryProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _service.initialize();
-      _allDictionaries = await _dao.getAll();
-      
-      // Reopen the word the reader was on; 'hello' only when there is nothing
-      // remembered (first run) or the remembered word is gone with its
-      // dictionary.
-      if (restoreWord && _service.hasDictionaries && _currentWord == null) {
+      await _lexicon.initialize();
+      _initError = _lexicon.initError;
+
+      // Reopen the word the reader was on; 'hello' only on first launch or when
+      // the remembered word has no entry in the learning corpus.
+      if (restoreWord && _lexicon.isReady && _currentWord == null) {
         final remembered = (await UiMemory.readString(UiMemory.word))?.trim();
-        final first = remembered == null || remembered.isEmpty ? 'hello' : remembered;
+        final first =
+            remembered == null || remembered.isEmpty ? 'hello' : remembered;
         await lookupWord(first, addToHistory: false);
-        if (_currentEntry == null && first != 'hello') {
+        if (_currentLexeme == null && first != 'hello') {
           await lookupWord('hello', addToHistory: false);
         }
       }
@@ -80,7 +88,7 @@ class DictionaryProvider extends ChangeNotifier {
     _isSearching = true;
     notifyListeners();
 
-    final results = await _service.search(query, limit: 60);
+    final results = await _lexicon.search(query, limit: 60);
 
     // A newer keystroke already superseded this request.
     if (seq != _searchSeq) return;
@@ -106,12 +114,18 @@ class DictionaryProvider extends ChangeNotifier {
 
     if (remember) await _rememberWord();
     try {
-      final entry = await _service.lookup(_currentWord!, preferDictId: preferDictId);
+      final lexeme = await _lexicon.lookup(_currentWord!);
       if (lookupSeq != _lookupSeq) return;
-      _currentEntry = entry;
+      _currentLexeme = lexeme;
+      _currentEntry = null;
+      _currentDictionaryName = lexeme == null ? null : _lexicon.libraryName;
     } catch (e) {
       debugPrint('Error looking up word $word: $e');
-      if (lookupSeq == _lookupSeq) _currentEntry = null;
+      if (lookupSeq == _lookupSeq) {
+        _currentLexeme = null;
+        _currentEntry = null;
+        _currentDictionaryName = null;
+      }
     } finally {
       if (lookupSeq == _lookupSeq) {
         _isLoadingEntry = false;
@@ -127,68 +141,20 @@ class DictionaryProvider extends ChangeNotifier {
     await UiMemory.writeString(UiMemory.word, word);
   }
 
-  /// Imports a dictionary and returns it, so the caller can report whether a
-  /// pronunciation archive (.mdd) was paired with it.
+  // Legacy dictionary-management hooks retained cleanly for `DictionaryManagerScreen`.
   Future<DictionaryInfo> importDictionary({
     required String mdxPath,
     String? mddPath,
     String? cssPath,
     String? customName,
-  }) async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      final info = await _service.importDictionary(
-        mdxPath: mdxPath,
-        mddPath: mddPath,
-        cssPath: cssPath,
-        customName: customName,
-      );
-      _allDictionaries = await _dao.getAll();
-      if (_currentWord != null) {
-        await lookupWord(_currentWord!, addToHistory: false);
-      }
-      return info;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
+  }) =>
+      Future.error(UnsupportedError('当前版本已内置 COCA 5.4万 AI 学习库，不再使用外部 MDX 查词'));
 
-  /// Registers every archive the service's probe folders hold and returns the
-  /// ones that were new. The service has already loaded them, so the registry
-  /// only needs re-reading — no reload round trip.
-  Future<List<DictionaryInfo>> autoImportDetected() async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      final registered = await _service.autoImportDetectedDictionaries();
-      _allDictionaries = await _dao.getAll();
-      if (registered.isNotEmpty && _currentWord != null) {
-        await lookupWord(_currentWord!, addToHistory: false);
-      }
-      return registered;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
+  Future<List<DictionaryInfo>> autoImportDetected() async => const [];
 
-  Future<void> toggleDictionary(String id, bool isEnabled) async {
-    await _service.toggleDictionary(id, isEnabled);
-    _allDictionaries = await _dao.getAll();
-    notifyListeners();
-  }
+  Future<void> toggleDictionary(String id, bool isEnabled) async {}
 
-  Future<void> deleteDictionary(String id) async {
-    await _service.deleteDictionary(id);
-    _allDictionaries = await _dao.getAll();
-    notifyListeners();
-  }
+  Future<void> deleteDictionary(String id) async {}
 
-  Future<void> refreshDictionaries() async {
-    await _service.reloadDictionaries();
-    _allDictionaries = await _dao.getAll();
-    notifyListeners();
-  }
+  Future<void> refreshDictionaries() => initialize(restoreWord: false);
 }

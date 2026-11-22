@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -29,6 +30,30 @@ class TextLibraryStore {
   static const String legacyGroupsKey = 'custom_groups';
 
   static bool? _available;
+  static int _writeSeq = 0;
+  static final Map<String, Future<void>> _writeQueues = {};
+
+  static Future<T> _serialized<T>(String name, Future<T> Function() action) {
+    final prev = _writeQueues[name] ?? Future<void>.value();
+    final completer = Completer<T>();
+    late final Future<void> queued;
+    queued = prev.catchError((_) {}).then((_) async {
+      try {
+        final result = await action();
+        if (identical(_writeQueues[name], queued)) {
+          unawaited(_writeQueues.remove(name));
+        }
+        completer.complete(result);
+      } catch (e, s) {
+        if (identical(_writeQueues[name], queued)) {
+          unawaited(_writeQueues.remove(name));
+        }
+        completer.completeError(e, s);
+      }
+    });
+    _writeQueues[name] = queued;
+    return completer.future;
+  }
 
   static Future<Directory?> _directory() async {
     // `dart:io` compiles for the web but throws at the first call: Platform and
@@ -61,40 +86,62 @@ class TextLibraryStore {
     }
   }
 
-  static Future<String?> _read(String name) async {
-    final directory = await _directory();
-    if (directory == null) return null;
-    try {
-      final file = File('${directory.path}${Platform.pathSeparator}$name');
-      if (!await file.exists()) return null;
-      return await file.readAsString();
-    } catch (_) {
-      return null;
-    }
-  }
+  static Future<String?> _read(String name) => _serialized(name, () async {
+        final directory = await _directory();
+        if (directory == null) return null;
+        final path = '${directory.path}${Platform.pathSeparator}$name';
+        try {
+          final file = File(path);
+          if (await file.exists()) {
+            return await file.readAsString();
+          }
+          // Recover from `.bak` if a crash happened between moving target to
+          // `.bak` and renaming the temporary file into place.
+          final backup = File('$path.bak');
+          if (await backup.exists()) {
+            await backup.rename(path);
+            return await file.readAsString();
+          }
+          return null;
+        } catch (_) {
+          return null;
+        }
+      });
 
-  static Future<bool> _write(String name, String raw) async {
-    final directory = await _directory();
-    if (directory == null) return false;
-    final path = '${directory.path}${Platform.pathSeparator}$name';
-    try {
-      // Write beside the target and swap. The temp name is unique so two saves
-      // cannot scribble over each other, the flush puts the bytes on disk before
-      // the rename, and the previous file is kept as `.bak` until the swap is
-      // done — a crash at any point leaves a readable library behind.
-      final temporary = File('$path.${DateTime.now().microsecondsSinceEpoch}.tmp');
-      await temporary.writeAsString(raw, flush: true);
-      final target = File(path);
-      final backup = File('$path.bak');
-      if (await backup.exists()) await backup.delete();
-      if (await target.exists()) await target.rename(backup.path);
-      await temporary.rename(path);
-      if (await backup.exists()) await backup.delete();
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
+  static Future<bool> _write(String name, String raw) =>
+      _serialized(name, () async {
+        final directory = await _directory();
+        if (directory == null) return false;
+        final path = '${directory.path}${Platform.pathSeparator}$name';
+        final temporary = File(
+          '$path.$pid.${DateTime.now().microsecondsSinceEpoch}.${_writeSeq++}.tmp',
+        );
+        try {
+          // Write beside the target and swap under a per-file queue. The flush
+          // puts the bytes on disk before the rename, and the previous file is
+          // kept as `.bak` until the swap completes (or restored if it fails).
+          await temporary.writeAsString(raw, flush: true);
+          final target = File(path);
+          final backup = File('$path.bak');
+          if (await backup.exists()) await backup.delete();
+          if (await target.exists()) await target.rename(backup.path);
+          try {
+            await temporary.rename(path);
+          } catch (_) {
+            if (!await target.exists() && await backup.exists()) {
+              await backup.rename(path);
+            }
+            rethrow;
+          }
+          if (await backup.exists()) await backup.delete();
+          return true;
+        } catch (_) {
+          try {
+            if (await temporary.exists()) await temporary.delete();
+          } catch (_) {}
+          return false;
+        }
+      });
 
   static Future<String?> readTexts() => _read(_textsFile);
 

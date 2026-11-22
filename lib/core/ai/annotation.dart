@@ -20,6 +20,8 @@ class AnnotatedSpan {
 }
 
 final RegExp _token = RegExp(r"[A-Za-z][A-Za-z'’-]*");
+final RegExp _possessiveSuffix = RegExp(r"['’]s$");
+final RegExp _trailingPunct = RegExp(r"['’-]+$");
 
 /// Slices [text] so the view can mark two things independently:
 ///
@@ -44,8 +46,8 @@ List<AnnotatedSpan> annotateText(
     final word = match
         .group(0)!
         .toLowerCase()
-        .replaceAll(RegExp(r"['’]s$"), '')
-        .replaceAll(RegExp(r"['’’-]+$"), '');
+        .replaceAll(_possessiveSuffix, '')
+        .replaceAll(_trailingPunct, '');
     if (!_isThemeWord(word, themeWords)) continue;
     marks.add(_Mark(match.start, match.end, theme: true));
   }
@@ -69,26 +71,34 @@ List<AnnotatedSpan> annotateText(
     return [AnnotatedSpan(text: text, isThemeWord: false, isPhrase: false)];
   }
 
-  // Cut at every mark boundary, then read the flags of each slice.
-  final cuts = <int>{0, text.length};
+  // Sweep-line over endpoints (O(N log N) instead of nested scan over every interval).
+  final boundaries = <int>{0, text.length};
   for (final mark in marks) {
-    cuts.add(mark.start);
-    cuts.add(mark.end);
+    boundaries.add(mark.start);
+    boundaries.add(mark.end);
   }
-  final sorted = cuts.toList()..sort();
+  final sorted = boundaries.toList()..sort();
+  final starts = List<_Mark>.of(marks)..sort((a, b) => a.start.compareTo(b.start));
+  final active = <_Mark>[];
+  var nextMark = 0;
 
   final spans = <AnnotatedSpan>[];
   for (var i = 0; i + 1 < sorted.length; i++) {
     final start = sorted[i];
     final end = sorted[i + 1];
     if (start >= end) continue;
+
+    while (nextMark < starts.length && starts[nextMark].start <= start) {
+      active.add(starts[nextMark++]);
+    }
+    active.removeWhere((m) => m.end <= start);
+
     var theme = false;
     var phrase = false;
-    for (final mark in marks) {
-      if (mark.start <= start && mark.end >= end) {
-        theme = theme || mark.theme;
-        phrase = phrase || mark.phrase;
-      }
+    for (final m in active) {
+      if (m.theme) theme = true;
+      if (m.phrase) phrase = true;
+      if (theme && phrase) break;
     }
     spans.add(AnnotatedSpan(
       text: text.substring(start, end),

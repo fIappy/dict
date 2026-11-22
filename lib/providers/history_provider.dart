@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../core/database/history_dao.dart';
 import '../core/models/history_item.dart';
+import '../core/providers/safe_change_notifier.dart';
 
-class HistoryProvider extends ChangeNotifier {
+class HistoryProvider extends ChangeNotifier with SafeChangeNotifier {
   final HistoryDao _dao = HistoryDao();
   List<HistoryItem> _items = [];
   bool _isLoading = false;

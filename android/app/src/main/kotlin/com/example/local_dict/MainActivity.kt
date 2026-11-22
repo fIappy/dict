@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import io.flutter.embedding.android.FlutterActivity
@@ -12,6 +13,7 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.util.Locale
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.ZipInputStream
 
 /**
@@ -34,54 +36,65 @@ import java.util.zip.ZipInputStream
  */
 class MainActivity : FlutterActivity() {
     private var engine: TextToSpeech? = null
+    @Volatile
     private var ready = false
-    private var parkedVoices: MethodChannel.Result? = null
-    private val speaking = HashMap<String, MethodChannel.Result>()
+    private val parkedVoices = mutableListOf<MethodChannel.Result>()
+    private val speaking = ConcurrentHashMap<String, MethodChannel.Result>()
+    private val modelsLock = Any()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
         engine = TextToSpeech(this) { status ->
-            ready = status == TextToSpeech.SUCCESS
-            if (ready) {
+            val ok = status == TextToSpeech.SUCCESS
+            if (ok) {
                 engine?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) = Unit
 
                     override fun onDone(utteranceId: String?) {
-                        speaking.remove(utteranceId)?.success(true)
+                        val pending = utteranceId?.let { speaking.remove(it) } ?: return
+                        runOnUiThread { pending.success(true) }
                     }
 
                     @Deprecated("Superseded by onError(String, Int), still called on old engines")
                     override fun onError(utteranceId: String?) {
-                        speaking.remove(utteranceId)?.success(false)
+                        val pending = utteranceId?.let { speaking.remove(it) } ?: return
+                        runOnUiThread { pending.success(false) }
                     }
 
                     override fun onError(utteranceId: String?, errorCode: Int) {
-                        speaking.remove(utteranceId)?.success(false)
+                        val pending = utteranceId?.let { speaking.remove(it) } ?: return
+                        runOnUiThread { pending.success(false) }
                     }
                 })
             }
-            parkedVoices?.let { parked ->
-                parkedVoices = null
-                parked.success(voiceList())
+            runOnUiThread {
+                ready = ok
+                val list = voiceList()
+                val parked = parkedVoices.toList()
+                parkedVoices.clear()
+                parked.forEach { it.success(list) }
             }
         }
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
-                    "voices" -> if (ready) result.success(voiceList()) else parkedVoices = result
+                    "voices" -> if (ready) result.success(voiceList()) else parkedVoices.add(result)
                     "speak" -> speak(
                         text = call.argument<String>("text").orEmpty(),
                         voiceName = call.argument<String>("voice"),
                         language = call.argument<String>("language"),
                         rate = (call.argument<Double>("rate") ?: 1.0).toFloat(),
+                        volume = (call.argument<Double>("volume") ?: 1.0).toFloat(),
                         result = result,
                     )
                     "stop" -> {
                         engine?.stop()
-                        speaking.values.forEach { it.success(false) }
-                        speaking.clear()
+                        val keys = speaking.keys.toList()
+                        keys.forEach { key ->
+                            speaking.remove(key)?.success(false)
+                        }
                         result.success(null)
                     }
                     else -> result.notImplemented()
@@ -122,15 +135,20 @@ class MainActivity : FlutterActivity() {
     /**
      * Starts the media-playback foreground service.
      *
-     * Only ever called while the app is visible — playback starts from the UI,
-     * which is the one moment Android allows a foreground service to be started.
+     * Android 12+ throws ForegroundServiceStartNotAllowedException if the app
+     * transitions to the background right as playback advances to the next clip.
      */
     private fun startAudioBackground() {
         val intent = Intent(this, AudioBackgroundService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+        } catch (_: Exception) {
+            // Best-effort keepalive when in the foreground; ignore background start restriction.
+            return
         }
         // Android 13+ hides the notification when this is not granted; the
         // service itself still runs, so a refusal is not fatal.
@@ -146,25 +164,26 @@ class MainActivity : FlutterActivity() {
      * Unpacks the Kokoro model that travels inside the APK into app storage,
      * where the Dart side looks for it.
      *
-     * Scoped storage keeps the app from reading a model another tool wrote into
-     * its data directory, and a phone that never touches a computer cannot import
-     * one either — so the archive ships in the APK and is unpacked here. Its
-     * files land under `files/tts-models/kokoro/`, the layout `findKokoroModel`
-     * probes. Idempotent: with the model already unpacked it does nothing and
-     * answers true.
+     * Unpacks into a temporary directory first and writes a `.complete` marker
+     * after atomic promotion so an interrupted extraction cannot leave a
+     * broken partial model behind.
      */
-    private fun installBundledModels(): Boolean {
+    private fun installBundledModels(): Boolean = synchronized(modelsLock) {
         val root = File(filesDir, "tts-models/kokoro")
-        if (File(root, "model.onnx").isFile && File(root, "voices.bin").isFile) return true
-        val rootPath = root.canonicalPath + File.separator
+        val marker = File(root, ".complete")
+        if (marker.isFile && File(root, "model.onnx").isFile && File(root, "voices.bin").isFile) {
+            return true
+        }
+        val staging = File(filesDir, "tts-models/kokoro.staging.${UUID.randomUUID()}")
         return try {
+            val stagingPath = staging.canonicalPath + File.separator
             assets.open(MODELS_ASSET).use { input ->
                 ZipInputStream(input).use { zip ->
                     while (true) {
                         val entry = zip.nextEntry ?: break
-                        val target = File(root, entry.name).canonicalFile
+                        val target = File(staging, entry.name).canonicalFile
                         // A path escaping the archive is refused, not written.
-                        if (!target.path.startsWith(rootPath)) continue
+                        if (!target.path.startsWith(stagingPath)) continue
                         if (entry.isDirectory) {
                             target.mkdirs()
                         } else {
@@ -174,8 +193,15 @@ class MainActivity : FlutterActivity() {
                     }
                 }
             }
+            if (root.exists()) root.deleteRecursively()
+            staging.parentFile?.mkdirs()
+            if (!staging.renameTo(root)) {
+                return false
+            }
+            marker.writeText("ok")
             true
         } catch (e: Exception) {
+            staging.deleteRecursively()
             false
         }
     }
@@ -201,6 +227,7 @@ class MainActivity : FlutterActivity() {
         voiceName: String?,
         language: String?,
         rate: Float,
+        volume: Float,
         result: MethodChannel.Result,
     ) {
         val tts = engine
@@ -223,9 +250,12 @@ class MainActivity : FlutterActivity() {
         }
 
         tts.setSpeechRate(rate.coerceIn(0.1f, 3.0f))
+        val params = Bundle().apply {
+            putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, volume.coerceIn(0.0f, 1.0f))
+        }
         val utteranceId = UUID.randomUUID().toString()
         speaking[utteranceId] = result
-        val queued = tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+        val queued = tts.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
         if (queued != TextToSpeech.SUCCESS) {
             speaking.remove(utteranceId)
             result.success(false)
@@ -238,8 +268,10 @@ class MainActivity : FlutterActivity() {
         }
 
     override fun onDestroy() {
-        speaking.values.forEach { it.success(false) }
-        speaking.clear()
+        parkedVoices.forEach { it.success(emptyList<Map<String, Any>>()) }
+        parkedVoices.clear()
+        val keys = speaking.keys.toList()
+        keys.forEach { key -> speaking.remove(key)?.success(false) }
         engine?.stop()
         engine?.shutdown()
         engine = null

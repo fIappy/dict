@@ -136,26 +136,35 @@ class AiPracticeProvider extends ChangeNotifier {
     required int count,
     required PracticeLevel level,
   }) => _run(AiRunKind.sentences, () async {
-    final result = await _agent(
-      config,
-    ).sentences(word: word, count: count, level: level, sceneLabel: sceneLabel);
-    _sentences = result.items;
-    _sentencesWord = word;
-    _reasoning = result.reasoning.isEmpty ? null : result.reasoning;
-    await _archiveItem(
-      AiArchiveItem(
-        id: _newId(),
-        sceneId: sceneId,
-        sceneLabel: sceneLabel,
-        kind: AiItemKind.sentences,
-        level: level,
-        createdAt: DateTime.now().millisecondsSinceEpoch,
-        model: config.model,
+    final owned = _ownedClient(config);
+    try {
+      final agent = _agent(config, ownedClient: owned);
+      final result = await agent.sentences(
         word: word,
-        lines: result.items,
-        reasoning: result.reasoning,
-      ),
-    );
+        count: count,
+        level: level,
+        sceneLabel: sceneLabel,
+      );
+      _sentences = result.items;
+      _sentencesWord = word;
+      _reasoning = result.reasoning.isEmpty ? null : result.reasoning;
+      await _archiveItem(
+        AiArchiveItem(
+          id: _newId(),
+          sceneId: sceneId,
+          sceneLabel: sceneLabel,
+          kind: AiItemKind.sentences,
+          level: level,
+          createdAt: DateTime.now().millisecondsSinceEpoch,
+          model: config.model,
+          word: word,
+          lines: result.items,
+          reasoning: result.reasoning,
+        ),
+      );
+    } finally {
+      owned?.close();
+    }
   });
 
   Future<bool> generatePassage({
@@ -170,40 +179,45 @@ class AiPracticeProvider extends ChangeNotifier {
     String wordsNote = '',
     String extra = '',
   }) => _run(AiRunKind.passage, () async {
-    final agent = _agent(config);
-    final words = requiredWords;
-    final result = await agent.passage(
-      sceneLabel: sceneLabel,
-      sceneHint: sceneHint,
-      words: words,
-      level: level,
-      style: style,
-      length: length,
-      wordsNote: wordsNote,
-      extra: extra,
-    );
-    _passage = result.passage;
-    _passageWords = words;
-    _passageLength = length;
-    _reasoning = result.reasoning.isEmpty ? null : result.reasoning;
-    await _archiveItem(
-      AiArchiveItem(
-        id: _newId(),
-        sceneId: sceneId,
+    final owned = _ownedClient(config);
+    try {
+      final agent = _agent(config, ownedClient: owned);
+      final words = requiredWords;
+      final result = await agent.passage(
         sceneLabel: sceneLabel,
-        kind: AiItemKind.passage,
-        level: level,
-        createdAt: DateTime.now().millisecondsSinceEpoch,
-        model: config.model,
-        title: result.passage.title,
-        text: result.passage.text,
-        phrases: result.passage.phrases,
+        sceneHint: sceneHint,
         words: words,
+        level: level,
+        style: style,
         length: length,
-        style: style.name,
-        reasoning: result.reasoning,
-      ),
-    );
+        wordsNote: wordsNote,
+        extra: extra,
+      );
+      _passage = result.passage;
+      _passageWords = words;
+      _passageLength = length;
+      _reasoning = result.reasoning.isEmpty ? null : result.reasoning;
+      await _archiveItem(
+        AiArchiveItem(
+          id: _newId(),
+          sceneId: sceneId,
+          sceneLabel: sceneLabel,
+          kind: AiItemKind.passage,
+          level: level,
+          createdAt: DateTime.now().millisecondsSinceEpoch,
+          model: config.model,
+          title: result.passage.title,
+          text: result.passage.text,
+          phrases: result.passage.phrases,
+          words: words,
+          length: length,
+          style: style.name,
+          reasoning: result.reasoning,
+        ),
+      );
+    } finally {
+      owned?.close();
+    }
   });
 
   /// Puts a saved generation back on the page exactly as it was when it was
@@ -276,8 +290,11 @@ class AiPracticeProvider extends ChangeNotifier {
     _archive = await _store.add(item);
   }
 
-  ThemeAgent _agent(AiConfig config) {
-    final client = OpenAiClient(config: config);
+  OpenAiClient? _ownedClient(AiConfig config) =>
+      _agentBuilder == null ? OpenAiClient(config: config) : null;
+
+  ThemeAgent _agent(AiConfig config, {OpenAiClient? ownedClient}) {
+    final client = ownedClient ?? OpenAiClient(config: config);
     final builder = _agentBuilder;
     if (builder != null) return builder(client);
     return ThemeAgent(client: client);

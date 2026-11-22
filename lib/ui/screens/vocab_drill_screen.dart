@@ -6,9 +6,12 @@ import 'package:provider/provider.dart';
 import '../../core/audio/audio_manager.dart';
 import '../../core/audio/prefetch_queue.dart';
 import '../../core/audio/prepared_pronunciation.dart';
+import '../../core/frequency/frequency_service.dart';
 import '../../core/themes/theme_service.dart';
 import '../../providers/dictionary_provider.dart';
 import '../../providers/vocabulary_provider.dart';
+import '../widgets/frequency_badge.dart';
+import '../widgets/lexeme_detail_view.dart';
 import '../widgets/pronunciation_bar.dart';
 import '../widgets/word_definition_view.dart';
 
@@ -56,6 +59,19 @@ class _VocabDrillScreenState extends State<VocabDrillScreen> {
     final vocabulary = context.read<VocabularyProvider>();
     if (!vocabulary.isInitialized) {
       unawaited(vocabulary.initialize().then((_) => vocabulary.ensureSeeded()));
+    }
+    if (!FrequencyService().isInitialized) {
+      unawaited(FrequencyService().init());
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant VocabDrillScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scene.id != widget.scene.id ||
+        !identical(oldWidget.scene, widget.scene)) {
+      _wordsCache = null;
+      _glossesCache = null;
     }
   }
 
@@ -237,10 +253,10 @@ class _VocabDrillScreenState extends State<VocabDrillScreen> {
           onSelectionChanged: (selection) =>
               vocabulary.setAccent(selection.first),
           showSelectedIcon: false,
-          style: ButtonStyle(
+          style: const ButtonStyle(
             visualDensity: VisualDensity.compact,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            textStyle: WidgetStatePropertyAll(const TextStyle(fontSize: 12)),
+            textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12)),
           ),
         ),
         const SizedBox(width: 8),
@@ -550,7 +566,12 @@ class _VocabDrillScreenState extends State<VocabDrillScreen> {
     final word = _lookup!;
     final dictionary = context.watch<DictionaryProvider>();
     final theme = Theme.of(context);
-    final entry = dictionary.currentWord == word ? dictionary.currentEntry : null;
+    final lexeme =
+        dictionary.currentWord == word ? dictionary.currentLexeme : null;
+    final entry =
+        lexeme == null && dictionary.currentWord == word
+            ? dictionary.currentEntry
+            : null;
     final loading = dictionary.isLoadingEntry || dictionary.currentWord != word;
 
     return Container(
@@ -585,43 +606,62 @@ class _VocabDrillScreenState extends State<VocabDrillScreen> {
               ],
             ),
           ),
-          // The entry's own speaker links rely on a font the packaged stylesheet
-          // does not ship, so the window gives the word a pronunciation bar of
-          // its own — the same one the dictionary module uses.
-          if (entry != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 6, 14, 2),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: PronunciationBar(
-                  word: entry.word,
-                  phonetic: entry.phonetic,
-                  phonetics: entry.phonetics,
-                  soundKey: entry.soundKey,
-                  soundKeys: entry.soundKeys,
-                ),
-              ),
+          if (lexeme != null || entry != null)
+            ValueListenableBuilder<int>(
+              valueListenable: FrequencyService().versionListenable,
+              builder: (context, _, _) {
+                final freq = FrequencyService().getFrequency(word);
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 6, 14, 2),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (lexeme != null)
+                          PronunciationBar(
+                            word: lexeme.word,
+                            phonetic: '',
+                          )
+                        else
+                          PronunciationBar(
+                            word: entry!.word,
+                            phonetic: entry.phonetic,
+                            phonetics: entry.phonetics,
+                            soundKey: entry.soundKey,
+                            soundKeys: entry.soundKeys,
+                          ),
+                        FrequencyBadge(info: freq),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           Expanded(
             child: loading
                 ? const Center(child: CircularProgressIndicator())
-                : entry == null
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            dictionary.hasDictionaries
-                                ? '没有找到「$word」的词条'
-                                : '还没有加载词典，请在主窗口的词典管理里添加',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              color: theme.hintColor,
+                : lexeme != null
+                    ? LexemeDetailView(lexeme: lexeme, compact: true)
+                    : entry == null
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text(
+                                dictionary.hasDictionaries
+                                    ? '没有找到「$word」的词条'
+                                    : '还没有加载 5.4 万词学习库 (coca_learn.db)',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: theme.hintColor,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      )
-                    : WordDefinitionView(entry: entry),
+                          )
+                        : WordDefinitionView(entry: entry),
           ),
         ],
       ),

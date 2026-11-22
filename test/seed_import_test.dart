@@ -151,6 +151,41 @@ void main() {
     expect(again, hasLength(seeded.length));
   });
 
+  test('ai archive v2 migrates legacy seed sceneIds while preserving user items',
+      () async {
+    final raw = await rootBundle.loadString('assets/seed/ai_archive.json');
+    final seed = jsonDecode(raw) as Map<String, dynamic>;
+    final sample =
+        ((seed['items'] as List).first as Map).cast<String, dynamic>();
+    final legacyEntry = Map<String, dynamic>.from(sample)
+      ..['sceneId'] = 'medical'
+      ..['sceneLabel'] = '医疗健康';
+
+    SharedPreferences.setMockInitialValues({
+      'flutter.ai_seed_version': 1,
+      'flutter.ai_archive_v1': jsonEncode([
+        legacyEntry,
+        {
+          'id': 'user-custom',
+          'sceneId': 'custom',
+          'sceneLabel': 'Mine',
+          'kind': 'passage',
+          'level': 'easy',
+          'createdAt': 1,
+          'model': 'm',
+          'title': 'Mine',
+          'text': 'Body.',
+        },
+      ]),
+    });
+
+    final migrated = await AiArchiveStore().ensureSeeded();
+    final updatedSeed = migrated.where((i) => i.id == sample['id']).single;
+    expect(updatedSeed.sceneId, 't29');
+    expect(updatedSeed.sceneLabel, '医疗疾病与保健');
+    expect(migrated.where((i) => i.id == 'user-custom').single.sceneId, 'custom');
+  });
+
   test('a seed group with the same name joins the local one', () async {
     // The store here predates the seed: same group, different id.
     SharedPreferences.setMockInitialValues({

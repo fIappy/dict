@@ -4,6 +4,7 @@
 
 # ---- Dictionary archives (runtime volume, not build input) ----
 Dictionary.com 20260913_hahaya/
+tts-models/
 *.mdx
 *.mdd
 *.zip

@@ -47,9 +47,25 @@ extension type _EmscriptenModule._(JSObject _) implements JSObject {
   );
 }
 
+final Map<String, Future<void>> _prepareInFlight = {};
+final Set<String> _preparedFolders = {};
 
+Future<void> prepareKokoroModel(KokoroModelFiles files) {
+  if (_preparedFolders.contains(files.folder)) {
+    return Future<void>.value();
+  }
+  final existing = _prepareInFlight[files.folder];
+  if (existing != null) return existing;
+  final future = _prepareKokoroModelOnce(files).then((_) {
+    _preparedFolders.add(files.folder);
+  }).whenComplete(() {
+    _prepareInFlight.remove(files.folder);
+  });
+  _prepareInFlight[files.folder] = future;
+  return future;
+}
 
-Future<void> prepareKokoroModel(KokoroModelFiles files) async {
+Future<void> _prepareKokoroModelOnce(KokoroModelFiles files) async {
   final raw = globalContext['Module'] as JSObject?;
   if (raw == null) {
     throw StateError('sherpa-onnx wasm module is not loaded yet');
@@ -70,12 +86,16 @@ Future<void> prepareKokoroModel(KokoroModelFiles files) async {
       final parent = parts.take(i - 1).join('/');
       final name = parts[i - 1];
       if (name.isEmpty || !created.add('$parent/$name')) continue;
-      module.createPath(
-        (parent.isEmpty ? '/' : parent).toJS,
-        name.toJS,
-        true.toJS,
-        true.toJS,
-      );
+      try {
+        module.createPath(
+          (parent.isEmpty ? '/' : parent).toJS,
+          name.toJS,
+          true.toJS,
+          true.toJS,
+        );
+      } catch (_) {
+        // Ignore already-created paths on retry.
+      }
     }
   }
 
@@ -104,14 +124,21 @@ Future<void> prepareKokoroModel(KokoroModelFiles files) async {
       final directory = cut == -1 ? files.folder : '${files.folder}/${rel.substring(0, cut)}';
       final name = cut == -1 ? rel : rel.substring(cut + 1);
       if (directory != files.folder) path(directory);
-      module.createDataFile(
-        directory.toJS,
-        name.toJS,
-        bytes.toJS,
-        true.toJS,
-        true.toJS,
-        true.toJS,
-      );
+      try {
+        module.createDataFile(
+          directory.toJS,
+          name.toJS,
+          bytes.toJS,
+          true.toJS,
+          true.toJS,
+          true.toJS,
+        );
+      } catch (e) {
+        // Only ignore EEXIST when a partial attempt already populated this file.
+        if (!'$e'.contains('ErrnoError') && !'$e'.contains('exists')) {
+          rethrow;
+        }
+      }
     }
   }
 }

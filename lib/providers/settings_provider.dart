@@ -5,8 +5,9 @@ import '../core/ai/ai_config.dart';
 import '../core/ai/passage_style.dart';
 import '../core/audio/speech_engine.dart';
 import '../core/custom/playback_order.dart';
+import '../core/providers/safe_change_notifier.dart';
 
-class SettingsProvider extends ChangeNotifier {
+class SettingsProvider extends ChangeNotifier with SafeChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
   double _fontSizeScale = 1.0;
   String _ttsLanguage = 'en-US';

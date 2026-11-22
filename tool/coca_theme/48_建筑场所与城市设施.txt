@@ -1,0 +1,294 @@
+== 建筑场所与城市设施（293 词）==
+168	place	地方
+268	city	城市
+375	build	建造
+449	town	城镇
+461	building	建筑物
+490	site	地点；场地
+525	wall	墙
+895	bar	酒吧；条
+905	hotel	旅馆
+1025	neighborhood	社区；街区
+1073	camp	营地
+1110	park	公园
+1126	village	村庄
+1138	farm	农场
+1143	district	区域；街区
+1173	facility	设备
+1189	block	街区 *
+1280	construction	建设；建筑
+1410	pool	池
+1476	works	工厂；作品
+1521	bridge	桥
+1571	setting	环境；设置
+1657	hall	大厅
+1801	gate	门
+1906	factory	工厂
+1921	housing	住房，住宅 *
+1922	post	柱子；邮件
+2151	tower	塔
+2206	construct	构造
+2360	fence	栅栏
+2370	chamber	房间；腔室 *
+2383	resort	度假胜地
+2491	platform	平台，站台
+2534	stair	楼梯
+2545	shelter	避难所 *
+2548	entrance	入口
+2602	storage	储存；仓库
+2701	mall	购物中心
+2719	tent	帐篷
+2759	downtown	市中心的
+2773	workshop	车间；研讨会
+2793	cabin	小屋
+2841	garage	车库
+2972	tunnel	隧道
+3075	suburban	郊外的
+3078	corridor	走廊
+3103	architecture	建筑学
+3123	suburb	郊区
+3153	hallway	走廊
+3192	infrastructure	基础设施
+3292	lobby	游说；大堂
+3342	rebuild	重建
+3350	exit	出口
+3379	residential	住宅的
+3406	doorway	门口
+3408	elevator	电梯
+3543	ranch	牧场 *
+3606	barn	谷仓
+3774	metropolitan	大都市的
+3779	booth	摊位，隔间 *
+3802	casino	赌场 *
+3815	alley	小巷 *
+3830	shed	棚屋；脱落
+3867	dam	水坝 *
+3903	mill	磨坊、碾磨机；工厂（尤指纺织厂、造纸厂、钢厂） *
+3948	aisle	过道 *
+4047	cemetery	墓地
+4071	refuge	避难所
+4123	palace	宫殿
+4155	landmark	地标
+4163	threshold	门槛
+4165	suite	套房；组曲
+4193	mansion	豪宅
+4196	cottage	小屋
+4197	driveway	车道
+4329	warehouse	仓库
+4406	dome	圆顶
+4617	motel	汽车旅馆
+4635	architectural	有关建筑的
+4637	fountain	喷泉；源泉 *
+4676	countryside	乡村
+4677	hut	小屋 *
+4713	accommodation	住宿；适应
+4732	venue	场地；审判地
+4808	hometown	故乡
+5009	haven	避风港 *
+5086	playground	游乐场；操场
+5121	courtyard	庭院
+5125	cafe	咖啡馆
+5133	castle	城堡
+5252	lounge	休息室；闲逛 *
+5345	ramp	斜坡 *
+5425	tomb	坟墓
+5550	arch	拱门
+5641	terrace	露台 *
+5722	pillar	柱子
+6012	lodge	小屋
+6047	patio	露台 *
+6090	relocate	搬迁
+6188	canopy	顶篷，树冠 *
+6190	staircase	楼梯
+6191	fixture	固定装置 *
+6234	pave	铺设
+6388	renovation	翻新
+6410	condo	公寓 *
+6415	shack	简陋小屋 *
+6537	pub	酒馆 *
+6570	sewer	下水道 *
+6635	inn	旅馆 *
+6650	rubble	碎石，瓦砾；（建筑倒塌后的）废墟 *
+6669	blueprint	蓝图
+6697	facade	立面；表面 *
+6700	vent	排气口 *
+6747	railing	栏杆 *
+6774	maze	迷宫
+6781	drainage	排水
+7019	podium	讲台，领奖台；（建筑）墩座，基座 *
+7148	plaza	广场
+7243	subdivision	分区；细分
+7246	dwelling	住处 *
+7316	nightclub	夜总会
+7333	ledge	壁架
+7343	chimney	烟囱 *
+7369	clubhouse	俱乐部会所
+7406	farmhouse	农舍
+7448	vault	金库；穹顶 *
+7485	outskirts	近郊
+7545	zoning	分区制
+7575	ghetto	贫民区
+7582	rooftop	屋顶
+7612	seating	座位安排
+7613	amenities	便利设施
+7614	renovate	翻新
+7814	inner-city	市中心的；贫民区的
+7815	tavern	酒馆 *
+7841	plumbing	管道设备
+7982	mailbox	邮筒
+8001	ballroom	舞厅 *
+8288	orphanage	孤儿院
+8295	refinery	精炼厂
+8433	skyline	天际线
+8494	auditorium	礼堂 *
+8528	foyer	（剧院、酒店、公寓等的）门厅，前厅，入口大厅 *
+8550	slum	贫民窟
+8614	partition	隔板；分割
+8643	demolish	拆除
+8664	walkway	走道
+8675	quarry	采石场
+8692	locale	场所
+8695	ventilation	通风
+8721	cornerstone	奠基石
+8730	enclosure	围栏 *
+8777	condominium	公寓（产权房） *
+8810	waterfront	滨水区
+8833	levee	堤坝
+8855	graveyard	墓地
+8856	midtown	市中心区
+8890	gateway	门户；出入口 *
+8891	deserted	被遗弃的
+8938	villa	别墅
+9026	stairway	楼梯
+9097	rebuilding	重建
+9141	township	乡镇
+9162	two-story	两层的
+9209	winery	酒厂 *
+9296	saloon	酒馆 *
+9324	cubicle	（办公室、图书馆等处用隔板隔出的）小隔间，格子间；更衣室的小隔间 *
+9335	pedestal	（雕像、柱子等的）基座，底座；引申为备受推崇的地位 *
+9384	rafter	椽 *
+9448	skyscraper	摩天楼
+9469	small-town	小城镇的
+9545	bungalow	平房 *
+9648	demolition	拆除
+9677	gutter	排水沟 *
+9698	stairwell	楼梯井 *
+9850	repository	储藏库，仓库
+9866	shingle	（屋顶、外墙用的）木瓦，墙面板；小卵石 *
+9878	showroom	展厅
+10013	high-rise	高层建筑
+10091	hamlet	小村
+10093	remodel	改造
+10124	campsite	营地
+10145	bustling	熙熙攘攘的
+10249	labyrinth	迷宫 *
+10270	birthplace	诞生地
+10330	occupancy	占用；入住率
+10363	depot	仓库，库房；（公共汽车）车库，车辆段 *
+10428	restroom	洗手间
+10495	pavilion	亭子 *
+10576	borough	自治市镇
+10731	hangar	飞机库 *
+10776	arcade	游戏厅；拱廊 *
+10785	morgue	太平间，停放待辨认或待解剖尸体的场所；（喻）资料库，冷清的场所 *
+10801	metropolis	大都市
+10822	campground	露营场所
+11067	passageway	通道
+11188	lighthouse	灯塔
+11312	homestead	宅地
+11420	windmill	风车
+11580	redevelopment	再开发
+11595	lodging	住宿
+11611	brothel	妓院
+11689	marquee	招牌；大帐篷
+11895	kiosk	报刊亭；自助终端
+11938	shipyard	造船厂
+12200	tombstone	墓石
+12222	spire	尖塔
+12384	townhouse	联排别墅
+12470	stairs	楼梯
+12484	boardwalk	木板路
+12523	open-air	户外的
+12544	scaffolding	脚手架
+12656	ambience	周围环境
+12853	tenement	廉租公寓
+12854	streetlight	街灯
+13081	vestibule	前庭
+13083	penthouse	顶层公寓
+13165	newsstand	报摊
+13186	edifice	大厦
+13254	embankment	堤岸
+13300	escalator	自动扶梯
+13388	masonry	砖石工程
+13483	cobblestone	圆石
+13637	brewery	啤酒厂
+13646	woodwork	木制品
+13719	uptown	上城区
+13747	slat	条板
+13810	air-conditioned	备有空调设备的
+13856	awning	遮篷
+13961	three-story	三层的
+14042	commons	公共用地
+14076	second-floor	〈美〉二楼
+14169	headstone	墓石
+14180	grille	格栅
+14303	encampment	露营
+14385	alleyway	小巷
+14415	hangout	常去的地方
+14470	promenade	步行道
+14472	manor	庄园
+14476	overhang	悬垂部分
+14516	windowless	无窗的
+14517	hostel	青年旅舍
+14645	slaughterhouse	屠宰场
+14652	catwalk	天桥，T台
+14736	sauna	桑拿浴
+14756	citywide	全市的
+14906	silo	筒仓
+14957	entryway	入口通道
+14982	paneling	镶板
+14993	big-city	大城市
+15074	amphitheater	圆形剧场
+15250	walled	有城墙的
+15303	clapboard	护墙板
+15339	moat	护城河
+15596	dungeon	地牢
+15687	outhouse	户外厕所
+15971	hideaway	隐匿处
+15975	transom	气窗，横梁
+15989	dike	堤坝
+16103	john	厕所（俚）
+16151	cul-de-sac	死巷
+16206	riser	立管；起床者
+16351	steeple	尖塔
+16453	scaffold	脚手架
+16474	mausoleum	陵墓
+16480	cobble	铺鹅卵石
+16516	suburbia	郊区
+16520	foundry	铸造厂
+16545	smokestack	烟囱
+16568	storeroom	储藏室
+16577	tiled	用砖瓦覆盖的
+16580	mortuary	停尸间
+16604	coffeehouse	咖啡馆
+16613	crypt	地下室；地穴
+16634	gazebo	凉亭
+16656	shanty	棚屋
+16684	archway	拱门
+16796	duplex	双工的；复式
+16802	chain-link	铁丝网的
+16815	renovated	翻新的
+16952	livable	宜居的
+16962	hideout	隐匿处
+16984	gravestone	墓石
+17005	junkyard	废品场
+17086	gated	有门禁的
+17114	domed	圆屋顶的
+17196	pilings	桩
+17298	hacienda	大庄园
+17358	joist	托梁
+17369	rebuilt	重建的
+17452	piazza	广场
+17496	concourse	大厅
+17538	dais	讲台

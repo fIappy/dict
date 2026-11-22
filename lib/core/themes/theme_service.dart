@@ -66,6 +66,7 @@ class ThemeService {
   List<ThemeScene> _scenes = const [];
   String _source = '';
   bool _loaded = false;
+  Future<void>? _loading;
 
   bool get isLoaded => _loaded;
   List<ThemeScene> get scenes => _scenes;
@@ -82,9 +83,14 @@ class ThemeService {
     return total;
   }
 
-  Future<void> init() async {
-    if (_loaded) return;
-    _loaded = true;
+  Future<void> init() {
+    if (_loaded) return Future<void>.value();
+    return _loading ??= _doInit().whenComplete(() {
+      _loading = null;
+    });
+  }
+
+  Future<void> _doInit() async {
     try {
       final raw = await rootBundle.loadString('assets/data/themes.json');
       final data = jsonDecode(raw) as Map<String, dynamic>;
@@ -111,6 +117,7 @@ class ThemeService {
             ],
           ),
       ];
+      _loaded = true;
     } catch (e) {
       // A missing or malformed asset leaves the module empty rather than taking
       // the whole app down with it.

@@ -107,19 +107,19 @@ Set<String> groupIdsNamed(
   final cleaned = cleanPassages(passages);
 
   final emptied = <String>[];
-  final removed = <int>{};
+  final removed = <Map<String, dynamic>>{};
   for (var k = 0; k < indexes.length; k++) {
     final text = texts[indexes[k]];
     final passage = cleaned[k];
     if (passage.isEmpty && !keepEmpty) {
       emptied.add(passage.title);
-      removed.add(indexes[k]);
+      removed.add(text);
       continue;
     }
     text['body'] = passage.body;
     if (passage.title.isNotEmpty) text['title'] = passage.title;
   }
-  texts.removeWhere((text) => removed.contains(texts.indexOf(text)));
+  texts.removeWhere((text) => removed.contains(text));
   final after = cleaned.fold<int>(0, (sum, p) => sum + p.sentences.length);
   return (before: before, after: after, emptied: emptied);
 }

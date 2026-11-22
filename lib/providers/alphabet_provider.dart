@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../core/alphabet/alphabet_data.dart';
 import '../core/alphabet/alphabet_model.dart';
+import '../core/providers/safe_change_notifier.dart';
 import '../core/ui/ui_memory.dart';
 
-class AlphabetProvider extends ChangeNotifier {
+class AlphabetProvider extends ChangeNotifier with SafeChangeNotifier {
   String _selectedChar = 'A';
   LetterCategory _selectedCategory = LetterCategory.all;
 

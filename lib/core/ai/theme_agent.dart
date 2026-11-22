@@ -56,14 +56,14 @@ class GeneratedSentence {
         if (phrases.isNotEmpty) 'phrases': phrases,
       };
 
-  factory GeneratedSentence.fromJson(Map<String, dynamic> json) =>
-      GeneratedSentence(
-        text: (json['text'] ?? '').toString().trim(),
-        translation: (json['translation'] ?? '').toString().trim().isEmpty
-            ? null
-            : (json['translation'] as String).trim(),
-        phrases: readPhraseList(json['phrases']),
-      );
+  factory GeneratedSentence.fromJson(Map<String, dynamic> json) {
+    final translation = (json['translation'] ?? '').toString().trim();
+    return GeneratedSentence(
+      text: (json['text'] ?? '').toString().trim(),
+      translation: translation.isEmpty ? null : translation,
+      phrases: readPhraseList(json['phrases']),
+    );
+  }
 }
 
 /// Reads a phrase list, ignoring anything that is not a non-empty string.

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
@@ -7,7 +9,6 @@ import '../../core/mdx/entry_speech.dart';
 import '../../core/mdx/mdx_entry.dart';
 import '../../providers/entry_speech_provider.dart';
 import '../../providers/settings_provider.dart';
-import 'speakable_selection.dart';
 
 class WordDefinitionView extends StatefulWidget {
   final MdxEntry entry;
@@ -29,14 +30,26 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
   int _selectedTabIndex = 0;
   String _selectedText = '';
   final AudioManager _audioManager = AudioManager();
+  String? _cachedBaseSource;
+  ({String html, List<EntryUtterance> utterances})? _cachedBaseSpeech;
+
+  ({String html, List<EntryUtterance> utterances}) _baseSpeech(String html) {
+    if (_cachedBaseSource == html && _cachedBaseSpeech != null) {
+      return _cachedBaseSpeech!;
+    }
+    final parsed = prepareEntrySpeech(html, speaking: null);
+    _cachedBaseSource = html;
+    _cachedBaseSpeech = parsed;
+    return parsed;
+  }
 
   @override
   void didUpdateWidget(WordDefinitionView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.entry.word != widget.entry.word) {
-      setState(() {
-        _selectedTabIndex = 0;
-      });
+      _selectedTabIndex = 0;
+      _cachedBaseSource = null;
+      _cachedBaseSpeech = null;
     }
   }
 
@@ -49,11 +62,9 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
     final panels = widget.entry.panels;
 
     if (tabs.isEmpty || panels.isEmpty) {
-      return SpeakableSelectionArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: _buildHtmlContent(widget.entry.rawHtml, isDark),
-        ),
+      return SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: _buildHtmlContent(widget.entry.rawHtml, isDark),
       );
     }
 
@@ -134,12 +145,10 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
 
         // Active Panel HTML Content
         Expanded(
-          child: SpeakableSelectionArea(
-            child: SingleChildScrollView(
-              key: ValueKey('${widget.entry.word}_$_selectedTabIndex'),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              child: _buildHtmlContent(activeContent, isDark),
-            ),
+          child: SingleChildScrollView(
+            key: ValueKey('${widget.entry.word}_$_selectedTabIndex'),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: _buildHtmlContent(activeContent, isDark),
           ),
         ),
       ],
@@ -194,15 +203,7 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
   }
 
   Widget _buildHtmlContent(String html, bool isDark) {
-    // The reader adds a speaker link to every 词语搭配 / 权威例句 line; the
-    // indices it hands back address the same list the links carry. The line
-    // being read is marked so it can be coloured.
-    final speech = context.watch<EntrySpeechProvider>();
-    final speaking = speech.isPlaying &&
-            speech.isReading([for (final line in extractEntryUtterances(html)) line.text])
-        ? speech.currentIndex
-        : null;
-    final prepared = prepareEntrySpeech(html, speaking: speaking);
+    final base = _baseSpeech(html);
     final primaryColor = Theme.of(context).colorScheme.primary;
     final primaryHex =
         '#${primaryColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
@@ -221,49 +222,65 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
       border: borderColor,
     );
 
-    return SelectionArea(
-      onSelectionChanged: (content) => _selectedText = content?.plainText ?? '',
-      contextMenuBuilder: (menuContext, state) => _selectionMenu(state),
-      child: HtmlWidget(
-        prepared.html,
-        textStyle: TextStyle(
-          fontSize: 15.0 * widget.fontSizeScale,
-          height: 1.6,
-        ),
-        customStylesBuilder: entryStyles,
-        onTapUrl: (url) {
-          if (url.startsWith('speech://')) {
-            final index = int.tryParse(url.substring('speech://'.length));
-            if (index != null && index < prepared.utterances.length) {
-              final settings = context.read<SettingsProvider>();
-              context.read<EntrySpeechProvider>().playOne(
-                prepared.utterances[index],
-                rate: settings.speechRate,
-                accent: accentForLanguage(settings.ttsLanguage),
-                engine: settings.speechEngine,
-                volume: settings.speechVolume,
-              );
-            }
-            return true;
-          }
-          if (url.startsWith('sound://')) {
-            final soundKey = url.substring('sound://'.length);
-            _audioManager.playWord(word: widget.entry.word, soundKey: soundKey);
-            return true;
-          } else if (url.startsWith('entry://')) {
-            final target = url.substring('entry://'.length);
-            widget.onWordTap?.call(target);
-            return true;
-          } else {
-            final cleaned = url.replaceAll(RegExp(r'[^a-zA-Z\-]'), '');
-            if (cleaned.isNotEmpty) {
-              widget.onWordTap?.call(cleaned);
-              return true;
-            }
-          }
-          return false;
-        },
-      ),
+    return Builder(
+      builder: (context) {
+        final speaking = context.select<EntrySpeechProvider, int?>((speech) {
+          if (!speech.isPlaying) return null;
+          return speech.isReadingUtterances(base.utterances)
+              ? speech.currentIndex
+              : null;
+        });
+        final prepared = speaking == null
+            ? base
+            : prepareEntrySpeech(html, speaking: speaking);
+
+        return SelectionArea(
+          onSelectionChanged: (content) =>
+              _selectedText = content?.plainText ?? '',
+          contextMenuBuilder: (menuContext, state) => _selectionMenu(state),
+          child: HtmlWidget(
+            prepared.html,
+            textStyle: TextStyle(
+              fontSize: 15.0 * widget.fontSizeScale,
+              height: 1.6,
+            ),
+            customStylesBuilder: entryStyles,
+            onTapUrl: (url) {
+              if (url.startsWith('speech://')) {
+                final index = int.tryParse(url.substring('speech://'.length));
+                if (index != null && index < prepared.utterances.length) {
+                  final settings = context.read<SettingsProvider>();
+                  unawaited(context.read<EntrySpeechProvider>().playOne(
+                    prepared.utterances[index],
+                    rate: settings.speechRate,
+                    accent: accentForLanguage(settings.ttsLanguage),
+                    engine: settings.speechEngine,
+                    volume: settings.speechVolume,
+                  ));
+                }
+                return true;
+              }
+              if (url.startsWith('sound://')) {
+                final soundKey = url.substring('sound://'.length);
+                unawaited(_audioManager.playWord(
+                    word: widget.entry.word, soundKey: soundKey));
+                return true;
+              } else if (url.startsWith('entry://')) {
+                final target = url.substring('entry://'.length);
+                widget.onWordTap?.call(target);
+                return true;
+              } else {
+                final cleaned = url.replaceAll(RegExp(r'[^a-zA-Z\-]'), '');
+                if (cleaned.isNotEmpty) {
+                  widget.onWordTap?.call(cleaned);
+                  return true;
+                }
+              }
+              return false;
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -296,6 +313,8 @@ class _WordDefinitionViewState extends State<WordDefinitionView> {
       text,
       rate: settings.speechRate,
       accent: accentForLanguage(settings.ttsLanguage),
+      engine: settings.speechEngine,
+      volume: settings.speechVolume,
     );
   }
 

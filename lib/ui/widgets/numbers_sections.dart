@@ -5,7 +5,6 @@ import '../../core/numbers/number_data.dart';
 import '../../core/numbers/number_model.dart';
 import '../../core/numbers/number_training.dart';
 import '../../providers/numbers_provider.dart';
-import '../../providers/settings_provider.dart';
 
 /// The 英 /美音 colours the module uses everywhere, matching the IPA screen.
 const Color kUkColor = Color(0xFF1E40AF);
@@ -34,10 +33,7 @@ class _AccentLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final provider = context.watch<NumbersProvider>();
-    final settings = context.watch<SettingsProvider>();
-    // The engine is a settings-panel choice; the drill just follows it.
-    provider.speechEngine = settings.speechEngine;
+    final provider = context.read<NumbersProvider>();
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -813,11 +809,11 @@ class _NumbersTrainingSectionState extends State<NumbersTrainingSection> {
                   controller: _countController,
                   keyboardType: TextInputType.number,
                   style: const TextStyle(fontSize: 12.5),
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     hintText: '输入任意数量，最多 ${NumbersLimits.maxTrainingCount} 个',
-                    border: const OutlineInputBorder(),
+                    border: OutlineInputBorder(),
                   ),
                   onSubmitted: (value) {
                     final parsed = int.tryParse(value.trim());

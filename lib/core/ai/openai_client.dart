@@ -1,9 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:langchain/langchain.dart';
-import 'package:langchain_openai/langchain_openai.dart';
-import 'package:openai_dart/openai_dart.dart' as oai;
 
 import 'ai_config.dart';
 
@@ -30,38 +28,31 @@ class AiReply {
   final String? reasoning;
 }
 
-/// Chat completions against an OpenAI-compatible endpoint.
-///
-/// The transport is `langchain_openai`'s [ChatOpenAI] rather than a hand-rolled
-/// POST: it owns request/response mapping, retries and error types, and the same
-/// `BaseChatModel` interface is what every other provider in langchain_dart
-/// speaks. This class adds the app's configuration, its timeout, the reasoning
-/// effort knob and the user-facing error wording.
+/// Chat completions against an OpenAI-compatible endpoint over plain REST.
 class OpenAiClient {
   OpenAiClient({
     required this.config,
     http.Client? httpClient,
     this.timeout = const Duration(seconds: 90),
-  }) : _http = httpClient ?? http.Client() {
-    _chat = ChatOpenAI(
-      apiKey: config.apiKey.trim().isEmpty ? null : config.apiKey.trim(),
-      baseUrl: config.apiBaseUrl,
-      client: _http,
-      defaultOptions: ChatOpenAIOptions(model: config.model),
-    );
-  }
+  }) : _http = httpClient ?? http.Client();
 
   final AiConfig config;
   final http.Client _http;
   final Duration timeout;
 
-  late final ChatOpenAI _chat;
+  Map<String, String> _headers({bool jsonBody = false}) {
+    final headers = <String, String>{'Accept': 'application/json'};
+    if (jsonBody) {
+      headers['Content-Type'] = 'application/json; charset=utf-8';
+    }
+    final key = config.apiKey.trim();
+    if (key.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $key';
+    }
+    return headers;
+  }
 
   /// Sends [system] + [user] and returns the answer with its reasoning.
-  ///
-  /// JSON mode is deliberately not requested: compatible servers disagree about
-  /// `responseFormat`, and a prompt that asks for JSON plus a lenient parser
-  /// works on all of them.
   Future<AiReply> complete({
     required String system,
     required String user,
@@ -72,6 +63,7 @@ class OpenAiClient {
     if (!config.isConfigured) {
       throw const AiException('尚未配置 AI 接口，请到设置里填写 Base URL 与模型');
     }
+    final effectiveTimeout = timeout ?? this.timeout;
     try {
       try {
         return await _invoke(
@@ -80,11 +72,9 @@ class OpenAiClient {
           temperature: temperature,
           maxTokens: maxTokens,
           effort: config.reasoningEffort,
-          timeout: timeout,
+          timeout: effectiveTimeout,
         );
-      } on oai.ApiException catch (e) {
-        // Older servers reject the parameter outright. Asking again without it
-        // is cheaper than making the reader discover a toggle.
+      } on _ApiHttpError catch (e) {
         if (!_rejectsReasoning(e)) rethrow;
         return await _invoke(
           system: system,
@@ -92,19 +82,19 @@ class OpenAiClient {
           temperature: temperature,
           maxTokens: maxTokens,
           effort: null,
-          timeout: timeout,
+          timeout: effectiveTimeout,
         );
       }
     } on AiException {
       rethrow;
     } on TimeoutException {
-      throw AiException('接口超时（${(timeout ?? this.timeout).inSeconds} 秒没有响应）');
-    } on oai.ApiException catch (e) {
-      throw AiException(_statusMessage(e.statusCode, e.message));
-    } on oai.OpenAIException catch (e) {
-      throw AiException('接口调用失败：${e.message}');
+      throw AiException('接口超时（${effectiveTimeout.inSeconds} 秒没有响应）');
+    } on _ApiHttpError catch (e) {
+      throw AiException(_redact(_statusMessage(e.statusCode, e.message)));
+    } on FormatException {
+      throw const AiException('接口返回内容无法解析为 JSON');
     } on Exception catch (e) {
-      throw AiException('无法连接接口：$e');
+      throw AiException(_redact('无法连接接口：$e'));
     }
   }
 
@@ -114,49 +104,99 @@ class OpenAiClient {
     required double temperature,
     required int? maxTokens,
     required AiReasoningEffort? effort,
-    Duration? timeout,
+    required Duration timeout,
   }) async {
-    final reply = await _chat(
-      [ChatMessage.system(system), ChatMessage.humanText(user)],
-      options: ChatOpenAIOptions(
-        model: config.model,
-        temperature: temperature,
-        maxTokens: maxTokens,
-        reasoningEffort: effort == null ? null : _chatEffort(effort),
-      ),
-    ).timeout(timeout ?? this.timeout);
+    final payload = <String, dynamic>{
+      'model': config.model.trim(),
+      'messages': [
+        {'role': 'system', 'content': system},
+        {'role': 'user', 'content': user},
+      ],
+      'temperature': temperature,
+      'max_tokens': ?maxTokens,
+      if (effort != null) 'reasoning_effort': effort.name,
+    };
 
-    final text = reply.contentAsString;
+    final uri = Uri.parse(config.chatCompletionsUrl);
+    final res = await _http
+        .post(uri, headers: _headers(jsonBody: true), body: jsonEncode(payload))
+        .timeout(timeout);
+
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _ApiHttpError(res.statusCode, _extractErrorDetail(res.body));
+    }
+
+    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+    if (decoded is! Map) {
+      throw const AiException('接口返回格式异常');
+    }
+    final choices = decoded['choices'];
+    if (choices is! List || choices.isEmpty || choices.first is! Map) {
+      throw const AiException('接口没有返回 choices');
+    }
+    final message = (choices.first as Map)['message'];
+    if (message is! Map) {
+      throw const AiException('接口返回缺少 message');
+    }
+
+    final reasoningParts = <String>[];
+    for (final key in const ['reasoning_content', 'reasoning']) {
+      final raw = message[key];
+      if (raw is String && raw.trim().isNotEmpty) {
+        reasoningParts.add(raw.trim());
+      }
+    }
+
+    final rawContent = message['content'];
+    String text = '';
+    if (rawContent is String) {
+      text = rawContent;
+    } else if (rawContent is List) {
+      final textBuf = StringBuffer();
+      for (final block in rawContent) {
+        if (block is! Map) continue;
+        final type = block['type'];
+        if (type == 'reasoning' && block['reasoning'] is String) {
+          final r = (block['reasoning'] as String).trim();
+          if (r.isNotEmpty) reasoningParts.add(r);
+        } else if (block['text'] is String) {
+          textBuf.write(block['text'] as String);
+        }
+      }
+      text = textBuf.toString();
+    }
+
     if (text.trim().isEmpty) {
       throw const AiException('接口返回了空内容');
     }
-    final reasoning = reply.content
-        .whereType<AIChatMessageReasoningBlock>()
-        .map((block) => block.reasoning.trim())
-        .where((part) => part.isNotEmpty)
-        .join('\n\n');
+    final reasoning = reasoningParts.join('\n\n').trim();
     return AiReply(
       text: text,
       reasoning: reasoning.isEmpty ? null : reasoning,
     );
   }
 
-  /// The model ids the endpoint advertises — the reader's way to find out what
-  /// a host actually serves instead of guessing names.
+  /// The model ids the endpoint advertises.
   Future<List<String>> listModels() async {
     if (!config.isConfigured) {
       throw const AiException('先把 Base URL 填上，才能读取模型列表');
     }
-    final client = oai.OpenAIClient(
-      config: oai.OpenAIConfig(
-        authProvider: oai.ApiKeyProvider(config.apiKey.trim()),
-        baseUrl: config.apiBaseUrl,
-      ),
-      httpClient: _http,
-    );
+    final uri = Uri.parse('${config.apiBaseUrl}/models');
     try {
-      final list = await client.models.list().timeout(timeout);
-      final ids = [for (final model in list.data) model.id]..sort();
+      final res = await _http.get(uri, headers: _headers()).timeout(timeout);
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        throw _ApiHttpError(res.statusCode, _extractErrorDetail(res.body));
+      }
+      final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+      if (decoded is! Map || decoded['data'] is! List) {
+        throw const AiException('模型列表格式异常');
+      }
+      final ids = <String>[
+        for (final item in decoded['data'] as List)
+          if (item is Map && item['id'] is String)
+            (item['id'] as String).trim(),
+      ]..removeWhere((id) => id.isEmpty);
+      ids.sort();
       if (ids.isEmpty) {
         throw const AiException('接口没有返回任何模型');
       }
@@ -165,30 +205,37 @@ class OpenAiClient {
       rethrow;
     } on TimeoutException {
       throw AiException('读取模型列表超时（${timeout.inSeconds} 秒）');
-    } on oai.ApiException catch (e) {
-      throw AiException(_statusMessage(e.statusCode, e.message));
-    } on oai.OpenAIException catch (e) {
-      throw AiException('读取模型列表失败：${e.message}');
+    } on _ApiHttpError catch (e) {
+      throw AiException(_redact(_statusMessage(e.statusCode, e.message)));
+    } on FormatException {
+      throw const AiException('模型列表返回内容无法解析为 JSON');
     } on Exception catch (e) {
-      throw AiException('无法连接接口：$e');
+      throw AiException(_redact('无法连接接口：$e'));
     }
   }
 
-  static ChatOpenAIReasoningEffort _chatEffort(AiReasoningEffort effort) =>
-      ChatOpenAIReasoningEffort.values.firstWhere(
-        (value) => value.name == effort.name,
-        orElse: () => ChatOpenAIReasoningEffort.low,
-      );
+  static String _extractErrorDetail(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map) {
+        final err = decoded['error'];
+        if (err is Map && err['message'] != null) {
+          return '${err['message']}';
+        }
+        if (err is String) return err;
+        if (decoded['message'] != null) return '${decoded['message']}';
+      }
+    } catch (_) {}
+    final trimmed = body.trim();
+    return trimmed.length > 200 ? trimmed.substring(0, 200) : trimmed;
+  }
 
-  static bool _rejectsReasoning(oai.ApiException error) {
+  static bool _rejectsReasoning(_ApiHttpError error) {
     if (error.statusCode != 400 && error.statusCode != 422) return false;
-    final text =
-        '${error.message} ${error.code ?? ''} ${error.type ?? ''}'.toLowerCase();
+    final text = error.message.toLowerCase();
     return text.contains('reasoning') || text.contains('unsupported');
   }
 
-  /// Turns the usual failures into one sentence each; anything else keeps the
-  /// server's own words so a proxy can say what it wants.
   String _statusMessage(int statusCode, String detail) {
     final trimmed = detail.trim();
     final suffix = trimmed.isEmpty ? '' : '·$trimmed';
@@ -205,5 +252,17 @@ class OpenAiClient {
     }
   }
 
+  String _redact(String message) {
+    final secret = config.apiKey.trim();
+    if (secret.length < 4) return message;
+    return message.replaceAll(secret, '***');
+  }
+
   void close() => _http.close();
+}
+
+class _ApiHttpError implements Exception {
+  const _ApiHttpError(this.statusCode, this.message);
+  final int statusCode;
+  final String message;
 }

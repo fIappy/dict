@@ -23,6 +23,8 @@ void speakSelection(BuildContext context, String text) {
     trimmed,
     rate: settings.speechRate,
     accent: accentForLanguage(settings.ttsLanguage),
+    engine: settings.speechEngine,
+    volume: settings.speechVolume,
   );
 }
 

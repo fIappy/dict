@@ -48,8 +48,10 @@ Future<bool> awaitPlayback({
   required Duration minPlausible,
   required Duration durationWait,
   required Duration Function(Duration? reported) stallGuard,
+  Stream<void>? cancellations,
 }) async {
   final finished = Completer<void>();
+  final cancelled = Completer<void>();
   final reported = Completer<Duration?>();
   final started = Stopwatch()..start();
 
@@ -61,21 +63,56 @@ Future<bool> awaitPlayback({
   final durationSub = durations.listen((value) {
     if (!reported.isCompleted) reported.complete(value);
   });
+  final cancelSub = cancellations?.listen((_) {
+    if (!cancelled.isCompleted) cancelled.complete();
+  });
+
+  Timer? durationTimer;
+  Timer? guardTimer;
 
   try {
     await start();
-    final duration = await Future.any<Duration?>([
-      reported.future,
-      Future<Duration?>.delayed(durationWait),
-    ]);
+    if (cancelled.isCompleted) return false;
+
+    Duration? duration;
+    if (!reported.isCompleted) {
+      final durationOrTimeout = Completer<Duration?>();
+      unawaited(reported.future.then((d) {
+        if (!durationOrTimeout.isCompleted) durationOrTimeout.complete(d);
+      }));
+      unawaited(cancelled.future.then((_) {
+        if (!durationOrTimeout.isCompleted) durationOrTimeout.complete(null);
+      }));
+      durationTimer = Timer(durationWait, () {
+        if (!durationOrTimeout.isCompleted) durationOrTimeout.complete(null);
+      });
+      duration = await durationOrTimeout.future;
+      durationTimer.cancel();
+    } else {
+      duration = await reported.future;
+    }
+
+    if (cancelled.isCompleted) return false;
     if (finished.isCompleted) return true;
-    await Future.any<void>([
-      finished.future,
-      Future<void>.delayed(stallGuard(duration)),
-    ]);
-    return finished.isCompleted;
+
+    final done = Completer<void>();
+    unawaited(finished.future.then((_) {
+      if (!done.isCompleted) done.complete();
+    }));
+    unawaited(cancelled.future.then((_) {
+      if (!done.isCompleted) done.complete();
+    }));
+    guardTimer = Timer(stallGuard(duration), () {
+      if (!done.isCompleted) done.complete();
+    });
+    await done.future;
+    guardTimer.cancel();
+    return finished.isCompleted && !cancelled.isCompleted;
   } finally {
+    durationTimer?.cancel();
+    guardTimer?.cancel();
     await completeSub.cancel();
     await durationSub.cancel();
+    await cancelSub?.cancel();
   }
 }

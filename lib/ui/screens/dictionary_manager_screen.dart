@@ -154,7 +154,7 @@ class _DictionaryManagerScreenState extends State<DictionaryManagerScreen> {
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: '重新加载词典',
-            onPressed: () => dictProvider.initialize(),
+            onPressed: () => dictProvider.refreshDictionaries(),
           ),
         ],
       ),

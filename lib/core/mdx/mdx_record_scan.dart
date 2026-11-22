@@ -20,10 +20,15 @@ bool looksUtf16Le(Uint8List bytes) {
 ///
 /// A UTF-16LE record ends with two NUL bytes on an even boundary; scanning for a
 /// single NUL there would stop at the second byte of the first character.
-int findRecordTerminator(Uint8List bytes, int from, {required bool utf16}) {
+int findRecordTerminator(
+  Uint8List bytes,
+  int from, {
+  required bool utf16,
+  bool align = true,
+}) {
   if (utf16) {
     var i = from;
-    if (i.isOdd) i++;
+    if (align && i.isOdd) i++;
     for (; i + 1 < bytes.length; i += 2) {
       if (bytes[i] == 0 && bytes[i + 1] == 0) return i;
     }

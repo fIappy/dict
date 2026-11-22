@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -57,10 +58,10 @@ Future<bool> openChildWindow(ChildWindow window, String sceneId) async {
     );
     // Nobody reads the child's output; without draining, a chatty child would
     // eventually block writing into a full pipe.
-    process.stdout.drain<void>();
-    process.stderr.drain<void>();
+    unawaited(process.stdout.drain<void>());
+    unawaited(process.stderr.drain<void>());
     _openWindows[key] = process;
-    process.exitCode.then((_) => _openWindows.remove(key));
+    unawaited(process.exitCode.then((_) => _openWindows.remove(key)));
     return true;
   } on Exception catch (e) {
     debugPrint('Could not open the ${window.windowTitle} window: $e');

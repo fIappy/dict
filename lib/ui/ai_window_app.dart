@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../core/frequency/frequency_service.dart';
 import '../core/themes/theme_service.dart';
 import '../providers/ai_practice_provider.dart';
 import '../providers/entry_speech_provider.dart';
@@ -61,7 +62,7 @@ class _AiWindowState extends State<_AiWindow> {
     try {
       await windowManager.ensureInitialized();
       await windowManager.waitUntilReadyToShow(
-        WindowOptions(size: const Size(760, 940), center: true, title: 'AI 练习'),
+        const WindowOptions(size: Size(760, 940), center: true, title: 'AI 练习'),
         () async {
           await windowManager.show();
           await windowManager.focus();
@@ -71,8 +72,11 @@ class _AiWindowState extends State<_AiWindow> {
       debugPrint('Window sizing unavailable: $e');
     }
 
-    await settings.initialize();
-    await themes.initialize();
+    await Future.wait([
+      settings.initialize(),
+      themes.initialize(),
+      FrequencyService().init(),
+    ]);
     if (!mounted) return;
 
     final scene = themes.scenes.where((s) => s.id == widget.sceneId).firstOrNull;
@@ -90,7 +94,9 @@ class _AiWindowState extends State<_AiWindow> {
 
   @override
   Widget build(BuildContext context) {
-    final settings = context.watch<SettingsProvider>();
+    final themeMode = context.select<SettingsProvider, ThemeMode>(
+      (settings) => settings.themeMode,
+    );
     final Widget body;
     if (_failed) {
       body = const Center(
@@ -110,11 +116,9 @@ class _AiWindowState extends State<_AiWindow> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      themeMode: settings.themeMode,
+      themeMode: themeMode,
       home: Scaffold(
         body: SafeArea(child: body),
-        // The window title bar is the frame; an in-app bar here would repeat it.
-        backgroundColor: Theme.of(context).colorScheme.surface,
       ),
     );
   }

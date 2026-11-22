@@ -2,8 +2,9 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/frequency/frequency_service.dart';
+import '../core/providers/safe_change_notifier.dart';
 
-class FrequencyProvider extends ChangeNotifier {
+class FrequencyProvider extends ChangeNotifier with SafeChangeNotifier {
   final FrequencyService _service = FrequencyService();
 
   int _startRank = 1;
@@ -29,6 +30,9 @@ class FrequencyProvider extends ChangeNotifier {
     return _service.getWordsByRange(itemStartRank, itemEndRank);
   }
 
+  int get maxRank =>
+      _service.totalRankedWords > 0 ? _service.totalRankedWords : 53925;
+
   Future<void> initialize() async {
     _isLoading = true;
     notifyListeners();
@@ -40,7 +44,7 @@ class FrequencyProvider extends ChangeNotifier {
     final savedStart = prefs.getInt('frequency_range_start') ?? 1;
     final savedEnd = prefs.getInt('frequency_range_end') ?? 100;
 
-    final maxLimit = _service.totalRankedWords > 0 ? _service.totalRankedWords : 20000;
+    final maxLimit = _service.totalRankedWords > 0 ? _service.totalRankedWords : 53925;
     _startRank = savedStart.clamp(1, maxLimit);
     _endRank = savedEnd.clamp(_startRank, maxLimit);
     _currentPage = 1;
@@ -49,7 +53,7 @@ class FrequencyProvider extends ChangeNotifier {
   }
 
   Future<void> setRange(int start, int end) async {
-    final maxLimit = _service.totalRankedWords > 0 ? _service.totalRankedWords : 20000;
+    final maxLimit = _service.totalRankedWords > 0 ? _service.totalRankedWords : 53925;
     final s = start.clamp(1, maxLimit);
     final e = end.clamp(s, maxLimit);
     _startRank = s;

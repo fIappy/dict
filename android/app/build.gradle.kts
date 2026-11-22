@@ -28,6 +28,11 @@ android {
     // copyPiperModels, which every merge*Assets task depends on.
     sourceSets["main"].assets.srcDir(bundledKokoroModels.get().asFile)
 
+    androidResources {
+        // Avoid double-deflating the already compressed 141 MB kokoro.zip bundle.
+        noCompress += "zip"
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

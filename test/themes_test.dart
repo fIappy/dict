@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:local_dict/core/frequency/frequency_service.dart';
 import 'package:local_dict/core/themes/theme_service.dart';
 import 'package:local_dict/providers/dictionary_provider.dart';
 import 'package:local_dict/providers/themes_provider.dart';
@@ -38,8 +40,8 @@ void main() {
       await service.init();
 
       expect(service.isLoaded, isTrue);
-      expect(service.scenes.length, 39,
-          reason: 'the curated taxonomy has 39 themes');
+      expect(service.scenes.length, 57,
+          reason: 'the curated taxonomy has 57 themes');
       expect(service.totalWords, 17630);
       for (final scene in service.scenes) {
         expect(scene.label, isNotEmpty);
@@ -48,6 +50,8 @@ void main() {
             reason: '${scene.id} is flat: one group of words');
         expect(scene.count, scene.groups.single.words.length,
             reason: '${scene.id} count drifted');
+        expect(scene.count, lessThanOrEqualTo(600),
+            reason: '${scene.id} (${scene.label}) should stay focused (<=600 words)');
         expect(scene.words.length, scene.count);
         for (final word in scene.groups.single.words) {
           expect(word, isNotEmpty);
@@ -116,6 +120,37 @@ void main() {
           reason: 'unclassified: ${missing.difference(known)}');
       expect(missing, containsAll(known));
     });
+
+    test('FrequencyService loads 5.4w COCA list and covers theme words',
+        () async {
+      final expectedJson = json.decode(
+        File('assets/data/coca_60000.json').readAsStringSync(),
+      ) as List<dynamic>;
+      final expectedOrder = expectedJson.cast<String>();
+      expect(expectedOrder.length, greaterThan(53000));
+
+      final freq = FrequencyService();
+      await freq.init();
+      expect(freq.rankedWords, orderedEquals(expectedOrder));
+
+      final themes = ThemeService();
+      await themes.init();
+      var covered = 0;
+      var total = 0;
+      for (final scene in themes.scenes) {
+        for (final word in scene.words) {
+          total++;
+          final info = freq.getFrequency(word);
+          if (info == null) continue;
+          covered++;
+          expect(info.rank, isPositive);
+          expect(info.frequencyLabel, 'COCA #${info.rank}');
+        }
+      }
+      expect(total, 17630);
+      expect(covered, greaterThanOrEqualTo(17550));
+      expect(freq.getFrequency('not_in_coca_list'), isNull);
+    });
   });
 
   group('Themes provider', () {
@@ -158,7 +193,7 @@ void main() {
     test('a theme longer than a page pages at 50 words', () async {
       final provider = ThemesProvider();
       await provider.initialize();
-      // 器物与材料 holds 1099 words — the longest theme.
+      // Pick the longest theme (饮食与烹饪, 569 words) to verify pagination.
       final scene = provider.scenes.reduce(
           (a, b) => a.count >= b.count ? a : b);
       provider.select(scene.id);
@@ -183,7 +218,7 @@ void main() {
         () async {
       final provider = ThemesProvider();
       await provider.initialize();
-      // The smallest theme (天文与宇宙, 75 words) still exceeds one page — every
+      // The smallest theme (天文与宇宙探索, 63 words) still exceeds one page — every
       // theme in the taxonomy does — so the last page is a partial slice.
       final scene = provider.scenes.reduce(
           (a, b) => a.count <= b.count ? a : b);
@@ -195,6 +230,27 @@ void main() {
       expect(provider.facetWords(group).length, size);
       provider.setFacetPage(group, 1);
       expect(provider.facetWords(group).length, group.words.length - size);
+    });
+
+    test('macro domains partition all 57 scenes and filter visibleScenes',
+        () async {
+      final provider = ThemesProvider();
+      await provider.initialize();
+
+      final covered = <String>{};
+      for (final domain in ThemesProvider.domains.where((d) => d.id != 'all')) {
+        provider.setDomain(domain.id);
+        expect(provider.visibleScenes, isNotEmpty,
+            reason: '${domain.id} should hold scenes');
+        for (final scene in provider.visibleScenes) {
+          expect(covered.add(scene.id), isTrue,
+              reason: '${scene.id} fell into two domains');
+        }
+      }
+      expect(covered, hasLength(provider.sceneCount));
+
+      provider.setDomain('all');
+      expect(provider.visibleScenes, hasLength(provider.sceneCount));
     });
   });
 
@@ -232,6 +288,14 @@ void main() {
     testWidgets('the longest theme pages in place', (tester) async {
       final provider = await pumpScreen(tester);
       final long = provider.scenes.reduce((a, b) => a.count >= b.count ? a : b);
+      await tester.scrollUntilVisible(
+        find.text(long.label),
+        300,
+        scrollable: find.descendant(
+          of: find.byType(ListView),
+          matching: find.byType(Scrollable),
+        ),
+      );
       await tester.tap(find.text(long.label).first);
       await tester.pumpAndSettle();
 
@@ -250,6 +314,14 @@ void main() {
     testWidgets('the page label jumps to a typed page', (tester) async {
       final provider = await pumpScreen(tester);
       final long = provider.scenes.reduce((a, b) => a.count >= b.count ? a : b);
+      await tester.scrollUntilVisible(
+        find.text(long.label),
+        300,
+        scrollable: find.descendant(
+          of: find.byType(ListView),
+          matching: find.byType(Scrollable),
+        ),
+      );
       await tester.tap(find.text(long.label).first);
       await tester.pumpAndSettle();
 
@@ -266,6 +338,35 @@ void main() {
       expect(find.text('第 5 / $pages 页'), findsOneWidget);
       expect(provider.facetWords(group).first,
           group.words[ThemesProvider.facetPageSize * 4]);
+    });
+
+    testWidgets('domain filter chips narrow scenes and show reset option',
+        (tester) async {
+      final provider = await pumpScreen(tester);
+      await tester.tap(find.text('自然时空'));
+      await tester.pumpAndSettle();
+
+      expect(provider.domainId, 'nature');
+      expect(provider.visibleScenes, hasLength(8));
+      expect(find.text('50'), findsOneWidget);
+      expect(find.text('时间日期与周期'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('天文与宇宙探索'),
+        300,
+        scrollable: find.descendant(
+          of: find.byType(ListView),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      expect(find.text('57'), findsOneWidget);
+      expect(find.text('8 / 57 个场景 · 17630 条归属'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField).first, 'zzzznotaword');
+      await tester.pumpAndSettle();
+      expect(find.text('在全部 57 个场景中查看'), findsOneWidget);
+      await tester.tap(find.text('在全部 57 个场景中查看'));
+      await tester.pumpAndSettle();
+      expect(provider.domainId, 'all');
     });
   });
 }

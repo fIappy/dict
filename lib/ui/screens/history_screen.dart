@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/frequency/frequency_service.dart';
 import '../../core/models/history_item.dart';
@@ -50,17 +49,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
   String _formatRelativeTime(DateTime dateTime) {
     final now = DateTime.now();
     final diff = now.difference(dateTime);
+    String two(int n) => n.toString().padLeft(2, '0');
+    final hm = '${two(dateTime.hour)}:${two(dateTime.minute)}';
 
     if (diff.inMinutes < 1) {
       return '刚刚';
     } else if (diff.inMinutes < 60) {
       return '${diff.inMinutes}分钟前';
     } else if (diff.inHours < 24 && now.day == dateTime.day) {
-      return DateFormat('HH:mm').format(dateTime);
+      return hm;
     } else if (diff.inDays <= 1 || (diff.inHours < 48 && now.day - dateTime.day == 1)) {
-      return '昨天 ${DateFormat('HH:mm').format(dateTime)}';
+      return '昨天 $hm';
     } else {
-      return DateFormat('MM-dd HH:mm').format(dateTime);
+      return '${two(dateTime.month)}-${two(dateTime.day)} $hm';
     }
   }
 
@@ -173,18 +174,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
           Expanded(
             child: items.isEmpty
                 ? _buildEmptyState(theme)
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    itemCount: items.length,
-                    separatorBuilder: (_, _) => Divider(
-                      height: 1,
-                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                : ValueListenableBuilder<int>(
+                    valueListenable: FrequencyService().versionListenable,
+                    builder: (context, _, _) => ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      itemCount: items.length,
+                      separatorBuilder: (_, _) => Divider(
+                        height: 1,
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                      ),
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        final isSelected = dictProvider.currentWord?.toLowerCase() == item.word.toLowerCase();
+                        return _buildHistoryRow(context, item, isSelected, theme, isDark, histProvider);
+                      },
                     ),
-                    itemBuilder: (context, index) {
-                      final item = items[index];
-                      final isSelected = dictProvider.currentWord?.toLowerCase() == item.word.toLowerCase();
-                      return _buildHistoryRow(context, item, isSelected, theme, isDark, histProvider);
-                    },
                   ),
           ),
         ],
@@ -254,7 +258,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             ),
                           ),
                         ),
-                      ] else if (freq?.rank != null && freq!.rank! <= 5000) ...[
+                      ] else if (freq?.rank != null) ...[
                         const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
@@ -263,7 +267,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             borderRadius: BorderRadius.circular(3),
                           ),
                           child: Text(
-                            freq.frequencyLabel,
+                            freq!.frequencyLabel,
                             style: TextStyle(fontSize: 9.5, color: theme.hintColor),
                           ),
                         ),

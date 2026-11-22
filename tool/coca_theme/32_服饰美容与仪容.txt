@@ -1,0 +1,232 @@
+== 服饰美容与仪容（231 词）==
+476	wear	穿着
+1276	suit	西装，套装
+1286	shoe	鞋
+1293	clothes	衣服
+1296	dress	连衣裙；穿着
+1462	pocket	口袋
+1511	ring	戒指；环形
+1594	shirt	衬衫
+1721	fashion	时尚
+1808	hat	帽子
+1974	formal	正式的
+2005	coat	外套
+2021	jacket	夹克
+2057	cap	帽子；盖
+2091	boot	靴子
+2168	belt	腰带
+2353	button	钮扣
+2357	clothing	衣服
+2562	mask	面具
+2695	uniform	制服
+2742	glove	手套
+2982	makeup	化妆
+3030	jeans	牛仔裤
+3088	t-shirt	T恤
+3212	skirt	裙子
+3476	casual	休闲的
+3644	costume	戏服；服装
+3676	jewelry	珠宝
+3753	sock	袜子
+3780	helmet	头盔
+3872	outfit	服装；团队
+4004	collar	衣领
+4023	sleeve	袖子
+4135	beard	胡须
+4154	thread	线
+4213	sweater	毛衣
+4255	ribbon	丝带
+4281	shorts	短裤
+4343	laundry	洗衣；待洗衣物
+4486	crown	王冠
+4560	hood	兜帽
+4609	robe	长袍
+4626	gown	礼服 *
+4702	bead	珠子
+5072	shave	剃须
+5292	tattoo	纹身
+5327	jewel	珠宝
+5356	garment	衣服
+5385	scarf	围巾
+5452	don	穿上；先生
+5649	accessory	配件，饰品
+5681	sew	缝纫
+5726	underwear	内衣
+5777	blouse	女式衬衫 *
+5781	necklace	项链
+5786	perfume	香水
+5830	lace	花边；鞋带 *
+5864	vest	背心 *
+6077	salon	沙龙，美容院 *
+6120	cuff	袖口 *
+6131	earring	耳环
+6184	sunglasses	太阳镜
+6271	sneakers	胶底运动鞋
+6344	pearl	珍珠
+6366	trousers	裤子
+6421	veil	面纱
+6448	comb	梳头发
+6495	lipstick	口红
+6508	bracelet	手镯
+6558	razor	剃刀
+6655	bathe	沐浴
+6676	nude	裸的
+6712	bra	胸罩
+6744	fashionable	时髦的
+6886	gem	宝石
+6939	jersey	运动衫
+7125	apron	围裙 *
+7145	mustache	髭
+7175	seam	缝合线
+7194	ragged	衣衫褴褛的
+7195	sandal	凉鞋
+7359	cosmetic	化妆的；化妆品
+7374	stocking	长袜 *
+7447	cloak	斗篷
+7449	knit	编织
+7493	haircut	理发
+7610	wig	假发 *
+7690	stylish	时髦的
+7749	conditioner	护发素；空调
+7769	slipper	拖鞋 *
+7863	zip	拉链；疾驰
+7907	apparel	服装
+7941	pajamas	睡衣
+8147	revealing	暴露的
+8205	chic	时髦的
+8319	braid	辫子
+8325	barefoot	赤脚的
+8346	trendy	时髦的
+8352	lining	衬里 *
+8613	bearded	有须的
+8615	uniformed	穿制服的
+8642	stitch	缝
+8716	mantle	披风； mantle
+8911	styling	造型
+8922	cosmetics	化妆品 *
+8948	bikini	比基尼
+8956	fitting	合适的；试穿
+8968	shampoo	洗发水
+9185	clad	覆盖的；穿着
+9235	plaid	格子花呢（尤指苏格兰格子布）；格子花呢的、方格花纹的 *
+9260	zipper	拉链
+9334	sewing	缝纫
+9345	makeover	改造；改头换面
+9394	lotion	护肤液 *
+9566	attire	服装
+9577	clothe	给...穿衣
+9659	ponytail	马尾辫
+9672	baggy	宽松的
+9795	trappings	服饰，装饰 *
+9800	sweatshirt	圆领运动衫
+9827	hem	下摆，褶边 *
+10017	stylist	造型师
+10081	sunscreen	防晒霜 *
+10335	shawl	披肩 *
+10512	handbag	手提包
+10652	tunic	束腰外衣
+10739	lapel	翻领 *
+10741	tuxedo	无尾礼服 *
+10778	masked	戴假面具的
+10851	undress	使脱衣服
+10971	darn	织补
+10978	brim	帽檐，边 *
+10981	panties	女式内裤
+11338	overcoat	外套大衣
+11531	hooded	有罩盖的
+11550	blazer	西装外套
+11597	nightgown	女式睡衣
+11931	pendant	吊坠
+12014	garb	服装
+12077	swimsuit	游泳衣
+12163	bathrobe	浴衣
+12185	parka	派克大衣
+12312	mascara	睫毛膏
+12336	flip-flop	人字拖；反复无常
+12346	gloved	戴着手套的
+12354	embroider	刺绣
+12364	nudity	裸露
+12441	embroidered	绣花的
+12505	visor	帽檐，遮阳板
+12610	tailored	定制的
+12770	headdress	头饰
+12814	tights	紧身衣裤
+12841	sporty	运动风格的
+12879	footwear	鞋类
+13014	veiled	蒙上面纱的
+13053	eyeglass	眼镜
+13155	couture	高级时装
+13157	spinning	纺纱
+13167	vogue	时尚
+13174	sash	腰带；窗框
+13178	turban	头巾
+13228	hairstyle	发型
+13421	mannequin	人体模型；模特
+13481	cameo	刻有浮雕的宝石或贝壳
+13601	manicured	修剪整齐的
+13614	lingerie	女式内衣
+13619	bonnet	软帽
+13654	unzip	拉开拉链
+13698	raincoat	雨衣
+13717	moisturizer	润肤霜
+13816	cologne	科隆；古龙水
+13881	braided	编辫子的
+14344	jumpsuit	连衣裤
+14345	well-dressed	穿得很体面的
+14463	smartly	利落地；时髦地
+14480	gauntlet	长手套；夹道鞭打
+14533	mitt	手套
+14564	cardigan	开襟羊毛衫
+14628	kimono	和服
+14665	barbershop	理发店
+14712	manicure	美甲
+14822	topless	无上装的
+14901	thong	丁字裤；人字拖
+14905	wearer	穿用者
+14920	beret	贝雷帽
+14977	mitten	连指手套
+15002	turtleneck	高领衫
+15049	lacy	蕾丝的
+15087	brooch	胸针
+15144	hairdo	发型
+15341	lined	有内衬的
+15376	unbutton	解开纽扣
+15405	snowshoe	雪鞋
+15430	khakis	卡其裤
+15498	necktie	领带
+15545	knitting	编织
+15629	wristwatch	手表
+15696	corset	束身衣
+15720	waistband	腰头
+15726	well-worn	穿戴破旧的
+16012	bandanna	印花大手帕
+16159	face-lift	面部拉皮
+16175	underpants	内裤
+16222	supermodel	超级名模
+16266	legging	打底裤
+16297	coveralls	衣裤相连的工作服
+16355	smock	工作服
+16404	headband	发带
+16435	seamstress	女裁缝
+16503	pleated	有褶的
+16533	sleeveless	无袖的
+16652	sequin	亮片
+16663	sari	纱丽
+16681	frill	褶边；装饰
+16736	cropped	短款的；裁剪的
+16856	shaved	剃过的
+16893	dapper	衣冠楚楚的
+16930	neckline	领口
+16999	suspenders	背带
+17117	starched	浆硬的
+17136	frock	连衣裙
+17139	unkempt	蓬乱的
+17183	slicker	雨衣
+17208	wearing	令人疲惫的；穿戴
+17294	shaving	剃须；刨花
+17325	poncho	披风
+17381	regalia	盛装；徽记
+17422	bodice	紧身上衣
+17427	moccasin	莫卡辛鞋
+17445	windbreaker	防风夹克
+17491	threadbare	衣服磨薄了的

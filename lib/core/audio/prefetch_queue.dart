@@ -53,7 +53,7 @@ class PrefetchQueue {
     for (var index = 0; index < count; index++) {
       if (isCancelled?.call() ?? false) return;
       await prepareAt(index);
-      pending.remove(index);
+      unawaited(pending.remove(index));
       fill(index + 1);
       if (isCancelled?.call() ?? false) return;
       onStart?.call(index);

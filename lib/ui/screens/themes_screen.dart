@@ -115,7 +115,9 @@ class _ThemesScreenState extends State<ThemesScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 4, 14, 10),
               child: Text(
-                '${provider.sceneCount} 个场景 · ${provider.totalWords} 条归属',
+                scene == null && provider.domainId != 'all'
+                    ? '${provider.visibleScenes.length} / ${provider.sceneCount} 个场景 · ${provider.totalWords} 条归属'
+                    : '${provider.sceneCount} 个场景 · ${provider.totalWords} 条归属',
                 style: TextStyle(
                   fontSize: 11,
                   color: theme.hintColor,
@@ -128,72 +130,144 @@ class _ThemesScreenState extends State<ThemesScreen> {
     );
   }
 
+  Widget _buildDomainFilterBar(
+    BuildContext context,
+    ThemesProvider provider,
+  ) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(12, 2, 12, 6),
+      child: Row(
+        children: [
+          for (final domain in ThemesProvider.domains) ...[
+            ChoiceChip(
+              label: Text(
+                domain.label,
+                style: const TextStyle(fontSize: 12),
+              ),
+              selected: provider.domainId == domain.id,
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              onSelected: (_) => provider.setDomain(domain.id),
+            ),
+            if (domain != ThemesProvider.domains.last) const SizedBox(width: 6),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildSceneList(
     BuildContext context,
     ThemesProvider provider,
     bool isDark,
   ) {
     final scenes = provider.visibleScenes;
-    if (scenes.isEmpty) {
-      return const Center(
-        child: Text('没有匹配的场景', style: TextStyle(fontSize: 13)),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      itemCount: scenes.length,
-      itemBuilder: (context, index) {
-        final scene = scenes[index];
-        final theme = Theme.of(context);
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          elevation: 0,
-          color: isDark ? const Color(0xFF1E2430) : Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: BorderSide(
-              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-            ),
-          ),
-          child: ListTile(
-            dense: true,
-            title: Text(
-              scene.label,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-            ),
-            subtitle: scene.hint.isEmpty
-                ? null
-                : Text(
-                    scene.hint,
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      color: theme.hintColor,
-                      height: 1.35,
-                    ),
+    return Column(
+      children: [
+        _buildDomainFilterBar(context, provider),
+        Expanded(
+          child: scenes.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('没有匹配的场景', style: TextStyle(fontSize: 13)),
+                      if (provider.domainId != 'all') ...[
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () => provider.setDomain('all'),
+                          child: Text('在全部 ${provider.sceneCount} 个场景中查看'),
+                        ),
+                      ],
+                    ],
                   ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '${scene.count}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.primary,
-                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  itemCount: scenes.length,
+                  itemBuilder: (context, index) {
+                    final scene = scenes[index];
+                    final theme = Theme.of(context);
+                    final number = ThemesProvider.sceneNumberOf(scene);
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      elevation: 0,
+                      color: isDark ? const Color(0xFF1E2430) : Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(
+                          color: isDark
+                              ? const Color(0xFF334155)
+                              : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      child: ListTile(
+                        dense: true,
+                        leading: number == null
+                            ? null
+                            : Container(
+                                width: 28,
+                                height: 24,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primary.withValues(
+                                    alpha: 0.10,
+                                  ),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  number.toString().padLeft(2, '0'),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                        title: Text(
+                          scene.label,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: scene.hint.isEmpty
+                            ? null
+                            : Text(
+                                scene.hint,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: theme.hintColor,
+                                  height: 1.35,
+                                ),
+                              ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${scene.count}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              size: 18,
+                              color: theme.hintColor,
+                            ),
+                          ],
+                        ),
+                        onTap: () => provider.select(scene.id),
+                      ),
+                    );
+                  },
                 ),
-                const SizedBox(width: 4),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  size: 18,
-                  color: theme.hintColor,
-                ),
-              ],
-            ),
-            onTap: () => provider.select(scene.id),
-          ),
-        );
-      },
+        ),
+      ],
     );
   }
 

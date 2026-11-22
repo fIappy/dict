@@ -2,16 +2,16 @@ import 'dart:async';
 import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import '../services/dictionary_service.dart';
 import 'audio_background.dart';
 import 'ipa_asset.dart';
+import 'online_word_audio.dart';
 import 'playback_wait.dart';
 import 'prepared_pronunciation.dart';
 import 'sentence_voice.dart';
 import 'speech_clip_player.dart';
+import 'word_audio_cache_native.dart';
 
 class AudioManager implements SpeechClipPlayer {
   static final AudioManager _instance = AudioManager._();
@@ -19,7 +19,11 @@ class AudioManager implements SpeechClipPlayer {
   AudioManager._();
 
   final AudioPlayer _player = AudioPlayer();
-  final DictionaryService _dictService = DictionaryService();
+  final WordAudioCache _wordCache = WordAudioCache();
+  final StreamController<void> _cancellations = StreamController<void>.broadcast();
+  int _playId = 0;
+
+  WordAudioCache get wordCache => _wordCache;
 
   bool _isPlaying = false;
   String? _currentlyPlayingTag;
@@ -27,16 +31,9 @@ class AudioManager implements SpeechClipPlayer {
   bool get isPlaying => _isPlaying;
   String? get currentlyPlayingTag => _currentlyPlayingTag;
 
-  /// Plays a pronunciation for [word].
-  ///
-  /// Resolution order:
-  /// * **American** — the archive's own `.mdd` recording first (offline, exact),
-  ///   then an online dictionary voice, then OS text-to-speech.
-  /// * **British** — the bundled `.mdd` holds *American* recordings, so it is
-  ///   never used here; British playback goes online, then OS text-to-speech.
-  ///
-  /// The online step is what keeps a dictionary imported **without** its `.mdd`
-  /// audible: previously "美音" was a silent no-op on anything but Windows.
+  /// Plays an online pronunciation for [word], using the independent
+  /// 10,000-word [WordAudioCache] before hitting online voice endpoints, and
+  /// falling back to the OS voice when offline and uncached on Windows.
   Future<void> playWord({
     required String word,
     String? soundKey,
@@ -70,55 +67,29 @@ class AudioManager implements SpeechClipPlayer {
   /// Resolves [word]'s audio without playing it.
   ///
   /// The drill fills its queue with these ahead of time, so the configured gap
-  /// between words is the gap the reader hears instead of that plus a file read
-  /// or a download.
+  /// between words is the gap the reader hears instead of a network download.
   Future<PreparedPronunciation> prepareWord({
     required String word,
     String? soundKey,
     String accent = 'us',
   }) async {
-    if (accent == 'uk') {
-      final ukClip = await _cachedOnlineClip(word, 'uk');
-      return ukClip != null
-          ? PreparedPronunciation(word: word, path: ukClip)
-          : PreparedPronunciation(word: word);
+    final normAccent = normalizeWordCacheAccent(accent);
+    final cachedPath = await _wordCache.getPath(word, normAccent);
+    if (cachedPath != null) {
+      return PreparedPronunciation(word: word, path: cachedPath);
     }
 
-    final audioBytes = await _archiveAudio(word, soundKey);
-    if (audioBytes != null && audioBytes.isNotEmpty) {
-      try {
-        if (Platform.isWindows) {
-          // One file per word: the drill holds ten prepared clips at once, so a
-          // single shared temp name would let them overwrite each other.
-          final tempDir = await getTemporaryDirectory();
-          final safe = word.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
-          final tempFile = File(p.join(tempDir.path, 'mdd_us_$safe.mp3'));
-          await tempFile.writeAsBytes(audioBytes, flush: true);
-          return PreparedPronunciation(word: word, path: tempFile.path);
-        }
-        return PreparedPronunciation(word: word, bytes: audioBytes);
-      } catch (e) {
-        debugPrint('AudioPlayer error: $e');
+    final bytes = await fetchOnlineWordAudio(word, accent: normAccent);
+    if (bytes != null && bytes.isNotEmpty) {
+      final savedPath = await _wordCache.put(word, normAccent, bytes);
+      if (savedPath != null) {
+        return PreparedPronunciation(word: word, path: savedPath);
       }
+      return PreparedPronunciation(word: word, bytes: bytes);
     }
 
-    // No .mdd in this archive (an .mdx imported on its own): online voice.
-    final usClip = await _cachedOnlineClip(word, 'us');
-    if (usClip != null) {
-      return PreparedPronunciation(word: word, path: usClip);
-    }
-    // Nothing to play: the OS voice says it when its turn comes.
+    // Offline and uncached: OS voice reads it when its turn comes on Windows.
     return PreparedPronunciation(word: word);
-  }
-
-  /// Words, not sentences: the archive's own recording first.
-  Future<Uint8List?> _archiveAudio(String word, String? soundKey) async {
-    Uint8List? audioBytes;
-    if (soundKey != null && soundKey.isNotEmpty) {
-      audioBytes = await _dictService.getAudioBytes(soundKey);
-    }
-    audioBytes ??= await _dictService.getAudioBytes('$word.mp3');
-    return audioBytes;
   }
 
   /// Starts a prepared clip; returns once the sound has begun.
@@ -182,6 +153,8 @@ class AudioManager implements SpeechClipPlayer {
 
   /// Cuts the pronunciation in flight (the drill's loop uses this when stopped).
   Future<void> stopPronunciation() async {
+    _playId++;
+    if (!_cancellations.isClosed) _cancellations.add(null);
     _currentlyPlayingTag = null;
     _isPlaying = false;
     try {
@@ -189,32 +162,6 @@ class AudioManager implements SpeechClipPlayer {
     } catch (e) {
       debugPrint('Could not stop the pronunciation: $e');
     }
-  }
-
-  /// Downloads one dictionary-voice clip and caches it on disk.
-  ///
-  /// Returns the cached file path, or null when the network is unavailable.
-  Future<String?> _cachedOnlineClip(String word, String accent) async {
-    try {
-      final tempDir = await getTemporaryDirectory();
-      final safe = word.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
-      final file = File(p.join(tempDir.path, 'tts_${accent}_$safe.mp3'));
-      if (file.existsSync() && file.lengthSync() > 500) return file.path;
-
-      // type=1 -> British voice, type=2 -> American voice.
-      final type = accent == 'uk' ? 1 : 2;
-      final url = Uri.parse(
-        'https://dict.youdao.com/dictvoice?audio=${Uri.encodeComponent(word)}&type=$type',
-      );
-      final res = await http.get(url).timeout(const Duration(seconds: 4));
-      if (res.statusCode == 200 && res.bodyBytes.length > 500) {
-        await file.writeAsBytes(res.bodyBytes, flush: true);
-        return file.path;
-      }
-    } catch (e) {
-      debugPrint('Failed to download $accent audio for $word: $e');
-    }
-    return null;
   }
 
   /// Last-resort speech synthesis; only Windows exposes a usable CLI.
@@ -338,27 +285,29 @@ class AudioManager implements SpeechClipPlayer {
     // Piper-generated line took this path. The word recordings already avoid it
     // by staging their bytes in a file; do the same here.
     if (Platform.isWindows) {
+      File? file;
       try {
         final dir = await getTemporaryDirectory();
         // The extension is part of the contract: the Windows backend picks its
-        // decoder from it.
-        final file = File(
-            p.join(dir.path, 'speech_${bytes.length}_$extension.$extension'));
+        // decoder from it, and unique seq prevents overlapping writes/deletes.
+        final id = _playId + 1;
+        file = File(
+            p.join(dir.path, 'speech_${id}_${bytes.length}_$extension.$extension'));
         await file.writeAsBytes(bytes, flush: true);
-        final played = await _playToCompletion(
+        return await _playToCompletion(
           DeviceFileSource(file.path),
           tag: 'bytes_${bytes.length}_$extension',
           label: '${bytes.length} bytes of $extension (staged)',
           rate: rate,
         );
+      } on Exception catch (e) {
+        debugPrint('Could not stage generated audio on disk: $e');
+      } finally {
         try {
-          if (file.existsSync()) file.deleteSync();
+          if (file != null && file.existsSync()) file.deleteSync();
         } on FileSystemException {
           // A leftover temp file is not worth failing playback over.
         }
-        return played;
-      } on Exception catch (e) {
-        debugPrint('Could not stage generated audio on disk: $e');
       }
     }
     return _playToCompletion(
@@ -375,6 +324,7 @@ class AudioManager implements SpeechClipPlayer {
     required String label,
     required double rate,
   }) async {
+    final playId = ++_playId;
     _currentlyPlayingTag = tag;
     _isPlaying = true;
     AudioBackground.begin();
@@ -389,13 +339,15 @@ class AudioManager implements SpeechClipPlayer {
       final completed = await awaitPlayback(
         completions: _player.onPlayerComplete,
         durations: _player.onDurationChanged,
+        cancellations: _cancellations.stream,
         start: () async {
+          if (playId != _playId) return;
           await _player.play(source);
           // After `play`, never before: the Windows backend applies the rate to
           // the media engine of the *current* source, and `play` loads a new one
           // — a rate set first is silently dropped (or lands on the clip that
           // just finished), which is why 语速 did nothing on the online voices.
-          if (rate != 1.0) {
+          if (rate != 1.0 && playId == _playId) {
             try {
               await _player.setPlaybackRate(rate);
             } catch (e) {
@@ -417,7 +369,7 @@ class AudioManager implements SpeechClipPlayer {
               const Duration(milliseconds: 300);
         },
       );
-      if (!completed) {
+      if (!completed && playId == _playId) {
         debugPrint('Speech clip $label did not report completion');
       }
       return completed;
@@ -426,13 +378,13 @@ class AudioManager implements SpeechClipPlayer {
       return false;
     } finally {
       AudioBackground.end();
-      if (_currentlyPlayingTag == tag) {
+      if (playId == _playId) {
         _isPlaying = false;
         _currentlyPlayingTag = null;
+        try {
+          await _player.setPlaybackRate(1.0);
+        } catch (_) {}
       }
-      try {
-        await _player.setPlaybackRate(1.0);
-      } catch (_) {}
     }
   }
 
@@ -481,44 +433,54 @@ class AudioManager implements SpeechClipPlayer {
     if (voice == null) return false;
     final text = sentenceForSpeech(sentence);
 
+    final playId = ++_playId;
     _currentlyPlayingTag = 'sentence_$accent';
     _isPlaying = true;
     AudioBackground.begin();
     try {
       if (voice.engine == VoiceEngine.oneCore) {
         final wav = await synthesizeWithVoice(text, voice, rate: rate);
-        if (wav != null && await _playFileToCompletion(wav)) return true;
+        if (playId != _playId) return false;
+        if (wav != null && await _playFileToCompletion(wav, playId: playId)) {
+          return true;
+        }
+        if (playId != _playId) return false;
         // Fall through to SAPI if the modern engine could not produce audio.
         final sapi = chooseSentenceVoice(
           (await systemVoices()).where((v) => v.engine == VoiceEngine.sapi).toList(),
           accent,
         );
-        if (sapi == null) return false;
+        if (sapi == null || playId != _playId) return false;
         return await speakWithSystemVoice(text, sapi, rate: rate, volume: _volume);
       }
       return await speakWithSystemVoice(text, voice, rate: rate, volume: _volume);
     } finally {
       AudioBackground.end();
-      _isPlaying = false;
-      _currentlyPlayingTag = null;
+      if (playId == _playId) {
+        _isPlaying = false;
+        _currentlyPlayingTag = null;
+      }
     }
   }
 
   /// Plays a rendered wav and completes when it has finished sounding.
-  Future<bool> _playFileToCompletion(String path) async {
+  Future<bool> _playFileToCompletion(String path, {required int playId}) async {
     try {
       final completed = await awaitPlayback(
         completions: _player.onPlayerComplete,
         durations: _player.onDurationChanged,
-        start: () => _player.play(DeviceFileSource(path)),
+        cancellations: _cancellations.stream,
+        start: () async {
+          if (playId == _playId) await _player.play(DeviceFileSource(path));
+        },
         minPlausible: _minPlausiblePlayback,
         durationWait: const Duration(milliseconds: 600),
         stallGuard: _utteranceStallGuard,
       );
-      if (!completed) {
+      if (!completed && playId == _playId) {
         debugPrint('The rendered sentence did not report completion');
       }
-      return true;
+      return completed;
     } catch (e) {
       debugPrint('Playing the rendered sentence failed: $e');
       return false;
@@ -547,18 +509,25 @@ class AudioManager implements SpeechClipPlayer {
 
   @override
   Future<void> stop() async {
+    _playId++;
+    if (!_cancellations.isClosed) _cancellations.add(null);
     // A sentence is spoken by a child process (or played from a rendered file),
     // so stopping means killing the process and silencing the player.
     cancelSystemVoice();
     AudioBackground.stopNow();
     try {
       await _player.stop();
-      _isPlaying = false;
-      _currentlyPlayingTag = null;
     } catch (_) {}
+    _isPlaying = false;
+    _currentlyPlayingTag = null;
   }
 
   void dispose() {
+    _playId++;
+    if (!_cancellations.isClosed) {
+      _cancellations.add(null);
+      _cancellations.close();
+    }
     _player.dispose();
   }
 }

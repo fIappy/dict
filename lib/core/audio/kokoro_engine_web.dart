@@ -12,8 +12,16 @@ class KokoroEngine {
   final int sampleRate;
 
   sherpa.OfflineTts? _tts;
+  Future<String?>? _starting;
 
-  Future<String?> start() async {
+  Future<String?> start() {
+    if (_tts != null) return Future<String?>.value(null);
+    return _starting ??= _start().whenComplete(() {
+      if (_tts == null) _starting = null;
+    });
+  }
+
+  Future<String?> _start() async {
     await sherpa.initBindingsAsync();
     // The wasm module boots with an empty MEMFS, so OfflineTts has no files to
     // open. The model has to be fetched into it first — this used to be nobody's

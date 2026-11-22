@@ -16,21 +16,23 @@ class HistoryDao {
 
   Future<void> addHistory(HistoryItem item) async {
     final db = await _appDb.database;
-    // Remove if already exists so it jumps to the top
-    await db.delete(
-      'history',
-      where: 'LOWER(word) = ?',
-      whereArgs: [item.word.trim().toLowerCase()],
-    );
+    await db.transaction((txn) async {
+      // Remove if already exists so it jumps to the top
+      await txn.delete(
+        'history',
+        where: 'LOWER(word) = ?',
+        whereArgs: [item.word.trim().toLowerCase()],
+      );
 
-    await db.insert('history', item.toMap());
+      await txn.insert('history', item.toMap());
 
-    // Keep history bounded to 200 items
-    await db.execute('''
-      DELETE FROM history WHERE id NOT IN (
-        SELECT id FROM history ORDER BY created_at DESC LIMIT 200
-      )
-    ''');
+      // Keep history bounded to 200 items
+      await txn.execute('''
+        DELETE FROM history WHERE id NOT IN (
+          SELECT id FROM history ORDER BY created_at DESC LIMIT 200
+        )
+      ''');
+    });
   }
 
   Future<void> deleteHistoryItem(String id) async {

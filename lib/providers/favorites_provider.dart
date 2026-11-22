@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -6,13 +7,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/database/favorites_dao.dart';
 import '../core/models/favorite_group.dart';
 import '../core/models/favorite_item.dart';
+import '../core/providers/safe_change_notifier.dart';
 import '../core/ui/ui_memory.dart';
 
-class FavoritesProvider extends ChangeNotifier {
+class FavoritesProvider extends ChangeNotifier with SafeChangeNotifier {
   final FavoritesDao _dao = FavoritesDao();
 
   List<FavoriteGroup> _groups = [];
   List<FavoriteItem> _favorites = [];
+  final Map<String, FavoriteItem> _favoritesByWord = {};
+  final Map<String, FavoriteGroup> _groupsById = {};
   String? _selectedGroupId;
   String _filterQuery = '';
   bool _isLoading = false;
@@ -22,6 +26,14 @@ class FavoritesProvider extends ChangeNotifier {
   String? get selectedGroupId => _selectedGroupId;
   String get filterQuery => _filterQuery;
   bool get isLoading => _isLoading;
+
+  /// Synchronous O(1) lookup from the in-memory index kept alongside the store.
+  FavoriteItem? findFavorite(String word) =>
+      _favoritesByWord[word.trim().toLowerCase()];
+
+  /// Synchronous O(1) group lookup by id.
+  FavoriteGroup? findGroup(String? groupId) =>
+      groupId == null ? null : _groupsById[groupId];
 
   Future<void> initialize() async {
     _isLoading = true;
@@ -95,6 +107,9 @@ class FavoritesProvider extends ChangeNotifier {
 
   Future<void> refreshGroups() async {
     _groups = await _dao.getAllGroups();
+    _groupsById
+      ..clear()
+      ..addEntries(_groups.map((g) => MapEntry(g.id, g)));
     notifyListeners();
   }
 
@@ -103,18 +118,24 @@ class FavoritesProvider extends ChangeNotifier {
       groupId: _selectedGroupId,
       query: _filterQuery,
     );
+    final all = (_selectedGroupId == null && _filterQuery.trim().isEmpty)
+        ? _favorites
+        : await _dao.getFavorites();
+    _favoritesByWord
+      ..clear()
+      ..addEntries(all.map((f) => MapEntry(f.word.trim().toLowerCase(), f)));
     notifyListeners();
   }
 
   void selectGroup(String? groupId) {
     _selectedGroupId = groupId;
     UiMemory.writeString(UiMemory.favoriteGroup, groupId ?? '');
-    refreshFavorites();
+    unawaited(refreshFavorites());
   }
 
   void setFilterQuery(String query) {
     _filterQuery = query;
-    refreshFavorites();
+    unawaited(refreshFavorites());
   }
 
   Future<FavoriteItem?> getFavoriteForWord(String word) async {
@@ -198,7 +219,7 @@ class FavoritesProvider extends ChangeNotifier {
     await _dao.deleteGroup(groupId);
     if (_selectedGroupId == groupId) {
       _selectedGroupId = null;
-      UiMemory.writeString(UiMemory.favoriteGroup, '');
+      unawaited(UiMemory.writeString(UiMemory.favoriteGroup, ''));
     }
     await refreshGroups();
     await refreshFavorites();

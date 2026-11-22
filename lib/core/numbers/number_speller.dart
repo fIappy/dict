@@ -413,7 +413,15 @@ class NumberSpeller {
 
     String tail;
     if (value >= 2000 && value < 2010) {
-      tail = 'thousands';
+      return const NumberReading(
+        input: '2000s',
+        ukText: 'the two thousands',
+        usText: 'the two thousands',
+        note: '年代用整十词的复数：1990s = the nineteen nineties、80s = the eighties、'
+            '2010s = the twenty tens；2000–2009 美式 the two thousands，'
+            '英式口语戏称 the noughties。前面加 in the 表示"在…年代"。',
+        category: NumberCategory.year,
+      );
     } else if (short == 0) {
       tail = 'hundreds';
     } else if (short % 10 == 0 && short >= 20) {
@@ -476,19 +484,48 @@ class NumberSpeller {
     );
   }
 
+  static String _decimalText(double value) {
+    final raw = value.toString();
+    if (!raw.contains('e') && !raw.contains('E')) return raw;
+    final parts = raw.toLowerCase().split('e');
+    final mantissa = parts[0];
+    final exp = int.parse(parts[1]);
+    final negative = mantissa.startsWith('-');
+    final unsigned = negative ? mantissa.substring(1) : mantissa;
+    final dot = unsigned.indexOf('.');
+    final digits = dot == -1 ? unsigned : unsigned.replaceFirst('.', '');
+    final intDigits = dot == -1 ? unsigned.length : dot;
+    final newDot = intDigits + exp;
+    final String result;
+    if (newDot <= 0) {
+      result = '0.${'0' * (-newDot)}$digits';
+    } else if (newDot >= digits.length) {
+      result = '$digits${'0' * (newDot - digits.length)}';
+    } else {
+      result = '${digits.substring(0, newDot)}.${digits.substring(newDot)}';
+    }
+    return negative ? '-$result' : result;
+  }
+
   /// Spells a positive magnitude: an integer as a cardinal, otherwise with its
   /// digits after "point" — the same rule the decimal reader uses, shared by the
   /// temperature and multiple readers.
   static String _spellMagnitude(double value, {required bool insertAnd}) {
-    if (value == value.roundToDouble()) {
+    if (!value.isFinite) return '';
+    if (value == value.roundToDouble() && value.abs() < 9e15) {
       return cardinal(value.round(), insertAnd: insertAnd);
     }
-    final parts = value.toString().split('.');
-    final whole = int.parse(parts[0]);
+    final text = _decimalText(value);
+    final dot = text.indexOf('.');
+    if (dot == -1) {
+      return cardinal(int.parse(text), insertAnd: insertAnd);
+    }
+    final whole = int.parse(text.substring(0, dot));
     final head = whole == 0
         ? (insertAnd ? 'nought' : 'zero')
         : cardinal(whole, insertAnd: insertAnd);
-    final tail = parts[1]
+    final tail = text
+        .substring(dot + 1)
         .split('')
         .map((digit) => _ones[int.parse(digit)] == 'zero'
             ? (insertAnd ? 'nought' : 'zero')
@@ -697,7 +734,7 @@ class NumberSpeller {
     String unitWord(int count) =>
         invariant.contains(unit) || count == 1 ? unit : '${unit}s';
     String subWord(int count) {
-      if (sub == 'penny') return 'pence';
+      if (sub == 'penny') return count == 1 ? 'penny' : 'pence';
       if (invariant.contains(sub) || count == 1) return sub;
       return '${sub}s';
     }
@@ -751,21 +788,21 @@ class NumberSpeller {
       );
     }
 
-    // 13:00–23:59 read as the 12-hour clock plus a part of the day; an explicit
-    // a.m./p.m. decides it instead.
+    // Resolve part of day from the effective 24-hour clock.
     var dayPart = '';
     if (meridiemText == 'am') {
       dayPart = ' in the morning';
     } else if (meridiemText == 'pm') {
-      dayPart = hour >= 12 && hour < 18 ? ' in the afternoon' : ' in the evening';
+      final h24 = hour < 12 ? hour + 12 : hour;
+      dayPart = h24 >= 12 && h24 < 18 ? ' in the afternoon' : ' in the evening';
     } else if (hour >= 12 && hour < 18) {
       dayPart = ' in the afternoon';
     } else if (hour >= 18) {
       dayPart = ' in the evening';
     }
-    if (hour == 12 && minute == 0) {
-      return const NumberReading(
-        input: '12:00',
+    if (hour == 12 && minute == 0 && meridiemText == null) {
+      return NumberReading(
+        input: input,
         ukText: "twelve o'clock",
         usText: "twelve o'clock",
         note: "正午读 twelve o'clock，也可说 midday / noon。",
@@ -780,35 +817,44 @@ class NumberSpeller {
     }
 
     final hourWord = cardinal(hour, insertAnd: false);
-    String body;
+    String ukBody;
+    String usBody;
     String note;
     if (minute == 0) {
-      body = "$hourWord o'clock";
+      ukBody = "$hourWord o'clock";
+      usBody = ukBody;
       note = "整点用 o'clock：three o'clock。";
     } else if (minute == 15) {
-      body = 'quarter past $hourWord';
+      ukBody = 'quarter past $hourWord';
+      usBody = 'quarter after $hourWord';
       note = '英音用 past / to；美音同一位置常说 after / of：quarter after three。';
     } else if (minute == 30) {
-      body = 'half past $hourWord';
+      ukBody = 'half past $hourWord';
+      usBody = ukBody;
       note = '半点统一说 half past three（美音也说 half after three）。';
     } else if (minute == 45) {
-      body = 'quarter to ${cardinal(hour % 12 + 1, insertAnd: false)}';
+      final nextHour = cardinal(hour % 12 + 1, insertAnd: false);
+      ukBody = 'quarter to $nextHour';
+      usBody = 'quarter of $nextHour';
       note = '45 分说 quarter to + 下一个钟点；美音也说 quarter of / quarter till。';
     } else if (minute % 5 == 0 && minute >= 10 && minute < 30) {
-      body = '${_under100(minute)} past $hourWord';
+      ukBody = '${_under100(minute)} past $hourWord';
+      usBody = ukBody;
       note = '5 的倍数用 past 表达（twenty past three）；不足 10 分直接读数字。';
     } else if (minute > 30 && minute % 5 == 0) {
-      body = '${_under100(60 - minute)} to ${cardinal(hour % 12 + 1, insertAnd: false)}';
+      ukBody = '${_under100(60 - minute)} to ${cardinal(hour % 12 + 1, insertAnd: false)}';
+      usBody = ukBody;
       note = '超过 30 分时用 to + 下一个钟点（twenty to four = 3:40）。';
     } else {
-      body = '$hourWord ${minute < 10 ? 'oh ${_ones[minute]}' : _under100(minute)}';
+      ukBody = '$hourWord ${minute < 10 ? 'oh ${_ones[minute]}' : _under100(minute)}';
+      usBody = ukBody;
       note = '不是 5 的倍数时直接读时分：three twenty-three、seven oh five。';
     }
 
     return NumberReading(
       input: input,
-      ukText: '$body$dayPart',
-      usText: '$body$dayPart',
+      ukText: '$ukBody$dayPart',
+      usText: '$usBody$dayPart',
       note: note,
       category: NumberCategory.clock,
     );

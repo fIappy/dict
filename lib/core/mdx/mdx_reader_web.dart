@@ -59,7 +59,17 @@ class MdxReader {
 
   List<int> get allOffsets => const [];
 
+  bool containsKey(String word) => false;
+
   List<String> search(String query, {int limit = 50, bool prefixOnly = false}) {
+    return const [];
+  }
+
+  List<String> searchInfix(
+    String query, {
+    int limit = 50,
+    Set<String>? excludeLower,
+  }) {
     return const [];
   }
 

@@ -103,6 +103,14 @@ stage_models() {
   cp -r "$MODELS/kokoro" "$destination/"
 }
 
+stage_lexicon() {
+  local destination="$1"
+  local db="content/coca-ai/pack/coca_learn.db"
+  if [ -f "$db" ]; then
+    cp "$db" "$destination"
+  fi
+}
+
 build() {
   local what="$1"
   shift
@@ -123,6 +131,7 @@ build_target() {
     windows)
       build "Windows (release)" build windows --release
       stage_models "build/windows/x64/runner/Release/$MODELS"
+      stage_lexicon "build/windows/x64/runner/Release/coca_learn.db"
       echo "windows: build/windows/x64/runner/Release/  (ship the whole folder)"
       du -sh build/windows/x64/runner/Release 2>/dev/null | sed 's/^/  /'
       ;;

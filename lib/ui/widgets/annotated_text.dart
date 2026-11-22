@@ -6,7 +6,10 @@ import 'speakable_selection.dart';
 
 /// Generated English with two marks on it: theme vocabulary in red, and the
 /// collocations the model flagged underlined.
-class AnnotatedText extends StatelessWidget {
+///
+/// Caches annotation spans and sentence segmentation across highlight-only
+/// rebuilds while a passage is being read aloud.
+class AnnotatedText extends StatefulWidget {
   const AnnotatedText(
     this.text, {
     super.key,
@@ -26,14 +29,52 @@ class AnnotatedText extends StatelessWidget {
   final int? speakingIndex;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final error = theme.colorScheme.error;
-    final speaking = speakingIndex;
+  State<AnnotatedText> createState() => _AnnotatedTextState();
+}
 
-    TextSpan spansOf(String source) {
-      final spans = annotateText(source, themeWords: themeWords, phrases: phrases);
-      return TextSpan(
+class _AnnotatedTextState extends State<AnnotatedText> {
+  List<AnnotatedSpan>? _wholeSpans;
+  List<({PassageSegment segment, List<AnnotatedSpan> spans})>? _segmentSpans;
+
+  @override
+  void didUpdateWidget(covariant AnnotatedText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text ||
+        !identical(oldWidget.themeWords, widget.themeWords) ||
+        !identical(oldWidget.phrases, widget.phrases)) {
+      _wholeSpans = null;
+      _segmentSpans = null;
+    }
+  }
+
+  List<AnnotatedSpan> _cachedWholeSpans() => _wholeSpans ??= annotateText(
+        widget.text,
+        themeWords: widget.themeWords,
+        phrases: widget.phrases,
+      );
+
+  List<({PassageSegment segment, List<AnnotatedSpan> spans})>
+      _cachedSegmentSpans() {
+    if (_segmentSpans != null) return _segmentSpans!;
+    final segments = passageSegments(widget.text);
+    return _segmentSpans = [
+      for (final seg in segments)
+        (
+          segment: seg,
+          spans: annotateText(
+            seg.text,
+            themeWords: widget.themeWords,
+            phrases: widget.phrases,
+          ),
+        ),
+    ];
+  }
+
+  static TextSpan _buildAnnotatedSpan(
+    List<AnnotatedSpan> spans,
+    Color error,
+  ) =>
+      TextSpan(
         children: [
           for (final span in spans)
             TextSpan(
@@ -42,32 +83,35 @@ class AnnotatedText extends StatelessWidget {
                 color: span.isThemeWord ? error : null,
                 fontWeight: span.isThemeWord ? FontWeight.w600 : null,
                 decoration: span.isPhrase ? TextDecoration.underline : null,
-                decorationStyle: span.isPhrase ? TextDecorationStyle.dotted : null,
-                decorationColor: span.isPhrase ? error.withValues(alpha: 0.7) : null,
+                decorationStyle:
+                    span.isPhrase ? TextDecorationStyle.dotted : null,
+                decorationColor:
+                    span.isPhrase ? error.withValues(alpha: 0.7) : null,
               ),
             ),
         ],
       );
-    }
 
-    // Nothing is being read here: one pass, so the paragraph keeps its own
-    // line breaks and spacing.
+  @override
+  Widget build(BuildContext context) {
+    final error = Theme.of(context).colorScheme.error;
+    final speaking = widget.speakingIndex;
+
     if (speaking == null) {
-      return SpeakableText.rich(spansOf(text), style: style);
+      return SpeakableText.rich(
+        _buildAnnotatedSpan(_cachedWholeSpans(), error),
+        style: widget.style,
+      );
     }
 
-    // A sentence is sounding: render sentence by sentence so that one can be
-    // red. The words inside each sentence keep their annotations.
-    // Line breaks and spacing are kept: the segments carry the separators that
-    // were in the source, so a one-sentence-per-line article stays laid out.
-    final segments = passageSegments(text);
+    final segments = _cachedSegmentSpans();
     return SpeakableText.rich(
       TextSpan(
         children: [
-          for (final segment in segments) ...[
+          for (final entry in segments) ...[
             TextSpan(
-              children: [spansOf(segment.text)],
-              style: segment.sentenceIndex == speaking
+              children: [_buildAnnotatedSpan(entry.spans, error)],
+              style: entry.segment.sentenceIndex == speaking
                   ? TextStyle(
                       color: error,
                       fontWeight: FontWeight.w700,
@@ -75,12 +119,12 @@ class AnnotatedText extends StatelessWidget {
                     )
                   : null,
             ),
-            if (segment.separator.isNotEmpty)
-              TextSpan(text: segment.separator),
+            if (entry.segment.separator.isNotEmpty)
+              TextSpan(text: entry.segment.separator),
           ],
         ],
       ),
-      style: style,
+      style: widget.style,
     );
   }
 }

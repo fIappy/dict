@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../core/ipa/ipa_data.dart';
 import '../core/ipa/ipa_model.dart';
+import '../core/providers/safe_change_notifier.dart';
 import '../core/ui/ui_memory.dart';
 
-class IpaProvider extends ChangeNotifier {
+class IpaProvider extends ChangeNotifier with SafeChangeNotifier {
   IpaCategory? _selectedCategory;
   IpaAccent? _selectedAccent;
   String _selectedSymbol = '/iː/';

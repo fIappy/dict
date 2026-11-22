@@ -8,6 +8,7 @@ import '../core/numbers/number_model.dart';
 import '../core/numbers/number_speaker.dart';
 import '../core/numbers/number_training.dart';
 import '../core/numbers/number_speller.dart';
+import '../core/providers/safe_change_notifier.dart';
 
 /// State of the number module: which category is being browsed, what the user
 /// typed, and the training drill with its speed/interval settings.
@@ -15,14 +16,18 @@ import '../core/numbers/number_speller.dart';
 /// Playback is delegated to [NumberSpeaker] (word-by-word clip playback), while
 /// the settings that outlive a session — 语速, 间隔, 训练类型, 位数, 数量 — are
 /// persisted, so the drill comes back exactly as it was left.
-class NumbersProvider extends ChangeNotifier {
+class NumbersProvider extends ChangeNotifier with SafeChangeNotifier {
   /// [speaker] is a test seam: it lets the start/stop bookkeeping be exercised
   /// without an audio device. Production code leaves it null — the speaker is
   /// then built on first playback, so a screen that only reads numbers never
   /// touches the audio plugin.
-  NumbersProvider({NumberSpeaker? speaker, KokoroVoice? kokoro})
-      : _speaker = speaker,
-        _kokoro = kokoro ?? KokoroVoice();
+  NumbersProvider({
+    NumberSpeaker? speaker,
+    KokoroVoice? kokoro,
+    bool? ownsKokoro,
+  })  : _speaker = speaker,
+        _kokoro = kokoro ?? KokoroVoice(),
+        _ownsKokoro = ownsKokoro ?? (kokoro == null);
 
   static const String _kRate = 'numbers_rate';
   static const String _kRateAnchored = 'numbers_rate_anchored';
@@ -44,6 +49,7 @@ class NumbersProvider extends ChangeNotifier {
 
   /// The one engine: Kokoro.
   final KokoroVoice _kokoro;
+  final bool _ownsKokoro;
 
   /// Bumped by every start and every stop. Only the run that owns the current
   /// value may clear [isPlaying].
@@ -406,7 +412,7 @@ class NumbersProvider extends ChangeNotifier {
     _count = count.clamp(1, NumbersLimits.maxTrainingCount);
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_kCount, count);
+    await prefs.setInt(_kCount, _count);
   }
 
   @override
@@ -415,7 +421,9 @@ class NumbersProvider extends ChangeNotifier {
     // instead of notifying a disposed provider on the next line.
     _playRun++;
     _speaker?.cancel();
-    _kokoro.dispose();
+    if (_ownsKokoro) {
+      _kokoro.dispose();
+    }
     super.dispose();
   }
 }

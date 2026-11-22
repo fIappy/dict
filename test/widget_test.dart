@@ -10,8 +10,10 @@ import 'package:local_dict/core/frequency/frequency_service.dart';
 import 'package:local_dict/core/mdx/mdd_reader.dart';
 import 'package:local_dict/core/mdx/mdx_entry.dart';
 import 'package:local_dict/core/mdx/mdx_reader.dart';
+import 'package:local_dict/ui/widgets/frequency_badge.dart';
 import 'package:local_dict/ui/widgets/word_definition_view.dart';
 import 'package:local_dict/ui/screens/home_screen.dart';
+import 'package:local_dict/ui/screens/word_detail_screen.dart';
 import 'package:local_dict/providers/dictionary_provider.dart';
 import 'package:local_dict/providers/favorites_provider.dart';
 import 'package:local_dict/providers/history_provider.dart';
@@ -32,19 +34,45 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 void main() {
   group('Core Unit Tests', () {
-    test('FrequencyService loads built-in vocabulary and examination tags', () {
+    test('FrequencyService loads COCA vocabulary and examination tags', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
       final freq = FrequencyService();
-      freq.init();
+      await freq.init();
 
       final helloFreq = freq.getFrequency('hello');
       expect(helloFreq, isNotNull);
       expect(helloFreq!.cefr, equals('A1'));
+      expect(helloFreq.rank, equals(1093));
+      expect(helloFreq.frequencyLabel, equals('COCA #1093'));
 
       final abandonFreq = freq.getFrequency('abandon');
       expect(abandonFreq, isNotNull);
       expect(abandonFreq!.examTags, contains('CET4'));
       expect(abandonFreq.examTags, contains('考研'));
-      expect(abandonFreq.frequencyLabel, equals('Top 5000'));
+      expect(abandonFreq.rank, equals(2275));
+      expect(abandonFreq.frequencyLabel, equals('COCA #2275'));
+      expect(abandonFreq.frequencyLabel, isNot(contains('Top')));
+
+      // Words from 5.4w COCA list beyond 20000 now have exact ranks too.
+      final stethoscopeFreq = freq.getFrequency('stethoscope');
+      expect(stethoscopeFreq, isNotNull);
+      expect(stethoscopeFreq!.rank, equals(19046));
+      expect(stethoscopeFreq.frequencyLabel, equals('COCA #19046'));
+
+      final duralFreq = freq.getFrequency('dural');
+      expect(duralFreq, isNotNull);
+      expect(duralFreq!.rank, equals(53923));
+      expect(duralFreq.frequencyLabel, equals('COCA #53923'));
+
+      final tailFreq = freq.getFrequency('dustbuster');
+      expect(tailFreq, isNotNull);
+      expect(tailFreq!.rank, equals(53925));
+      expect(tailFreq.frequencyLabel, equals('COCA #53925'));
+
+      // Words outside COCA must not return a rank or fake stem match.
+      expect(freq.getFrequency('abandons'), isNull);
+      expect(freq.getFrequency('xyznotacocaword'), isNull);
+      expect(const WordFrequencyInfo(word: 'x').frequencyLabel, isEmpty);
     });
 
     test('MdxEntry parses headword, phonetics, tabs, and examples from HTML', () {
@@ -322,7 +350,7 @@ void main() {
       expect(prefs.getInt('frequency_range_start'), equals(1));
       expect(prefs.getInt('frequency_range_end'), equals(100));
 
-      // 3. Test setting range 5000 to 6000 (previously clamped to 5000-5000)
+      // 3. Test setting range up to 53,925
       await provider.setRange(5000, 6000);
       expect(provider.startRank, equals(5000));
       expect(provider.endRank, equals(6000));
@@ -331,6 +359,13 @@ void main() {
       expect(provider.currentPageItems.length, equals(20));
       expect(provider.currentPageItems.first.rank, equals(5000));
       expect(provider.currentPageItems.last.rank, equals(5019));
+
+      await provider.setRange(53900, 53925);
+      expect(provider.startRank, equals(53900));
+      expect(provider.endRank, equals(53925));
+      expect(provider.totalItems, equals(26));
+      expect(provider.currentPageItems.first.rank, equals(53900));
+      expect(provider.currentPageItems.first.word, isNotEmpty);
     });
 
     test('IpaData covers every Cambridge phoneme with examples and combinations', () {
@@ -609,6 +644,72 @@ void main() {
       provider.selectLetter('b');
       expect(provider.selectedChar, equals('B'));
     });
+
+    testWidgets(
+      'WordDetailScreen displays exact COCA rank and hides non-COCA rank',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        await FrequencyService().init();
+
+        Future<void> pumpDetail(String word) async {
+          await tester.pumpWidget(
+            MultiProvider(
+              providers: [
+                ChangeNotifierProvider(create: (_) => DictionaryProvider()),
+                ChangeNotifierProvider(create: (_) => FavoritesProvider()),
+                ChangeNotifierProvider(create: (_) => SettingsProvider()),
+                ChangeNotifierProvider(create: (_) => EntrySpeechProvider()),
+              ],
+              child: MaterialApp(
+                home: WordDetailScreen(
+                  word: word,
+                  entry: MdxEntry(
+                    word: word,
+                    rawHtml: '<p>definition of $word</p>',
+                    phonetic: '',
+                    soundKey: null,
+                    tabs: const [],
+                    panels: const {},
+                    exampleSentences: const [],
+                    definitions: ['definition of $word'],
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        // COCA word (mixed case & deep COCA word) replaces Top xxxx.
+        await pumpDetail('Abandon');
+        expect(find.text('COCA #2275'), findsOneWidget);
+        expect(find.textContaining('Top '), findsNothing);
+
+        await pumpDetail('stethoscope');
+        expect(find.text('COCA #19046'), findsOneWidget);
+        expect(find.textContaining('Top '), findsNothing);
+
+        // Non-COCA word shows no frequency rank pill at all.
+        await pumpDetail('xyznotacocaword');
+        expect(find.textContaining('COCA #'), findsNothing);
+        expect(find.textContaining('Top '), findsNothing);
+        expect(find.text('低频'), findsNothing);
+
+        // FrequencyBadge itself omits rank chip when rank == null.
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: FrequencyBadge(
+                info: WordFrequencyInfo(word: 'custom', cefr: 'B2'),
+              ),
+            ),
+          ),
+        );
+        expect(find.text('B2'), findsOneWidget);
+        expect(find.text('低频'), findsNothing);
+        expect(find.textContaining('COCA'), findsNothing);
+      },
+    );
   });
 }
 

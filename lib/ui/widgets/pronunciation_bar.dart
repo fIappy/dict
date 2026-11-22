@@ -65,20 +65,20 @@ class _PronunciationBarState extends State<PronunciationBar> {
       runSpacing: 6,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        // 1. US Pronunciation Button (美音 / 本地离线MDD)
+        // 1. US Pronunciation Button (在线美音 + 本地缓存)
         _buildAccentPill(
           label: '美',
           accent: 'us',
-          tooltip: '美音发音 (Dictionary.com 本地原声)',
+          tooltip: '美音发音 (在线发音·支持本地缓存)',
           theme: theme,
           onTap: () => _play('us'),
         ),
 
-        // 2. UK Pronunciation Button (英音)
+        // 2. UK Pronunciation Button (在线英音 + 本地缓存)
         _buildAccentPill(
           label: '英',
           accent: 'uk',
-          tooltip: '英音发音 (标准英式发音)',
+          tooltip: '英音发音 (在线发音·支持本地缓存)',
           theme: theme,
           onTap: () => _play('uk'),
         ),

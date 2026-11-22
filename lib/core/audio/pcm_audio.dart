@@ -15,7 +15,11 @@ class PcmClip {
   final Int16List samples;
   final int sampleRate;
 
-  const PcmClip(this.samples, this.sampleRate);
+  /// Pre-encoded WAV payload when produced in a worker isolate, avoiding a
+  /// decode -> re-encode round-trip before playback.
+  final Uint8List? wavBytes;
+
+  const PcmClip(this.samples, this.sampleRate, {this.wavBytes});
 
   int get sampleCount => samples.length;
 
@@ -87,10 +91,78 @@ PcmClip decodeWav(Uint8List bytes) {
   return PcmClip(samples, sampleRate);
 }
 
-/// Wraps [samples] in the 44-byte WAV header the player understands.
-Uint8List encodeWav(Int16List samples, {required int sampleRate}) {
+/// Validates [bytes] and returns a [PcmClip] sharing its PCM payload cleanly,
+/// attaching [bytes] so players do not re-encode the WAV container.
+PcmClip decodeWavWithBytes(Uint8List bytes) {
+  final header = ByteData.sublistView(bytes);
+  if (bytes.length < 12 ||
+      _tag(bytes, 0) != 'RIFF' ||
+      _tag(bytes, 8) != 'WAVE') {
+    throw const FormatException('Not a WAV file');
+  }
+
+  int? sampleRate;
+  int? channels;
+  int? bitsPerSample;
+  int? format;
+  int? dataStart;
+  int? dataLength;
+
+  var offset = 12;
+  while (offset + 8 <= bytes.length) {
+    final id = _tag(bytes, offset);
+    final size = header.getUint32(offset + 4, Endian.little);
+    final body = offset + 8;
+    if (id == 'fmt ') {
+      format = header.getUint16(body, Endian.little);
+      channels = header.getUint16(body + 2, Endian.little);
+      sampleRate = header.getUint32(body + 4, Endian.little);
+      bitsPerSample = header.getUint16(body + 14, Endian.little);
+    } else if (id == 'data') {
+      final end = body + size > bytes.length ? bytes.length : body + size;
+      final usable = (end - body) - ((end - body) % 2);
+      dataStart = body;
+      dataLength = usable;
+    }
+    offset = body + size + (size.isOdd ? 1 : 0);
+  }
+
+  if (format != 1 || channels != 1 || bitsPerSample != 16) {
+    throw FormatException(
+      'Only 16-bit mono PCM is supported (format $format, $channels channels, '
+      '$bitsPerSample bits)',
+    );
+  }
+  if (sampleRate == null || dataStart == null || dataLength == null) {
+    throw const FormatException('WAV file has no fmt/data chunk');
+  }
+  final byteOffset = bytes.offsetInBytes + dataStart;
+  final Int16List samples;
+  if (Endian.host == Endian.little && byteOffset.isEven) {
+    samples = bytes.buffer.asInt16List(byteOffset, dataLength ~/ 2);
+  } else {
+    samples = Int16List(dataLength ~/ 2);
+    for (var i = 0; i < samples.length; i++) {
+      samples[i] = header.getInt16(dataStart + i * 2, Endian.little);
+    }
+  }
+  return PcmClip(samples, sampleRate, wavBytes: bytes);
+}
+
+/// Encodes raw [-1, 1] float samples directly into a 44-byte WAV container,
+/// skipping intermediate `List<double>` and `Int16List` allocations.
+Uint8List encodeFloat32Wav(Float32List samples, {required int sampleRate}) {
   final dataBytes = samples.length * 2;
   final out = ByteData(44 + dataBytes);
+  _writeWavHeader(out, dataBytes: dataBytes, sampleRate: sampleRate);
+  for (var i = 0; i < samples.length; i++) {
+    final s = (samples[i].clamp(-1.0, 1.0) * 32767.0).round().clamp(-32768, 32767);
+    out.setInt16(44 + i * 2, s, Endian.little);
+  }
+  return out.buffer.asUint8List();
+}
+
+void _writeWavHeader(ByteData out, {required int dataBytes, required int sampleRate}) {
   _writeTag(out, 0, 'RIFF');
   out.setUint32(4, 36 + dataBytes, Endian.little);
   _writeTag(out, 8, 'WAVE');
@@ -104,6 +176,13 @@ Uint8List encodeWav(Int16List samples, {required int sampleRate}) {
   out.setUint16(34, 16, Endian.little); // bits per sample
   _writeTag(out, 36, 'data');
   out.setUint32(40, dataBytes, Endian.little);
+}
+
+/// Wraps [samples] in the 44-byte WAV header the player understands.
+Uint8List encodeWav(Int16List samples, {required int sampleRate}) {
+  final dataBytes = samples.length * 2;
+  final out = ByteData(44 + dataBytes);
+  _writeWavHeader(out, dataBytes: dataBytes, sampleRate: sampleRate);
   for (var i = 0; i < samples.length; i++) {
     out.setInt16(44 + i * 2, samples[i], Endian.little);
   }
