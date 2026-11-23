@@ -337,9 +337,17 @@ class CustomTextProvider extends ChangeNotifier with SafeChangeNotifier {
           continue;
         }
         final local = _texts[index];
-        if (local.body == seeded.body && local.title == seeded.title) continue;
+        // The group travels with the shipped passage too: a library that files
+        // a text under a group must be able to repair a local copy that lost it
+        // (or was moved), even when body and title already match.
+        final groupMoved = local.groupId != seeded.groupId;
+        if (local.body == seeded.body &&
+            local.title == seeded.title &&
+            !groupMoved) {
+          continue;
+        }
         // A shipped passage: the library owns its text, so a rebuilt app shows
-        // the fix. The reader's placement (group, creation time) is kept.
+        // the fix. Creation time stays the reader's.
         _texts[index] = local.copyWith(
           body: seeded.body,
           title: seeded.title,

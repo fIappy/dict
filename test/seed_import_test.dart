@@ -262,4 +262,68 @@ void main() {
     expect(provider.allTexts.length, greaterThan(1),
         reason: 'the shipped passages are added around it');
   });
+
+  test('Oxford Tree Level 0 group ships clean pure-English stories', () async {
+    final provider = CustomTextProvider();
+    await provider.initialize();
+    await provider.ensureSeeded();
+
+    final oxfordGroups = provider.groups.where((g) => g.name == '牛津树');
+    expect(oxfordGroups, hasLength(1));
+    final oxford = oxfordGroups.single;
+    expect(oxford.id, 'grp-oxford-tree');
+
+    final level0 = provider.allTexts
+        .where((t) => t.groupId == oxford.id && t.id.startsWith('ox_0_'))
+        .toList();
+    expect(level0, hasLength(27));
+
+    final cjk = RegExp(r'[\u4e00-\u9fff]');
+    for (final item in level0) {
+      expect(item.title, contains('0'), reason: '${item.id} title marks level 0');
+      expect(item.body.trim(), isNotEmpty);
+      expect(cjk.hasMatch(item.body), isFalse,
+          reason: '${item.id} (${item.title}) must contain pure English only');
+      expect(item.body.contains('='), isFalse,
+          reason: '${item.id} (${item.title}) must not have shifted-space "="');
+      expect(item.utterances.length, greaterThanOrEqualTo(30),
+          reason: '${item.id} (${item.title}) should hold a full story');
+    }
+  });
+
+  test('a shipped passage regains its group even when body and title match',
+      () async {
+    // What an older install looks like after its groups were rebuilt: the text
+    // is byte-identical to the library's, but it sits in 未分组. The merge used
+    // to skip such an entry (body and title equal), so the group never came
+    // back and the sidebar showed "0" for a group that owns 172 passages.
+    final raw = await rootBundle.loadString('assets/seed/custom_home.json');
+    final seed = jsonDecode(raw) as Map<String, dynamic>;
+    final groups = (seed['groups'] as List).cast<Map<String, dynamic>>();
+    final texts = (seed['texts'] as List).cast<Map<String, dynamic>>();
+    final wordsGroup = groups.firstWhere(
+        (g) => (g['name'] as String? ?? '') == 'wordcom');
+    final shipped =
+        texts.firstWhere((t) => t['groupId'] == wordsGroup['id']);
+
+    SharedPreferences.setMockInitialValues({
+      'flutter.custom_groups': jsonEncode([wordsGroup]),
+      'flutter.custom_texts': jsonEncode([
+        {
+          'id': shipped['id'],
+          'body': shipped['body'],
+          'title': shipped['title'],
+          'groupId': null,
+          'createdAt': '2026-01-01T00:00:00',
+        },
+      ]),
+    });
+    final provider = CustomTextProvider();
+    await provider.initialize();
+    await provider.ensureSeeded();
+
+    final repaired = provider.allTexts.where((t) => t.id == shipped['id']).single;
+    expect(repaired.groupId, wordsGroup['id'],
+        reason: 'the library owns where a shipped passage lives');
+  });
 }
