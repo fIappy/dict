@@ -16,17 +16,21 @@ import 'package:local_dict/core/audio/pcm_audio.dart';
 import 'package:local_dict/core/audio/speech_clip_player.dart';
 
 class _TestPlayer implements SpeechClipPlayer {
+  Duration? playbackAt;
+
+  @override
+  Duration? get playbackPosition => playbackAt;
   final List<Uint8List> onlineClips = [];
   Completer<void>? gate;
 
   @override
-  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0, Duration startAt = Duration.zero, Future<void>? cancel}) async {
     if (gate != null && !gate!.isCompleted) await gate!.future;
     return true;
   }
 
   @override
-  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0, Duration startAt = Duration.zero, Future<void>? cancel}) async {
     onlineClips.add(bytes);
     return true;
   }

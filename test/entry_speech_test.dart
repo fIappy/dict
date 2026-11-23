@@ -29,12 +29,18 @@ const String _dictionaryComHtml = '''
 ''';
 
 class _RecordingPlayer implements SpeechClipPlayer {
+  Duration? playbackAt;
+
+  @override
+  Duration? get playbackPosition => playbackAt;
   final List<Uint8List> onlineClips = [];
   final List<double> onlineRates = [];
+  final List<Duration> onlineStarts = [];
   final List<String> sentences = [];
   final List<double> rates = [];
   final List<String> accents = [];
   final List<Uint8List> buffers = [];
+  final List<Duration> bufferStarts = [];
   int stops = 0;
   bool supportsSentences = true;
 
@@ -53,16 +59,18 @@ class _RecordingPlayer implements SpeechClipPlayer {
   void Function(int played)? onBuffer;
 
   @override
-  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0, Duration startAt = Duration.zero, Future<void>? cancel}) async {
     buffers.add(bytes);
+    bufferStarts.add(startAt);
     onBuffer?.call(buffers.length);
     return bytesPlayable;
   }
 
   @override
-  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0, Duration startAt = Duration.zero, Future<void>? cancel}) async {
     onlineClips.add(bytes);
     onlineRates.add(rate);
+    onlineStarts.add(startAt);
     return true;
   }
 
@@ -134,10 +142,18 @@ class _GatedPlayer extends _RecordingPlayer {
   }
 
   @override
-  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0, Duration startAt = Duration.zero, Future<void>? cancel}) async {
     buffers.add(bytes);
+    bufferStarts.add(startAt);
     final gate = _gate;
-    if (gate != null) await gate.future;
+    if (gate != null) {
+      // The real player ends its wait when the caller cancels; the fake does
+      // the same, so a test never has to release a cancelled line by hand.
+      unawaited(cancel?.then((_) {
+        if (!gate.isCompleted) gate.complete();
+      }));
+      await gate.future;
+    }
     // A clip cut short by a stop never sounded; the next one plays normally.
     final sounded = !_stopped;
     _stopped = false;
@@ -145,10 +161,23 @@ class _GatedPlayer extends _RecordingPlayer {
   }
 
   @override
-  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playOnlineClip(Uint8List bytes,
+      {double rate = 1.0, Duration startAt = Duration.zero, Future<void>? cancel}) async {
     onlineClips.add(bytes);
-    return true;
+    onlineRates.add(rate);
+    onlineStarts.add(startAt);
+    final gate = _gate;
+    if (gate != null) {
+      unawaited(cancel?.then((_) {
+        if (!gate.isCompleted) gate.complete();
+      }));
+      await gate.future;
+    }
+    final sounded = !_stopped;
+    _stopped = false;
+    return sounded;
   }
+
 }
 
 /// A player that holds chosen playbacks, so a repeat can be requested while a
@@ -183,18 +212,22 @@ class _GateQueuePlayer extends _RecordingPlayer {
   }
 
   @override
-  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0, Duration startAt = Duration.zero, Future<void>? cancel}) async {
     buffers.add(bytes);
     if (_gates.isNotEmpty) {
-      _held = _gates.removeAt(0);
-      await _held!.future;
+      final held = _gates.removeAt(0);
+      _held = held;
+      unawaited(cancel?.then((_) {
+        if (!held.isCompleted) held.complete();
+      }));
+      await held.future;
       _held = null;
     }
     return true;
   }
 
   @override
-  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0, Duration startAt = Duration.zero, Future<void>? cancel}) async {
     onlineClips.add(bytes);
     return true;
   }
@@ -799,6 +832,119 @@ void main() {
       expect(kokoro.rendered, ['One.', 'Two.', 'Three.'],
           reason: 'a looping run reuses the clips it already rendered');
       expect(speech.isPlaying, isFalse);
+    });
+
+    test('继续 pressed before the cut line returns repeats that line',
+        () async {
+      // What the listener does: pause mid-line, then press 继续 immediately.
+      // The stopped playback has not returned yet at that point, so the run
+      // must remember the interruption itself instead of looking at isPaused.
+      final player = _GateQueuePlayer();
+      final kokoro = _StubKokoro();
+      final speech = EntrySpeechProvider(player: player, kokoro: kokoro);
+
+      player.holdNext();
+      final run =
+          speech.playAll(lines(), rate: 1.0, gap: Duration.zero, accent: 'us');
+      await Future<void>.delayed(Duration.zero);
+      expect(speech.currentIndex, 0, reason: 'inside the first line');
+
+      speech.pause();
+      speech.resume();
+      expect(speech.isPaused, isFalse);
+      // No releaseNext(): the pause's cancel must end the held playback, or
+      // this await would sit until the stall guard and the assertion below
+      // would be late rather than wrong.
+      await run.timeout(const Duration(seconds: 5));
+
+      expect(player.buffers, hasLength(4),
+          reason: 'One, One again (继续), Two, Three — not silence until Two');
+      expect(kokoro.rendered, ['One.', 'Two.', 'Three.'],
+          reason: 'the repeated line reuses its rendered clip');
+    });
+
+    test('a paused single sentence says itself again', () async {
+      final player = _GatedPlayer();
+      final kokoro = _StubKokoro();
+      final provider = EntrySpeechProvider(player: player, kokoro: kokoro);
+
+      player.hold();
+      final run = provider.playOne(
+        const EntryUtterance(text: 'Hello there.', isPhrase: false),
+        rate: 1.0,
+        accent: 'us',
+      );
+      await pumpEventQueue();
+      provider.pause();
+      provider.resume();
+      await run.timeout(const Duration(seconds: 5));
+
+      expect(player.buffers, hasLength(2),
+          reason: 'the word starts over after 继续');
+      expect(kokoro.rendered, ['Hello there.']);
+    });
+
+    test('继续 picks the sentence up where it stopped', () async {
+      final player = _GatedPlayer();
+      final kokoro = _StubKokoro();
+      final speech = EntrySpeechProvider(player: player, kokoro: kokoro);
+
+      player.hold();
+      final run =
+          speech.playAll(lines(), rate: 1.0, gap: Duration.zero, accent: 'us');
+      await pumpEventQueue();
+      player.playbackAt = const Duration(milliseconds: 1200);
+
+      speech.pause();
+      speech.resume();
+      await run.timeout(const Duration(seconds: 5));
+
+      expect(
+        player.bufferStarts,
+        [
+          Duration.zero,
+          const Duration(milliseconds: 1200),
+          Duration.zero,
+          Duration.zero,
+        ],
+        reason: 'the interrupted line resumes at 1.2 s; the next lines start at 0',
+      );
+    });
+
+    test('the online player gets the same resume point', () async {
+      Uint8List mp3() =>
+          Uint8List.fromList([0xFF, 0xF3, 0x64, ...List<int>.filled(900, 0)]);
+      final player = _GatedPlayer();
+      final speech = EntrySpeechProvider(
+        player: player,
+        online: (engine,
+                {required text,
+                required accent,
+                rate = 1.0,
+                client}) async =>
+            mp3(),
+      );
+
+      player.hold();
+      final run = speech.playAll(
+        const [
+          EntryUtterance(text: 'One.', isPhrase: false),
+          EntryUtterance(text: 'Two.', isPhrase: false),
+        ],
+        rate: 1.0,
+        gap: Duration.zero,
+        accent: 'us',
+        engine: SpeechEngine.edge,
+      );
+      await pumpEventQueue();
+      player.playbackAt = const Duration(milliseconds: 700);
+
+      speech.pause();
+      speech.resume();
+      await run.timeout(const Duration(seconds: 5));
+
+      expect(player.onlineStarts,
+          [Duration.zero, const Duration(milliseconds: 700), Duration.zero]);
     });
 
     test('a one-off read never loops, even with the switch on', () async {

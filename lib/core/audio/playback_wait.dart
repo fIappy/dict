@@ -49,6 +49,7 @@ Future<bool> awaitPlayback({
   required Duration durationWait,
   required Duration Function(Duration? reported) stallGuard,
   Stream<void>? cancellations,
+  Future<void>? cancel,
 }) async {
   final finished = Completer<void>();
   final cancelled = Completer<void>();
@@ -70,6 +71,12 @@ Future<bool> awaitPlayback({
   Timer? durationTimer;
   Timer? guardTimer;
 
+  // The caller stopping the sound is not this playback finishing: report it as
+  // "did not complete", so a fallback path does not mistake it for a silence
+  // the player produced.
+  unawaited(cancel?.then((_) {
+    if (!cancelled.isCompleted) cancelled.complete();
+  }));
   try {
     await start();
     if (cancelled.isCompleted) return false;

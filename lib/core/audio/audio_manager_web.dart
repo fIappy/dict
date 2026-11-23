@@ -34,7 +34,11 @@ class AudioManager implements SpeechClipPlayer {
 
   static final AudioManager _instance = AudioManager._();
   factory AudioManager() => _instance;
-  AudioManager._();
+  AudioManager._() {
+    _player.onPositionChanged.listen((position) {
+      _lastPosition = position;
+    });
+  }
 
   final AudioPlayer _player = AudioPlayer();
   final WordAudioCache _wordCache = WordAudioCache();
@@ -254,22 +258,40 @@ class AudioManager implements SpeechClipPlayer {
   /// Plays audio the module built itself (a spliced sentence, or Piper's
   /// samples). On web `BytesSource` becomes a blob URL, so nothing is written to
   /// disk.
+  /// Last position the player reported, kept for a pause that arrives between
+  /// two platform events. The getter API is a stream; reading it here avoids an
+  /// async round trip racing the stop.
+  Duration? _lastPosition;
+
   @override
-  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) =>
+  Duration? get playbackPosition => _lastPosition;
+
+  @override
+  Future<bool> playAudioBytes(Uint8List bytes,
+          {double rate = 1.0,
+          Duration startAt = Duration.zero,
+          Future<void>? cancel}) =>
       _playToCompletion(
         BytesSource(bytes, mimeType: 'audio/wav'),
         tag: 'bytes_${bytes.length}',
         label: '${bytes.length} bytes of WAV',
         rate: rate,
+        startAt: startAt,
+        cancel: cancel,
       );
 
   @override
-  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0}) =>
+  Future<bool> playOnlineClip(Uint8List bytes,
+          {double rate = 1.0,
+          Duration startAt = Duration.zero,
+          Future<void>? cancel}) =>
       _playToCompletion(
         BytesSource(bytes, mimeType: 'audio/mpeg'),
         tag: 'mp3_${bytes.length}',
         label: '${bytes.length} bytes of MP3',
         rate: rate,
+        startAt: startAt,
+        cancel: cancel,
       );
 
   Future<bool> _playToCompletion(
@@ -277,10 +299,13 @@ class AudioManager implements SpeechClipPlayer {
     required String tag,
     required String label,
     required double rate,
+    Duration startAt = Duration.zero,
+    Future<void>? cancel,
   }) async {
     final playId = ++_playId;
     _currentlyPlayingTag = tag;
     _isPlaying = true;
+    _lastPosition = Duration.zero;
     try {
       // Completion is what advances the queue: the clip must finish sounding
       // before the next word starts. No stop() before play() either: replacing
@@ -290,6 +315,7 @@ class AudioManager implements SpeechClipPlayer {
       // The wait is in `awaitPlayback`, which explains why `stream.first` (and
       // the `timeout(onTimeout:)` variant before it) both cut clips short.
       final completed = await awaitPlayback(
+        cancel: cancel,
         completions: _player.onPlayerComplete,
         durations: _player.onDurationChanged,
         cancellations: _cancellations.stream,
@@ -304,10 +330,22 @@ class AudioManager implements SpeechClipPlayer {
               debugPrint('Playback rate $rate unsupported: $e');
             }
           }
+          if (startAt > Duration.zero) {
+            try {
+              await _player.seek(startAt);
+            } catch (e) {
+              debugPrint('Seek to $startAt unsupported: $e');
+            }
+          }
         },
         minPlausible: _minPlausiblePlayback,
         durationWait: const Duration(milliseconds: 600),
-        stallGuard: _clipStallGuard,
+        stallGuard: (reported) {
+          final remaining = reported == null
+              ? null
+              : (reported > startAt ? reported - startAt : Duration.zero);
+          return _clipStallGuard(remaining);
+        },
       );
       if (!completed && playId == _playId) {
         debugPrint('Speech clip $label did not report completion');
@@ -378,6 +416,7 @@ class AudioManager implements SpeechClipPlayer {
   Future<void> stop() async {
     _playId++;
     if (!_cancellations.isClosed) _cancellations.add(null);
+    _lastPosition = null;
     cancelSystemVoice();
     try {
       await _player.stop();

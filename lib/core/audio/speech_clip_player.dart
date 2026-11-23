@@ -17,14 +17,24 @@ abstract class SpeechClipPlayer {
   /// it to a file first, so nothing touches the filesystem on any platform.
   /// Answers whether the clip actually sounded — a silent player must let the
   /// caller fall back to another engine instead of leaving dead air.
-  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0});
+  ///
+  /// [cancel] ends the wait *now* (the caller stopped the sound). Without it a
+  /// paused line kept its playback future alive until the stall guard ran out,
+  /// so pressing 继续 looked silent until the next line.
+  Future<bool> playAudioBytes(Uint8List bytes,
+      {double rate = 1.0,
+      Duration startAt = Duration.zero,
+      Future<void>? cancel});
 
   /// Plays an MP3 the online voices answered with.
   ///
   /// Separate from [playAudioBytes] because the format decides how the file is
   /// staged on Windows: a `.wav` name in front of MPEG frames is how the clip
   /// "plays" for zero seconds.
-  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0});
+  Future<bool> playOnlineClip(Uint8List bytes,
+      {double rate = 1.0,
+      Duration startAt = Duration.zero,
+      Future<void>? cancel});
 
   /// Speaks a whole sentence with the prosody of connected speech.
   ///
@@ -48,6 +58,13 @@ abstract class SpeechClipPlayer {
   /// Sticky rather than per-clip: the reader sets it once in the settings panel,
   /// and every line after that is read at that level.
   Future<void> setVolume(double volume);
+
+  /// Where the clip that is playing has got to, in the clip's own time.
+  ///
+  /// Null when nothing seekable is loaded (the platform voice, a finished
+  /// clip). Pausing keeps this to resume the sentence where it stopped instead
+  /// of starting it again.
+  Duration? get playbackPosition;
 
   /// Silences whatever is playing.
   Future<void> stop();

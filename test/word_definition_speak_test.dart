@@ -15,6 +15,10 @@ import 'package:provider/provider.dart';
 /// Definitions, notes and explanations are plain rendered text, so the reader
 /// has to be able to point at one and have it spoken.
 class _RecordingPlayer implements SpeechClipPlayer {
+  Duration? playbackAt;
+
+  @override
+  Duration? get playbackPosition => playbackAt;
   final List<Uint8List> onlineClips = [];
   final List<String> sentences = [];
   int buffers = 0;
@@ -23,13 +27,13 @@ class _RecordingPlayer implements SpeechClipPlayer {
   Future<void> setVolume(double volume) async {}
 
   @override
-  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0, Duration startAt = Duration.zero, Future<void>? cancel}) async {
     buffers++;
     return true;
   }
 
   @override
-  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0}) async {
+  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0, Duration startAt = Duration.zero, Future<void>? cancel}) async {
     onlineClips.add(bytes);
     return true;
   }

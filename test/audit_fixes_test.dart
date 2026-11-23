@@ -185,11 +185,24 @@ Uint8List _buildSyntheticMdict({
 
 class _NoopSpeechPlayer implements SpeechClipPlayer {
   @override
-  Future<bool> playAudioBytes(Uint8List bytes, {double rate = 1.0}) async =>
+  Duration? get playbackPosition => null;
+
+  @override
+  Future<bool> playAudioBytes(
+    Uint8List bytes, {
+    double rate = 1.0,
+    Duration startAt = Duration.zero,
+    Future<void>? cancel,
+  }) async =>
       true;
 
   @override
-  Future<bool> playOnlineClip(Uint8List bytes, {double rate = 1.0}) async =>
+  Future<bool> playOnlineClip(
+    Uint8List bytes, {
+    double rate = 1.0,
+    Duration startAt = Duration.zero,
+    Future<void>? cancel,
+  }) async =>
       true;
 
   @override

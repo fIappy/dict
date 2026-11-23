@@ -4,6 +4,7 @@ import '../audio/audio_manager.dart';
 import '../audio/kokoro_voice.dart';
 import '../audio/pcm_audio.dart';
 import '../audio/speech_clip_player.dart';
+import '../audio/online_audio_cache.dart';
 import '../audio/online_tts.dart';
 import '../audio/speech_engine.dart';
 
@@ -28,7 +29,7 @@ class NumberSpeaker {
     OnlineSynthesizer? online,
   })  : _player = player ?? AudioManager(),
         _kokoro = kokoro,
-        _online = online ?? OnlineTts.synthesize;
+        _online = online ?? OnlineAudioCache.instance.synthesize;
 
   final SpeechClipPlayer _player;
 
