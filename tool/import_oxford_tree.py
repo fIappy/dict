@@ -51,6 +51,25 @@ SPECIAL_CHARS: dict[int, str] = {
     0x89: 'É',
     0x6A: '©',
     0x77: '·',
+    0x64: '£',
+    0x70: '°',
+    0x36E: 'o',
+    0x7DB: ' — ',
+    0x7EF: "'",
+    0x84A: ' — ',
+    0x9C: 'Ü',
+    0xBC: 'ü',
+    0xA0: 'á',
+    0xA1: 'á',
+    0xA2: 'â',
+    0xA4: 'ä',
+    0xA8: 'è',
+    0xAB: 'ë',
+    0xF1: 'ë',
+    0xB6: 'ö',
+    0xB8: 'ö',
+    0x890: '',
+    0x891: '',
 }
 
 SMALL_TITLE_WORDS = {
@@ -80,7 +99,7 @@ FORBIDDEN_BOILERPLATE = (
     'TRANSLATION',
 )
 
-CJK_RE = re.compile(r'[\u4e00-\u9fff]')
+CJK_RE = re.compile(r'[\u2E80-\u9FFF\uF900-\uFAFF\U00020000-\U0002FFFF]')
 
 
 @dataclass(frozen=True)
@@ -118,6 +137,15 @@ def fnv1a_32_utf16(text: str) -> str:
 
 def decode_shifted(text: str, check_unknown: bool = False) -> str:
     """Decode FLTRP LiberationSerif* shifted codepoints into standard text."""
+    # A bracketed pronunciation like [məmt...] uses a glyph set with no mapping
+    # in these PDFs. It is an annotation, not story text; drop the whole bracket
+    # instead of failing the page (and instead of emitting mojibake).
+    if '>' in text and '@' in text:
+        text = re.sub(
+            r'>[^@]*@',
+            lambda m: '' if any(ord(c) > 0x7F for c in m.group(0)) else m.group(0),
+            text,
+        )
     out: list[str] = []
     for ch in text:
         o = ord(ch)
@@ -235,7 +263,7 @@ def detect_shifted_boundaries(all_pages: list[list[PageLine]]) -> dict[str, int]
     for i, lines in enumerate(all_pages):
         all_lat = ' '.join(l.latin_text for l in lines if l.latin_text)
         if i < 12 and any(
-            ('CONTENTS' in l.latin_text and l.max_latin_size >= 18)
+            ('CONTENTS' in l.latin_text.upper() and l.max_latin_size >= 18)
             or ('ⴞ' in l.simsun_text and 'ᖅ' in l.simsun_text)
             for l in lines
         ):
@@ -254,14 +282,16 @@ def detect_shifted_boundaries(all_pages: list[list[PageLine]]) -> dict[str, int]
         ):
             copy_max = i
         if i > 10 and any(
-            ('GLOSSARY' in l.latin_text and l.max_latin_size >= 14)
+            (re.match(r'(?i)^GLOSSARY\b', l.latin_text) is not None
+             and l.max_latin_size >= 10)
             or '䇽≷㺘' in l.simsun_text
             for l in lines
         ):
             if gloss_p is None:
                 gloss_p = i
         if i > 10 and any(
-            ('ACTIVITIES' in l.latin_text and l.max_latin_size >= 18)
+            (re.match(r'(?i)^(ACTIVITIES|EXERCISES)\b', l.latin_text) is not None
+             and l.max_latin_size >= 14)
             or '䰵䈫㓳Ґ' in l.simsun_text
             or (
                 ('Before Reading' in l.latin_text or 'While Reading' in l.latin_text)
@@ -272,7 +302,8 @@ def detect_shifted_boundaries(all_pages: list[list[PageLine]]) -> dict[str, int]
             if act_p is None:
                 act_p = i
         if i > 12 and any(
-            ('TRANSLATION' in l.latin_text and l.max_latin_size >= 14)
+            (re.match(r'(?i)^TRANSLATION\b', l.latin_text) is not None
+             and l.max_latin_size >= 10)
             or '৲㘳䈁᮷' in l.simsun_text
             for l in lines
         ):
@@ -420,6 +451,12 @@ def reconstruct_paragraphs(
 
             txt = ln.latin_text
             if not txt:
+                i += 1
+                continue
+
+            # A chapter's word list is set in the same font as the story; it is
+            # read as dictionary entries, not prose.
+            if _is_gloss_line(txt):
                 i += 1
                 continue
 
@@ -691,6 +728,121 @@ def normalize_english_text(text: str) -> str:
     return cleaned.strip()
 
 
+
+
+_GLOSS_LINE = re.compile(
+    r"^[A-Za-z][A-Za-z' -]{0,40}\s+"
+    r"(?:n|v|adj|adv|prep|conj|pron|det|num|phr|excl)\.\s"
+)
+
+
+_GLOSS_TAIL = re.compile(
+    r"^\s*(?:n|v|adj|adv|prep|conj|pron|det|num|phr|excl)\.\s"
+)
+
+
+def _is_gloss_line(text: str) -> bool:
+    stripped = text.strip()
+    return _GLOSS_LINE.match(stripped) is not None or _GLOSS_TAIL.match(stripped) is not None
+
+
+_CN_TITLES: dict[str, str] = {
+    '别了，好莱坞先生': 'Goodbye, Mr Hollywood',
+    '在月亮下面': 'Under the Moon',
+    '奥米茄文件': 'The Omega Files',
+    '歌剧院的幽灵': 'The Phantom of the Opera',
+    '爱情与金钱': 'Love or Money?',
+    '福尔摩斯和公爵的儿子': "Sherlock Holmes and the Duke's Son",
+    '绿野仙踪': 'The Wizard of Oz',
+    '苏格兰玛丽女王': 'Mary Queen of Scots',
+    '猴爪': "The Monkey's Paw",
+    '象人': 'The Elephant Man',
+    '雪莉·霍姆斯和立陶宛青年案': 'Shirley Homes and the Lithuanian Case',
+    '一个国王的爱情故事': 'The Love of a King',
+    '五个孩子和沙精': 'Five Children and It',
+    '亡灵岛': "Dead Man's Island",
+    '亨利八世和他的六位妻子': 'Henry VIII and His Six Wives',
+    '哈克贝利·费恩历险记': 'The Adventures of Huckleberry Finn',
+    '威廉·莎士比亚': 'William Shakespeare',
+    '爱丽丝漫游奇境记': "Alice's Adventures in Wonderland",
+    '鲁宾孙漂流记': 'Robinson Crusoe',
+    '格林·盖布尔斯的安妮': 'Anne of Green Gables',
+    '圣诞欢歌': 'A Christmas Carol',
+    '勃朗特一家的故事': 'The Brontë Story',
+    '化学秘密': 'Chemical Secret',
+    '曾达的囚徒': 'The Prisoner of Zenda',
+    '爱丽丝镜中世界奇遇记': 'Through the Looking-Glass',
+    '秘密花园': 'The Secret Garden',
+    '野性的呼唤': 'The Call of the Wild',
+    '劫机！': 'Skyjack!',
+    '多里安·格雷的画像': 'The Picture of Dorian Gray',
+    '弗兰肯斯坦': 'Frankenstein',
+    '诱拐': 'Kidnapped',
+    '三十九级台阶': 'The Thirty-Nine Steps',
+    '化身博士': 'Dr Jekyll and Mr Hyde',
+    '双城记': 'A Tale of Two Cities',
+    '小妇人': 'Little Women',
+    '巴斯克维尔猎犬': 'The Hound of the Baskervilles',
+    '格列佛游记': "Gulliver's Travels",
+    '织工马南': 'Silas Marner',
+    '金银岛': 'Treasure Island',
+    '黑骏马': 'Black Beauty',
+    '三怪客泛舟记': 'Three Men in a Boat',
+    '红字': 'The Scarlet Letter',
+    '不平静的坟墓': 'The Unquiet Grave',
+    '呼啸山庄': 'Wuthering Heights',
+    '大卫·科波菲尔': 'David Copperfield',
+    '纯真年代': 'The Age of Innocence',
+    '远大前程': 'Great Expectations',
+    '远离尘嚣': 'Far from the Madding Crowd',
+    '傲慢与偏见': 'Pride and Prejudice',
+    '名利场': 'Vanity Fair',
+    '巴彻斯特教堂尖塔': 'Barchester Towers',
+    '白衣女人': 'The Woman in White',
+    '简·爱': 'Jane Eyre',
+    '苔丝': "Tess of the d'Urbervilles",
+    '雾都孤儿': 'Oliver Twist',
+    '公正': 'Justice',
+    '世界上最冷的地方': 'The Coldest Place on Earth',
+    '潘德尔的巫师': 'The Witches of Pendle',
+    '爱情故事集：桥及其他': 'The Bridge and Other Love Stories',
+    '福尔摩斯与红发会': 'Sherlock Holmes and the Red-Headed League',
+    '神秘及幻想故事集': 'The Fall of the House of Usher and Other Stories',
+}
+
+_GENERIC_TITLES = {
+    'CONTENTS', 'INTRODUCTION', 'ACTIVITIES', 'EXERCISES', 'GLOSSARY',
+    'TRANSLATION', 'PEOPLE IN THIS STORY', 'A FAMILY TREE', 'CHAPTER 1',
+    'OXFORD BOOKWORMS LIBRARY', 'OXFORD BOOKWORMS',
+}
+
+
+def extract_cover_title(all_pages: list[list[PageLine]], limit: int) -> str:
+    """The English title as printed on the cover or half-title page.
+
+    The TOC trick only works in editions that list the title there; the rest
+    land on their Chinese file name. The cover sets the title in the largest
+    type of the front matter, often on two lines.
+    """
+    for page in all_pages[:min(len(all_pages), max(limit, 8))]:
+        big = [
+            l.latin_text.strip()
+            for l in page
+            if l.max_latin_size >= 20
+            and 2 < len(l.latin_text.strip()) <= 80
+            and not l.has_cjk_content
+            and re.search(r'[A-Za-z]', l.latin_text)
+            and not is_boilerplate_line(l.latin_text)
+            and l.latin_text.strip().upper() not in _GENERIC_TITLES
+        ]
+        if not big:
+            continue
+        joined = ' '.join(big[:2])
+        joined = re.sub(r'\s+', ' ', joined).strip()
+        if joined.upper() in _GENERIC_TITLES:
+            continue
+        return smart_title_case(joined)
+    return ''
 def extract_book(pdf_path: str, level: int) -> ExtractedBook:
     """Extract a single Oxford Bookworms PDF cleanly according to its detected layout."""
     cn_name = os.path.splitext(os.path.basename(pdf_path))[0]
@@ -723,17 +875,64 @@ def extract_book(pdf_path: str, level: int) -> ExtractedBook:
     end_candidates = [marks[k] for k in ('gloss', 'act', 'trans') if marks[k] != -1]
     end_story = min(end_candidates) if end_candidates else len(doc)
 
-    story_indices = [
-        i for i in range(after_front, end_story)
-        if not any(is_boilerplate_line(l.latin_text) for l in all_pages[i])
-        and sum(len(re.findall(r'[A-Za-z]+', l.latin_text)) for l in all_pages[i] if not l.has_cjk_content) > 0
-    ]
+    def page_counts(i: int) -> tuple[int, int]:
+        latin = 0
+        cjk = 0
+        for line in all_pages[i]:
+            latin += len(re.findall(r'[A-Za-z]+', line.latin_text))
+            cjk += len(CJK_RE.findall(line.latin_text))
+            cjk += len(CJK_RE.findall(line.simsun_text))
+        return latin, cjk
+
+    def is_story_page(i: int) -> bool:
+        if any(is_boilerplate_line(l.latin_text) for l in all_pages[i]):
+            return False
+        latin, cjk = page_counts(i)
+        if latin < 40:
+            return False
+        # Per-chapter word lists are English, small-ratio Chinese and still not
+        # story: they are dictionary entries, one after another.
+        lines = [l.latin_text for l in all_pages[i] if l.latin_text.strip()]
+        gloss = sum(1 for t in lines if _is_gloss_line(t))
+        if gloss >= 3 and gloss * 2 >= len(lines):
+            return False
+        # A mixed page is front matter, a glossary or the translation section:
+        # its Chinese (in any CJK block the fonts use) outweighs the story.
+        return cjk <= latin * 0.12
+
+    story_indices = [i for i in range(after_front, end_story) if is_story_page(i)]
     story_words = sum(
         len(re.findall(r'[A-Za-z]+', l.latin_text))
         for i in story_indices
         for l in all_pages[i]
         if not l.has_cjk_content
     )
+
+    # Some files are several books bound together (one cover / copyright page
+    # per book). Importing them as one passage would read like an omnibus; the
+    # right fix is splitting the PDF, so say that instead of guessing.
+    copyright_pages = sum(
+        1
+        for i in story_indices
+        if any(
+            'Originally published by Oxford' in l.latin_text
+            or 'registered trademark of Oxford' in l.latin_text
+            for l in all_pages[i]
+        )
+    )
+    if copyright_pages > 1:
+        raise RuntimeError(
+            f'multi-book PDF ({copyright_pages} copyright pages); split it first'
+        )
+    total_copyright = sum(
+        1
+        for lines in all_pages
+        if any('Originally published by Oxford' in l.latin_text for l in lines)
+    )
+    if total_copyright > 1:
+        raise RuntimeError(
+            f'multi-book PDF ({total_copyright} copyright pages); split it first'
+        )
 
     # Look for English title hint from TOC page (after TOC or back cover)
     toc_title = extract_toc_title(all_pages[marks['toc']]) if marks['toc'] != -1 else ''
@@ -744,7 +943,10 @@ def extract_book(pdf_path: str, level: int) -> ExtractedBook:
             if l.max_latin_size >= 20 and re.search(r'[A-Za-z]', l.latin_text):
                 blurb_title = smart_title_case(l.latin_text)
                 break
-    title_hint = toc_title or blurb_title
+    cover_title = extract_cover_title(all_pages, after_front)
+    title_hint = cover_title or toc_title or blurb_title
+    if title_hint.strip().upper() in _GENERIC_TITLES:
+        title_hint = ''
 
     if story_words > 200:
         mode = 'PROSE'
@@ -761,8 +963,9 @@ def extract_book(pdf_path: str, level: int) -> ExtractedBook:
     # Re-parse target pages strictly with unknown char assertion enabled.
     strict_pages = [parse_shifted_page_lines(doc[i], check_unknown=True) for i in target_indices]
     en_title, body = reconstruct_paragraphs(strict_pages, title_hint, comic_mode=comic_mode)
-    if not en_title:
-        en_title = FALLBACK_EN_TITLES.get(cn_name, cn_name)
+    # The heading the story opens with is a chapter name, not the book: use the
+    # cover/TOC hint, a curated English title, and the Chinese name last.
+    en_title = _CN_TITLES.get(cn_name) or title_hint or cn_name
 
     page_range = f'{target_indices[0]}..{target_indices[-1]}'
     return ExtractedBook(
@@ -795,9 +998,10 @@ def validate_book(book: ExtractedBook) -> None:
     if len(sentences) < 30:
         raise AssertionError(f'{book.cn_name}: sentence count {len(sentences)} < 30')
     # Verify only clean characters exist
+    allowed_extra = set('\néÉ£—·°áâäèëöüÜ')
     bad_chars = {
         ch for ch in body
-        if not (' ' <= ch <= '~' or ch in ('\n', 'é', 'É', '£', '—'))
+        if not (' ' <= ch <= '~' or ch in allowed_extra)
     }
     if bad_chars:
         raise AssertionError(f'{book.cn_name}: unexpected characters {bad_chars!r}')
@@ -851,12 +1055,12 @@ def update_seed_library(
             'texts': merged_texts,
         }
         os.makedirs(os.path.dirname(seed_path), exist_ok=True)
-        with open(seed_path, 'w', encoding='utf-8') as f:
+        with open(seed_path, 'w', encoding='utf-8', newline='\n') as f:
             json.dump(payload, f, indent=1, ensure_ascii=False)
             f.write('\n')
         with open(seed_path, 'r', encoding='utf-8') as f:
             fp = fnv1a_32_utf16(f.read())
-        with open(meta_path, 'w', encoding='utf-8') as f:
+        with open(meta_path, 'w', encoding='utf-8', newline='\n') as f:
             json.dump({'version': version, 'fingerprint': fp}, f, ensure_ascii=False)
             f.write('\n')
 
@@ -870,10 +1074,16 @@ def run_level(source_root: str, level: int, seed_path: str, meta_path: str, dry_
         raise FileNotFoundError(f'No PDFs found in {level_dir}')
 
     books: list[ExtractedBook] = []
-    for pdf in pdfs:
-        book = extract_book(pdf, level)
-        validate_book(book)
+    for index, pdf in enumerate(pdfs, start=1):
+        try:
+            book = extract_book(pdf, level)
+            validate_book(book)
+        except Exception as error:  # noqa: BLE001 — one bad PDF must not sink a level
+            print(f'  SKIP {os.path.basename(pdf)} (slot {index:02d}): {error}')
+            continue
         books.append(book)
+    if not books:
+        raise RuntimeError(f'Level {level}: no PDF could be extracted')
 
     version, changed = update_seed_library(books, level, seed_path, meta_path, dry_run)
 

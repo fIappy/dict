@@ -263,7 +263,7 @@ void main() {
         reason: 'the shipped passages are added around it');
   });
 
-  test('Oxford Tree Level 0 group ships clean pure-English stories', () async {
+  test('Oxford Tree levels 0-6 ship clean pure-English stories', () async {
     final provider = CustomTextProvider();
     await provider.initialize();
     await provider.ensureSeeded();
@@ -273,22 +273,36 @@ void main() {
     final oxford = oxfordGroups.single;
     expect(oxford.id, 'grp-oxford-tree');
 
-    final level0 = provider.allTexts
-        .where((t) => t.groupId == oxford.id && t.id.startsWith('ox_0_'))
-        .toList();
-    expect(level0, hasLength(27));
+    // One level-3 PDF (风语河岸柳) is several books bound together; it is
+    // skipped by the importer until it is split, so level 3 has 17 of 18.
+    const expected = {0: 27, 1: 31, 2: 30, 3: 17, 4: 16, 5: 8, 6: 7};
+    // Ext-A/B are the blocks FLTRP fonts use for Chinese; either one in a body
+    // means the page selector leaked a translation page.
+    final cjk = RegExp(r'[\u2E80-\u9FFF\uF900-\uFAFF]');
 
-    final cjk = RegExp(r'[\u4e00-\u9fff]');
-    for (final item in level0) {
-      expect(item.title, contains('0'), reason: '${item.id} title marks level 0');
-      expect(item.body.trim(), isNotEmpty);
-      expect(cjk.hasMatch(item.body), isFalse,
-          reason: '${item.id} (${item.title}) must contain pure English only');
-      expect(item.body.contains('='), isFalse,
-          reason: '${item.id} (${item.title}) must not have shifted-space "="');
-      expect(item.utterances.length, greaterThanOrEqualTo(30),
-          reason: '${item.id} (${item.title}) should hold a full story');
+    var total = 0;
+    for (final entry in expected.entries) {
+      final level = entry.key;
+      final books = provider.allTexts
+          .where((t) =>
+              t.groupId == oxford.id && t.id.startsWith('ox_${level}_'))
+          .toList();
+      expect(books, hasLength(entry.value), reason: 'level $level count');
+      total += books.length;
+
+      for (final item in books) {
+        expect(item.title, contains(' $level · '),
+            reason: '${item.id} title marks its level');
+        expect(item.body.trim(), isNotEmpty);
+        expect(cjk.hasMatch(item.body), isFalse,
+            reason: '${item.id} (${item.title}) must contain pure English only');
+        expect(item.body.contains('='), isFalse,
+            reason: '${item.id} (${item.title}) must not have shifted-space "="');
+        expect(item.utterances.length, greaterThanOrEqualTo(30),
+            reason: '${item.id} (${item.title}) should hold a full story');
+      }
     }
+    expect(total, 136, reason: 'levels 0-6 minus the one multi-book PDF');
   });
 
   test('a shipped passage regains its group even when body and title match',
