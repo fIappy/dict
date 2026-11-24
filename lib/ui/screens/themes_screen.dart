@@ -12,6 +12,9 @@ import 'word_detail_screen.dart';
 /// 主题词汇: pick a theme (通用 / 动作与变化 / 科学与技术 …), then read its words
 /// in COCA frequency order.
 class ThemesScreen extends StatefulWidget {
+  /// Red fill used to mark the word chip currently shown in the detail pane.
+  static const Color selectedWordChipColor = Color(0xFFDC2626);
+
   final bool isPaneView;
   final void Function(String word)? onSelectWord;
 
@@ -279,6 +282,10 @@ class _ThemesScreenState extends State<ThemesScreen> {
       );
     }
     final theme = Theme.of(context);
+    final activeWord = context
+        .select<DictionaryProvider, String?>((p) => p.currentWord)
+        ?.trim()
+        .toLowerCase();
     // A flat theme holds one group: its words are the page, with nothing to
     // fold open first.
     if (groups.length == 1) {
@@ -294,12 +301,7 @@ class _ThemesScreenState extends State<ThemesScreen> {
             runSpacing: 6,
             children: [
               for (final word in provider.facetWords(group))
-                ActionChip(
-                  label: Text(word, style: const TextStyle(fontSize: 12.5)),
-                  visualDensity: VisualDensity.compact,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  onPressed: () => _onWordTapped(context, word),
-                ),
+                _buildWordChip(context, word, activeWord),
             ],
           ),
         ],
@@ -367,15 +369,7 @@ class _ThemesScreenState extends State<ThemesScreen> {
                   runSpacing: 6,
                   children: [
                     for (final word in provider.facetWords(group))
-                      ActionChip(
-                        label: Text(
-                          word,
-                          style: const TextStyle(fontSize: 12.5),
-                        ),
-                        visualDensity: VisualDensity.compact,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        onPressed: () => _onWordTapped(context, word),
-                      ),
+                      _buildWordChip(context, word, activeWord),
                   ],
                 ),
               ],
@@ -383,6 +377,31 @@ class _ThemesScreenState extends State<ThemesScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildWordChip(
+    BuildContext context,
+    String word,
+    String? activeWord,
+  ) {
+    final selected = activeWord != null && activeWord == word.toLowerCase();
+    return ActionChip(
+      label: Text(
+        word,
+        style: TextStyle(
+          fontSize: 12.5,
+          color: selected ? Colors.white : null,
+          fontWeight: selected ? FontWeight.w600 : null,
+        ),
+      ),
+      backgroundColor: selected ? ThemesScreen.selectedWordChipColor : null,
+      side: selected
+          ? const BorderSide(color: ThemesScreen.selectedWordChipColor)
+          : null,
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      onPressed: () => _onWordTapped(context, word),
     );
   }
 

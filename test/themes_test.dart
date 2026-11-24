@@ -368,5 +368,54 @@ void main() {
       await tester.pumpAndSettle();
       expect(provider.domainId, 'all');
     });
+
+    testWidgets('tapping a word chip highlights it in red and moves on next tap',
+        (tester) async {
+      final provider = await pumpScreen(tester);
+      final first = provider.scenes.first;
+      await tester.tap(find.text(first.label).first);
+      await tester.pumpAndSettle();
+
+      final words = first.words.take(2).toList();
+      final firstWord = words[0];
+      final secondWord = words[1];
+
+      ActionChip chipFor(String word) => tester.widget<ActionChip>(
+            find.ancestor(
+              of: find.text(word),
+              matching: find.byType(ActionChip),
+            ),
+          );
+
+      expect(chipFor(firstWord).backgroundColor, isNull);
+      expect(chipFor(secondWord).backgroundColor, isNull);
+
+      await tester.tap(find.text(firstWord));
+      await tester.pumpAndSettle();
+
+      final activeFirst = chipFor(firstWord);
+      expect(activeFirst.backgroundColor, ThemesScreen.selectedWordChipColor);
+      expect(activeFirst.side?.color, ThemesScreen.selectedWordChipColor);
+      expect((activeFirst.label as Text).style?.color, Colors.white);
+      expect(chipFor(secondWord).backgroundColor, isNull);
+
+      await tester.tap(find.text(secondWord));
+      await tester.pumpAndSettle();
+
+      final activeSecond = chipFor(secondWord);
+      expect(activeSecond.backgroundColor, ThemesScreen.selectedWordChipColor);
+      expect(activeSecond.side?.color, ThemesScreen.selectedWordChipColor);
+      expect((activeSecond.label as Text).style?.color, Colors.white);
+      expect(chipFor(firstWord).backgroundColor, isNull);
+
+      final dictProvider = tester
+          .element(find.byType(ThemesScreen))
+          .read<DictionaryProvider>();
+      await dictProvider.lookupWord(firstWord.toUpperCase());
+      await tester.pumpAndSettle();
+
+      expect(chipFor(firstWord).backgroundColor, ThemesScreen.selectedWordChipColor);
+      expect(chipFor(secondWord).backgroundColor, isNull);
+    });
   });
 }
