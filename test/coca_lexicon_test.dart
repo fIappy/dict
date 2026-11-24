@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_dict/core/frequency/frequency_service.dart';
@@ -12,6 +14,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   const dbPath = 'content/coca-ai/pack/coca_learn.db';
+
+  // The 5.4w learning pack is generated (tool/build_coca_pack.py) and lives in
+  // the git-ignored content/ tree; a machine without it can still run every
+  // other test, so this suite announces the missing artefact instead of
+  // failing as if the code regressed.
+  final hasPack = File(dbPath).existsSync();
 
   group('CocaLexiconService (53,925 words)', () {
     late CocaLexiconService lexicon;
@@ -147,5 +155,8 @@ void main() {
       expect(find.text('显示译文'), findsOneWidget);
       expect(find.text(lexeme.sentences.first.translation), findsNothing);
     });
-  });
+  }, skip: hasPack
+      ? false
+      : 'content/coca-ai/pack/coca_learn.db is not built here '
+          '(run tool/build_coca_pack.py where content/coca-ai exists)');
 }

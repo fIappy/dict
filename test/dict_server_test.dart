@@ -261,6 +261,9 @@ void main() {
       expect(entry['matchedFrom'], 'behaviour');
 
       await dictServer.close();
-    });
+    },
+        skip: File('content/coca-ai/pack/coca_learn.db').existsSync()
+            ? false
+            : 'coca_learn.db is not built on this machine');
   });
 }
