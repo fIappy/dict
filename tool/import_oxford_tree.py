@@ -810,6 +810,27 @@ _CN_TITLES: dict[str, str] = {
     '神秘及幻想故事集': 'The Fall of the House of Usher and Other Stories',
 }
 
+_FRONT_MATTER_HEADINGS = (
+    'PEOPLE IN THIS STORY',
+    'PEOPLE IN THE STORY',
+    'THE PEOPLE IN THIS STORY',
+    'CHARACTERS IN THIS STORY',
+    'CHARACTERS',
+    'A FAMILY TREE',
+    'INTRODUCTION',
+)
+
+
+def _is_front_matter_page(lines: list[PageLine]) -> bool:
+    for line in lines:
+        if line.max_latin_size < 18:
+            continue
+        text = re.sub(r'\s+', ' ', line.latin_text).strip().upper()
+        if text in _FRONT_MATTER_HEADINGS:
+            return True
+    return False
+
+
 _GENERIC_TITLES = {
     'CONTENTS', 'INTRODUCTION', 'ACTIVITIES', 'EXERCISES', 'GLOSSARY',
     'TRANSLATION', 'PEOPLE IN THIS STORY', 'A FAMILY TREE', 'CHAPTER 1',
@@ -887,6 +908,10 @@ def extract_book(pdf_path: str, level: int) -> ExtractedBook:
     def is_story_page(i: int) -> bool:
         if any(is_boilerplate_line(l.latin_text) for l in all_pages[i]):
             return False
+        # "People in This Story" / family trees sit before chapter 1 and are
+        # cast lists, not narration.
+        if _is_front_matter_page(all_pages[i]):
+            return False
         latin, cjk = page_counts(i)
         if latin < 40:
             return False
@@ -901,6 +926,25 @@ def extract_book(pdf_path: str, level: int) -> ExtractedBook:
         return cjk <= latin * 0.12
 
     story_indices = [i for i in range(after_front, end_story) if is_story_page(i)]
+
+    # Cast lists and introductions sit between the TOC and chapter 1; both read
+    # as English prose to the page classifier. The story proper starts at the
+    # first chapter/part marker, so trim everything before it.
+    chapter_marker = re.compile(
+        r'(?i)^(\d{1,2}(?:[.\s]|$)|chapter\s+\d|part\s+(one|two|three|four|five))'
+    )
+
+    def starts_chapter(i: int) -> bool:
+        for line in all_pages[i][:6]:
+            text = line.latin_text.strip()
+            if line.max_latin_size >= 14 and chapter_marker.match(text):
+                return True
+        return False
+
+    for offset, page_index in enumerate(story_indices[:6]):
+        if starts_chapter(page_index):
+            story_indices = story_indices[offset:]
+            break
     story_words = sum(
         len(re.findall(r'[A-Za-z]+', l.latin_text))
         for i in story_indices
