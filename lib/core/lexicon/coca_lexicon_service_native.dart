@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart' as sqflite;
@@ -8,6 +9,8 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../models/lexeme_entry.dart';
 import '../models/search_result.dart';
 import 'coca_sqlite_store.dart';
+
+const MethodChannel _bundledAssets = MethodChannel('local_dict/bundled_models');
 
 /// Desktop/mobile 53,925-word COCA AI learning corpus lookup service.
 class CocaLexiconService {
@@ -122,6 +125,26 @@ class CocaLexiconService {
       final file = File(candidate);
       if (file.existsSync() && file.lengthSync() > 0) {
         return file.absolute.path;
+      }
+    }
+
+    // Android carries the database inside the APK (Gradle copies it when
+    // content/coca-ai exists). Nothing on disk means this is the first launch,
+    // so ask the platform to unpack it once and probe again.
+    if (Platform.isAndroid) {
+      try {
+        final installed =
+            await _bundledAssets.invokeMethod<bool>('installLexicon');
+        if (installed == true) {
+          final dir = await getApplicationSupportDirectory();
+          final file = File(p.join(dir.path, 'local_dict', 'coca_learn.db'));
+          if (file.existsSync() && file.lengthSync() > 0) {
+            return file.absolute.path;
+          }
+        }
+      } on PlatformException {
+        // An older APK without the asset: the caller reports the missing
+        // database, which is the honest state.
       }
     }
     return null;

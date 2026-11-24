@@ -19,6 +19,20 @@ val copyKokoroModels = tasks.register<Copy>("copyKokoroModels") {
 tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }
     .configureEach { dependsOn(copyKokoroModels) }
 
+// The 5.4w COCA learning database travels the same way: the app copies it out
+// of its own assets on first launch, so 查词 works offline right after install
+// with no import step. Built by tool/build_coca_pack.py; absent on machines
+// without content/ and the build still succeeds.
+val cocaLexicon = rootProject.layout.projectDirectory.file("../content/coca-ai/pack/coca_learn.db")
+val bundledCocaLexicon = layout.buildDirectory.dir("generated/cocaLexicon")
+val copyCocaLexicon = tasks.register<Copy>("copyCocaLexicon") {
+    onlyIf { cocaLexicon.asFile.exists() }
+    from(cocaLexicon) { into("") }
+    into(bundledCocaLexicon)
+}
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }
+    .configureEach { dependsOn(copyCocaLexicon) }
+
 android {
     namespace = "com.example.local_dict"
     compileSdk = flutter.compileSdkVersion
@@ -27,6 +41,7 @@ android {
     // AGP's SourceSet API refuses a Provider here; the directory is filled by
     // copyPiperModels, which every merge*Assets task depends on.
     sourceSets["main"].assets.srcDir(bundledKokoroModels.get().asFile)
+    sourceSets["main"].assets.srcDir(bundledCocaLexicon.get().asFile)
 
     androidResources {
         // Avoid double-deflating the already compressed 141 MB kokoro.zip bundle.

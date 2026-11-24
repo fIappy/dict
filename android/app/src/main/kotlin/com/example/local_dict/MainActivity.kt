@@ -29,6 +29,7 @@ import java.util.zip.ZipInputStream
  *
  * and through `local_dict/bundled_models`:
  *  - `install` -> unpacks the Piper voices that ship inside the APK
+ *  - `installLexicon` -> copies the bundled 5.4w COCA database out of the APK
  *
  * The engine initialises asynchronously, and `voices` can arrive before it is
  * ready — that call is therefore parked and answered from the init callback
@@ -41,6 +42,7 @@ class MainActivity : FlutterActivity() {
     private val parkedVoices = mutableListOf<MethodChannel.Result>()
     private val speaking = ConcurrentHashMap<String, MethodChannel.Result>()
     private val modelsLock = Any()
+    private val lexiconLock = Any()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -110,6 +112,11 @@ class MainActivity : FlutterActivity() {
                         val installed = installBundledModels()
                         runOnUiThread { result.success(installed) }
                     }.start()
+                    // 139 MB of SQLite: streamed off the UI thread on first launch.
+                    "installLexicon" -> Thread {
+                        val installed = installBundledLexicon()
+                        runOnUiThread { result.success(installed) }
+                    }.start()
                     else -> result.notImplemented()
                 }
             }
@@ -157,6 +164,35 @@ class MainActivity : FlutterActivity() {
             PackageManager.PERMISSION_GRANTED
         ) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_REQUEST)
+        }
+    }
+
+    /**
+     * Copies the 5.4w COCA learning database that travels inside the APK into
+     * the folder the Dart side probes.
+     *
+     * Same discipline as the voice models: copy to a temporary name first and
+     * promote only when the size looks right, so an interrupted copy cannot
+     * leave a half database for SQLite to open.
+     */
+    private fun installBundledLexicon(): Boolean = synchronized(lexiconLock) {
+        val target = File(filesDir, "local_dict/coca_learn.db")
+        if (target.isFile && target.length() > MIN_LEXICON_BYTES) return true
+        val staging = File(target.parentFile, "coca_learn.db.staging.${UUID.randomUUID()}")
+        return try {
+            target.parentFile?.mkdirs()
+            assets.open(LEXICON_ASSET).use { input ->
+                staging.outputStream().use { out -> input.copyTo(out) }
+            }
+            if (staging.length() <= MIN_LEXICON_BYTES) {
+                staging.delete()
+                return false
+            }
+            if (target.exists()) target.delete()
+            staging.renameTo(target)
+        } catch (e: Exception) {
+            staging.delete()
+            false
         }
     }
 
@@ -282,6 +318,8 @@ class MainActivity : FlutterActivity() {
         const val CHANNEL = "local_dict/sentence_voice"
         const val MODELS_CHANNEL = "local_dict/bundled_models"
         const val MODELS_ASSET = "kokoro.zip"
+        const val LEXICON_ASSET = "coca_learn.db"
+        const val MIN_LEXICON_BYTES = 10L * 1024 * 1024
         const val AUDIO_BACKGROUND_CHANNEL = "local_dict/audio_background"
         const val NOTIFICATION_REQUEST = 4211
     }

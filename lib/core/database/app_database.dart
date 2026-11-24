@@ -70,10 +70,14 @@ class AppDatabase {
         // Two windows share this file; WAL + a busy timeout is what stops them
         // from failing with SQLITE_BUSY the moment both write at once.
         if (!isTest) {
-          await db.execute('PRAGMA journal_mode = WAL');
+          // rawQuery, not execute: Android's execSQL refuses a statement that
+          // returns a row, and PRAGMA journal_mode answers with the mode it
+          // settled on. That refusal aborted every history/favorite read at
+          // startup on the phone.
+          await db.rawQuery('PRAGMA journal_mode = WAL');
         }
-        await db.execute('PRAGMA busy_timeout = 5000');
-        await db.execute('PRAGMA foreign_keys = ON');
+        await db.rawQuery('PRAGMA busy_timeout = 5000');
+        await db.rawQuery('PRAGMA foreign_keys = ON');
       },
       onCreate: (db, version) async {
         await db.execute('''
