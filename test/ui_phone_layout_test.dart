@@ -60,12 +60,8 @@ void main() {
     expect(tester.takeException(), isNull);
     const icons = <IconData>[
       Icons.bookmark_outline_rounded,
-      Icons.trending_up_rounded,
-      Icons.category_outlined,
-      Icons.record_voice_over_outlined,
-      Icons.text_fields_outlined,
-      Icons.numbers_outlined,
-      Icons.history_rounded,
+      Icons.school_outlined,
+      Icons.fitness_center_outlined,
       Icons.edit_note_outlined,
       Icons.settings_outlined,
     ];
@@ -75,6 +71,34 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(tester.takeException(), isNull, reason: 'destination $icon');
     }
+
+    Future<void> choose(String label) async {
+      await tester.tap(find.widgetWithText(ChoiceChip, label));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(tester.takeException(), isNull, reason: 'sub-tab $label');
+    }
+
+    // 生词本 owns 历史 as a fixed sub-tab.
+    await tester.tap(find.byIcon(Icons.bookmark_outline_rounded).first);
+    await tester.pump();
+    await choose('历史');
+    await choose('生词本');
+
+    // 基础 groups 音标 / 字母 / 数字.
+    await tester.tap(find.byIcon(Icons.school_outlined).first);
+    await tester.pump();
+    await choose('字母');
+    await choose('数字');
+    await choose('音标');
+
+    // 背词 groups 词频 / 主题 / 背词 / AI 练习.
+    await tester.tap(find.byIcon(Icons.fitness_center_outlined).first);
+    await tester.pump();
+    await choose('主题');
+    await choose('背词');
+    await choose('AI 练习');
+    await choose('词频');
   });
 
   testWidgets('phone: IPA detail fits for every phoneme', (tester) async {

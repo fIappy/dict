@@ -24,9 +24,17 @@ import '../widgets/speech_controls.dart';
 /// the platform voice when it is missing), so a generated passage can be used
 /// as listening practice.
 class AiPracticeScreen extends StatefulWidget {
-  const AiPracticeScreen({super.key, required this.scene});
+  const AiPracticeScreen({
+    super.key,
+    required this.scene,
+    this.isPaneView = false,
+  });
 
   final ThemeScene scene;
+
+  /// True when embedded in the 背词 section: the section supplies the Scaffold
+  /// and its bar, so this page returns only its body.
+  final bool isPaneView;
 
   @override
   State<AiPracticeScreen> createState() => _AiPracticeScreenState();
@@ -200,14 +208,7 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
       _lengthController.text = '$_passageLength';
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'AI 练习 · ${widget.scene.label}',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-      ),
-      body: ListView(
+    final body = ListView(
         controller: _scroll,
         padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
         children: [
@@ -239,7 +240,17 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
           const SizedBox(height: 14),
           _buildArchive(context, provider),
         ],
+      );
+
+    if (widget.isPaneView) return body;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'AI 练习 · ${widget.scene.label}',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
       ),
+      body: body,
     );
   }
 

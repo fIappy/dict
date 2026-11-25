@@ -15,6 +15,7 @@ import '../../providers/alphabet_provider.dart';
 import '../../providers/numbers_provider.dart';
 import '../../providers/themes_provider.dart';
 import '../../providers/custom_text_provider.dart';
+import '../../core/themes/theme_service.dart';
 import '../../core/ui/ui_memory.dart';
 import 'alphabet_detail_view.dart';
 import 'alphabet_screen.dart';
@@ -26,6 +27,8 @@ import 'ipa_screen.dart';
 import 'numbers_detail_view.dart';
 import 'numbers_screen.dart';
 import 'themes_screen.dart';
+import 'vocab_drill_screen.dart';
+import 'ai_practice_screen.dart';
 import 'custom_detail_view.dart';
 import 'custom_screen.dart';
 import 'search_screen.dart';
@@ -41,11 +44,23 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   /// Keep in step with the destinations lists below: the rail has no 设置 entry
-  /// (it sits in the rail's trailing corner), the phone bar has ten.
-  static const int _railDestinationCount = 9;
-  static const int _mobileDestinationCount = 10;
+  /// (it sits in the rail's trailing corner), the phone bar has six.
+  static const int _railDestinationCount = 5;
+  static const int _mobileDestinationCount = 6;
 
   int _selectedIndex = 0;
+
+  /// Sub-section of 生词本: 0 = 生词本, 1 = 查词历史.
+  int _favoritesTab = 0;
+
+  /// Sub-section of 基础: 0 = 音标, 1 = 字母, 2 = 数字.
+  int _basicTab = 0;
+
+  /// Sub-section of 背词: 0 = 词频, 1 = 主题, 2 = 背词, 3 = AI 练习.
+  int _reciteTab = 0;
+
+  /// The theme the drill and AI tabs read; null follows 主题's open scene.
+  String? _reciteSceneId;
   final Set<int> _mountedMobileTabs = <int>{0};
 
   /// The middle pane's width. A notifier, not a plain field: dragging the
@@ -88,8 +103,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   /// Puts the shell back the way it was closed: same section, same split.
+  /// v1's ten destinations folded into v2's six.
+  static int? _migrateLegacySection(int? old) {
+    if (old == null) return null;
+    const map = [0, 1, 3, 3, 2, 2, 2, 1, 4, 5];
+    return old >= 0 && old < map.length ? map[old] : null;
+  }
+
   Future<void> _restoreLayout() async {
-    final section = await UiMemory.readInt(UiMemory.section);
+    final section = await UiMemory.readInt(UiMemory.sectionV2) ??
+        _migrateLegacySection(await UiMemory.readInt(UiMemory.section));
     final paneWidth = await UiMemory.readDouble(UiMemory.paneWidth);
     if (!mounted) return;
     final isDesktop = MediaQuery.sizeOf(context).width >= 800;
@@ -112,7 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _selectedIndex = index;
       _mountedMobileTabs.add(index);
     });
-    unawaited(UiMemory.writeInt(UiMemory.section, index));
+    unawaited(UiMemory.writeInt(UiMemory.sectionV2, index));
   }
 
   void _rememberPaneWidth() =>
@@ -173,7 +196,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           Expanded(
             child: RepaintBoundary(
-              child: _DesktopRightPane(index: index),
+              child: _DesktopRightPane(index: index, basicTab: _basicTab),
             ),
           ),
         ],
@@ -186,20 +209,12 @@ class _HomeScreenState extends State<HomeScreen> {
       case 0:
         return const SearchScreen(isPaneView: true);
       case 1:
-        return const FavoritesScreen(isPaneView: true);
+        return _favoritesHub(pane: true);
       case 2:
-        return const FrequencyScreen(isPaneView: true);
+        return _basicHub(pane: true);
       case 3:
-        return const ThemesScreen(isPaneView: true);
+        return _reciteHub(pane: true);
       case 4:
-        return const IpaScreen(isPaneView: true);
-      case 5:
-        return const AlphabetScreen(isPaneView: true);
-      case 6:
-        return const NumbersScreen(isPaneView: true);
-      case 7:
-        return const HistoryScreen(isPaneView: true);
-      case 8:
         return const CustomScreen(isPaneView: true);
       default:
         return const SearchScreen(isPaneView: true);
@@ -211,26 +226,143 @@ class _HomeScreenState extends State<HomeScreen> {
       case 0:
         return const SearchScreen(isPaneView: false);
       case 1:
-        return const FavoritesScreen(isPaneView: false);
+        return _favoritesHub(pane: false);
       case 2:
-        return const FrequencyScreen(isPaneView: false);
+        return _basicHub(pane: false);
       case 3:
-        return const ThemesScreen(isPaneView: false);
+        return _reciteHub(pane: false);
       case 4:
-        return const IpaScreen(isPaneView: false);
-      case 5:
-        return const AlphabetScreen(isPaneView: false);
-      case 6:
-        return const NumbersScreen(isPaneView: false);
-      case 7:
-        return const HistoryScreen(isPaneView: false);
-      case 8:
         return const CustomScreen(isPaneView: false);
-      case 9:
+      case 5:
         return const SettingsScreen(isPaneView: true);
       default:
         return const SearchScreen(isPaneView: false);
     }
+  }
+
+  /// 生词本 owns 查词历史 now: one section, a fixed two-tab strip.
+  Widget _favoritesHub({required bool pane}) {
+    final content = Column(
+      children: [
+        _SubtabStrip(
+          labels: const ['生词本', '历史'],
+          selected: _favoritesTab,
+          onSelected: (value) => setState(() => _favoritesTab = value),
+        ),
+        Expanded(
+          child: _favoritesTab == 0
+              ? const FavoritesScreen(isPaneView: true)
+              : const HistoryScreen(isPaneView: true),
+        ),
+      ],
+    );
+    return pane ? content : _hubPage(title: '生词本', content: content);
+  }
+
+  /// 基础: 音标 / 字母 / 数字.
+  Widget _basicHub({required bool pane}) {
+    final content = Column(
+      children: [
+        _SubtabStrip(
+          labels: const ['音标', '字母', '数字'],
+          selected: _basicTab,
+          onSelected: (value) => setState(() => _basicTab = value),
+        ),
+        Expanded(
+          child: switch (_basicTab) {
+            0 => const IpaScreen(isPaneView: true),
+            1 => const AlphabetScreen(isPaneView: true),
+            _ => const NumbersScreen(isPaneView: true),
+          },
+        ),
+      ],
+    );
+    return pane ? content : _hubPage(title: '基础', content: content);
+  }
+
+  /// 背词: 词频 / 主题, plus the drill and AI pages that used to hang off 主题.
+  Widget _reciteHub({required bool pane}) {
+    final themes = context.watch<ThemesProvider>();
+    final scene = _reciteScene(themes);
+    final body = switch (_reciteTab) {
+      0 => const FrequencyScreen(isPaneView: true),
+      1 => const ThemesScreen(isPaneView: true),
+      2 => scene == null
+          ? const _EmptyHub('还没有主题数据')
+          : VocabDrillScreen(scene: scene),
+      _ => scene == null
+          ? const _EmptyHub('还没有主题数据')
+          : AiPracticeScreen(scene: scene, isPaneView: true),
+    };
+    final content = Column(
+      children: [
+        _SubtabStrip(
+          labels: const ['词频', '主题', '背词', 'AI 练习'],
+          selected: _reciteTab,
+          onSelected: (value) => setState(() => _reciteTab = value),
+        ),
+        if (_reciteTab >= 2) _reciteScenePicker(themes),
+        Expanded(child: body),
+      ],
+    );
+    return pane ? content : _hubPage(title: '背词', content: content);
+  }
+
+  ThemeScene? _reciteScene(ThemesProvider themes) {
+    final scenes = themes.scenes;
+    if (scenes.isEmpty) return null;
+    final wanted = _reciteSceneId;
+    if (wanted != null) {
+      for (final scene in scenes) {
+        if (scene.id == wanted) return scene;
+      }
+    }
+    return themes.selectedScene ?? scenes.first;
+  }
+
+  Widget _reciteScenePicker(ThemesProvider themes) {
+    final scenes = themes.scenes;
+    final scene = _reciteScene(themes);
+    if (scenes.length <= 1 || scene == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+      child: Row(
+        children: [
+          Icon(Icons.local_library_outlined,
+              size: 16, color: Theme.of(context).hintColor),
+          const SizedBox(width: 6),
+          Expanded(
+            child: DropdownButton<String>(
+              value: scene.id,
+              isExpanded: true,
+              isDense: true,
+              items: [
+                for (final item in scenes)
+                  DropdownMenuItem(
+                    value: item.id,
+                    child: Text(
+                      item.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12.5),
+                    ),
+                  ),
+              ],
+              onChanged: (value) => setState(() => _reciteSceneId = value),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _hubPage({required String title, required Widget content}) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+      ),
+      body: SafeArea(child: content),
+    );
   }
 
   Widget _buildMobileLayout(BuildContext context) {
@@ -245,8 +377,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       bottomNavigationBar: NavigationBar(
-        // Ten destinations do not fit with a label under each; show the
-        // selected one only, the same way the desktop rail does.
+        // Six destinations: the sub-sections live inside their section.
         labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
         selectedIndex: _selectedIndex,
         onDestinationSelected: _selectSection,
@@ -261,32 +392,14 @@ class _HomeScreenState extends State<HomeScreen> {
             label: '生词本',
           ),
           NavigationDestination(
-            icon: Icon(Icons.trending_up_rounded),
-            label: '词频',
+            icon: Icon(Icons.school_outlined),
+            selectedIcon: Icon(Icons.school_rounded),
+            label: '基础',
           ),
           NavigationDestination(
-            icon: Icon(Icons.category_outlined),
-            selectedIcon: Icon(Icons.category_rounded),
-            label: '主题',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.record_voice_over_outlined),
-            selectedIcon: Icon(Icons.record_voice_over_rounded),
-            label: '音标',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.text_fields_outlined),
-            selectedIcon: Icon(Icons.text_fields_rounded),
-            label: '字母',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.numbers_outlined),
-            selectedIcon: Icon(Icons.numbers_rounded),
-            label: '数字',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.history_rounded),
-            label: '历史',
+            icon: Icon(Icons.fitness_center_outlined),
+            selectedIcon: Icon(Icons.fitness_center_rounded),
+            label: '背词',
           ),
           NavigationDestination(
             icon: Icon(Icons.edit_note_outlined),
@@ -379,12 +492,7 @@ class _DesktopNavigationRail extends StatelessWidget {
           ),
         ),
       ),
-      // Nine destinations no longer fit the 720 px default window with
-      // a label under every icon (历史/词典 were already clipped before the
-      // numbers module was added). Showing the label of the selected item
-      // only — the rest keep their tooltips — fits them all. `scrollable`
-      // is not an option here: it hands the trailing widget unbounded
-      // height, and the trailing widget is an Expanded settings button.
+      // Five top-level sections now; the sub-sections live inside them.
       labelType: NavigationRailLabelType.selected,
       destinations: const [
         NavigationRailDestination(
@@ -398,34 +506,14 @@ class _DesktopNavigationRail extends StatelessWidget {
           label: Text('生词本'),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.trending_up_rounded),
-          selectedIcon: Icon(Icons.trending_up_rounded),
-          label: Text('词频'),
+          icon: Icon(Icons.school_outlined),
+          selectedIcon: Icon(Icons.school_rounded),
+          label: Text('基础'),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.category_outlined),
-          selectedIcon: Icon(Icons.category_rounded),
-          label: Text('主题'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.record_voice_over_outlined),
-          selectedIcon: Icon(Icons.record_voice_over_rounded),
-          label: Text('音标'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.text_fields_outlined),
-          selectedIcon: Icon(Icons.text_fields_rounded),
-          label: Text('字母'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.numbers_outlined),
-          selectedIcon: Icon(Icons.numbers_rounded),
-          label: Text('数字'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.history_rounded),
-          selectedIcon: Icon(Icons.history_rounded),
-          label: Text('历史'),
+          icon: Icon(Icons.fitness_center_outlined),
+          selectedIcon: Icon(Icons.fitness_center_rounded),
+          label: Text('背词'),
         ),
         NavigationRailDestination(
           icon: Icon(Icons.edit_note_outlined),
@@ -438,24 +526,27 @@ class _DesktopNavigationRail extends StatelessWidget {
 }
 
 class _DesktopRightPane extends StatelessWidget {
-  const _DesktopRightPane({required this.index});
+  const _DesktopRightPane({required this.index, required this.basicTab});
 
   final int index;
+  final int basicTab;
 
   @override
   Widget build(BuildContext context) {
+    if (index == 2) {
+      return switch (basicTab) {
+        0 => IpaDetailView(
+            isPaneView: true,
+            phoneme: context.select((IpaProvider p) => p.currentPhoneme),
+          ),
+        1 => AlphabetDetailView(
+            isPaneView: true,
+            letter: context.select((AlphabetProvider p) => p.currentLetter),
+          ),
+        _ => const NumbersDetailView(isPaneView: true),
+      };
+    }
     if (index == 4) {
-      final phoneme = context.select((IpaProvider p) => p.currentPhoneme);
-      return IpaDetailView(isPaneView: true, phoneme: phoneme);
-    }
-    if (index == 5) {
-      final letter = context.select((AlphabetProvider p) => p.currentLetter);
-      return AlphabetDetailView(isPaneView: true, letter: letter);
-    }
-    if (index == 6) {
-      return const NumbersDetailView(isPaneView: true);
-    }
-    if (index == 8) {
       final selected = context.select(
         (CustomTextProvider p) => (id: p.selectedId, groupId: p.selectedGroupId),
       );
@@ -472,6 +563,68 @@ class _DesktopRightPane extends StatelessWidget {
     );
     return WordDetailScreen(isPaneView: true, word: word);
   }
+}
+
+/// The chip strip that switches a section's sub-pages.
+///
+/// Chips rather than a segmented button: 背词 has four labels of different
+/// widths, and a wrap keeps them legible on a 363 dp phone without shrinking.
+class _SubtabStrip extends StatelessWidget {
+  const _SubtabStrip({
+    required this.labels,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<String> labels;
+  final int selected;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+      ),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (var i = 0; i < labels.length; i++)
+            ChoiceChip(
+              label: Text(labels[i], style: const TextStyle(fontSize: 12.5)),
+              selected: selected == i,
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              onSelected: (_) => onSelected(i),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyHub extends StatelessWidget {
+  const _EmptyHub(this.message);
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Theme.of(context).hintColor),
+          ),
+        ),
+      );
 }
 
 /// A pane whose width follows [width] without rebuilding [child].

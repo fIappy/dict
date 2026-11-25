@@ -8,6 +8,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// state has to know about the others.
 class UiMemory {
   static const String section = 'ui_section';
+
+  /// The section layout that has 查词 / 生词本 / 基础 / 背词 / 自定义 / 设置.
+  /// Kept beside the old key so an update does not land on a wrong tab.
+  static const String sectionV2 = 'ui_section_v2';
   static const String paneWidth = 'ui_pane_width';
   static const String word = 'ui_word';
   static const String ipaSymbol = 'ui_ipa_symbol';
