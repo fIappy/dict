@@ -259,9 +259,13 @@ void main() {
     await _mountPane(tester, provider);
     await tester.pumpAndSettle();
 
-    // Left: the theme and its words. Right: the generation controls.
+    // Left: the theme and its words, numbered in list order.
     expect(find.text('体育运动'), findsWidgets);
     expect(find.text('coach'), findsWidgets);
+    for (var i = 1; i <= 4; i++) {
+      expect(find.text('$i'), findsOneWidget,
+          reason: 'word row $i should show its number');
+    }
     expect(find.text('生成句子'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

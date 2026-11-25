@@ -325,6 +325,19 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
                   child: Row(
                     children: [
                       SizedBox(
+                        width: 26,
+                        child: Text(
+                          '${index + 1}',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                            color: theme.hintColor,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      SizedBox(
                         width: 150,
                         child: Text(
                           word,

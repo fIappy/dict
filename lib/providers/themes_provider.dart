@@ -41,6 +41,9 @@ class ThemesProvider extends ChangeNotifier with SafeChangeNotifier {
     ThemeDomain(id: 'nature', label: '自然时空', minNumber: 50, maxNumber: 57),
   ];
 
+  /// The id of the synthetic "every theme" scene the drill and AI pages offer.
+  static const String anySceneId = '__all__';
+
   /// Scenes longer than this page at [facetPageSize] words so large themes
   /// render crisply in one viewport.
   static const int facetPageThreshold = 50;
@@ -87,6 +90,46 @@ class ThemesProvider extends ChangeNotifier with SafeChangeNotifier {
       for (final scene in _service.scenes)
         if (domain.containsSceneNumber(sceneNumberOf(scene))) scene,
     ];
+  }
+
+  ThemeScene? _anyScene;
+
+  /// Every theme as one list, for the 背词 / AI 练习 picker's 不限 option.
+  ///
+  /// A word may sit in several themes, so the union is deduplicated in theme
+  /// order (t01 → t57), which keeps thematically related words together.
+  ThemeScene? get anyScene {
+    final scenes = _service.scenes;
+    if (scenes.isEmpty) return null;
+    final cached = _anyScene;
+    if (cached != null) return cached;
+    final seen = <String>{};
+    final words = <String>[];
+    final glosses = <String, String>{};
+    for (final scene in scenes) {
+      for (final group in scene.groups) {
+        for (final word in group.words) {
+          if (seen.add(word)) words.add(word);
+        }
+        for (final entry in group.glosses.entries) {
+          glosses.putIfAbsent(entry.key, () => entry.value);
+        }
+      }
+    }
+    return _anyScene = ThemeScene(
+      id: anySceneId,
+      label: '不限',
+      hint: '全部 ${scenes.length} 个主题',
+      count: words.length,
+      groups: [
+        ThemeGroup(
+          id: 'any',
+          label: '全部主题',
+          words: words,
+          glosses: glosses,
+        ),
+      ],
+    );
   }
 
   ThemeScene? get selectedScene {

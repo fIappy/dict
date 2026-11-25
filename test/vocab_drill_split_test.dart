@@ -42,7 +42,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Left: the theme's words. Right: the playback/filter controls.
+    // Left: the theme's words, each with its place in the list.
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+    expect(find.text('3'), findsNothing);
     expect(find.text('coach'), findsWidgets);
     expect(find.text('循环朗读 2 词'), findsOneWidget);
     expect(find.text('体育运动'), findsWidgets);

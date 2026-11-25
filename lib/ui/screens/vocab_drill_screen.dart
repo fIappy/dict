@@ -563,7 +563,7 @@ class _VocabDrillScreenState extends State<VocabDrillScreen> {
             itemCount: words.length,
             itemBuilder: (context, index) {
               final word = words[index];
-              return _buildRow(context, vocabulary, word);
+              return _buildRow(context, vocabulary, word, index: index);
             },
           ),
         ),
@@ -574,8 +574,9 @@ class _VocabDrillScreenState extends State<VocabDrillScreen> {
   Widget _buildRow(
     BuildContext context,
     VocabularyProvider vocabulary,
-    String word,
-  ) {
+    String word, {
+    required int index,
+  }) {
     final theme = Theme.of(context);
     final stars = vocabulary.starsOf(word);
     final revealed = vocabulary.isRevealed(word);
@@ -633,6 +634,19 @@ class _VocabDrillScreenState extends State<VocabDrillScreen> {
               flex: 3,
               child: Row(
                 children: [
+                  SizedBox(
+                    width: 26,
+                    child: Text(
+                      '${index + 1}',
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                        color: theme.hintColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
                   Flexible(
                     child: Text(
                       word,

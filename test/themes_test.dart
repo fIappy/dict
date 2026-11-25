@@ -34,6 +34,31 @@ void main() {
     return ranks;
   }
 
+  group('不限: every theme as one list', () {
+    test('deduplicates words and keeps every gloss reachable', () async {
+      final themes = ThemesProvider();
+      await themes.initialize();
+
+      final any = themes.anyScene;
+      expect(any, isNotNull);
+      expect(any!.label, '不限');
+      expect(any.id, ThemesProvider.anySceneId);
+
+      final all = [for (final scene in themes.scenes) ...scene.words];
+      expect(any.words.length, all.toSet().length,
+          reason: 'a word in two themes appears once');
+      expect(any.words.length, greaterThan(all.length ~/ 2),
+          reason: 'the union is not accidentally tiny');
+
+      // A gloss from any theme survives the union.
+      final glossed = themes.scenes
+          .expand((s) => s.groups)
+          .firstWhere((g) => g.glosses.isNotEmpty);
+      final word = glossed.glosses.keys.first;
+      expect(any.groups.single.glosses[word], glossed.glosses[word]);
+    });
+  });
+
   group('Theme data', () {
     test('the asset loads as one flat group per theme', () async {
       final service = ThemeService();

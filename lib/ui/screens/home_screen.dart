@@ -330,6 +330,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final scenes = themes.scenes;
     if (scenes.isEmpty) return null;
     final wanted = _reciteSceneId;
+    if (wanted == ThemesProvider.anySceneId) return themes.anyScene;
     if (wanted != null) {
       for (final scene in scenes) {
         if (scene.id == wanted) return scene;
@@ -355,6 +356,15 @@ class _HomeScreenState extends State<HomeScreen> {
               isExpanded: true,
               isDense: true,
               items: [
+                const DropdownMenuItem(
+                  value: ThemesProvider.anySceneId,
+                  child: Text(
+                    '不限（全部主题）',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12.5),
+                  ),
+                ),
                 for (final item in scenes)
                   DropdownMenuItem(
                     value: item.id,
