@@ -151,7 +151,12 @@ void main() {
       final expectedJson = json.decode(
         File('assets/data/coca_60000.json').readAsStringSync(),
       ) as List<dynamic>;
-      final expectedOrder = expectedJson.cast<String>();
+      // The 词频表 hides archaic English; everything else keeps its position,
+      // so COCA ranks stay true.
+      final expectedOrder = expectedJson
+          .cast<String>()
+          .where((word) => !FrequencyService.obsoleteWords.contains(word))
+          .toList();
       expect(expectedOrder.length, greaterThan(53000));
 
       final freq = FrequencyService();

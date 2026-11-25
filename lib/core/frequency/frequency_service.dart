@@ -10,6 +10,11 @@ class WordFrequencyInfo {
   final List<String> examTags;
   final String? briefZh;
 
+  /// Broad IPA, American and British, without slashes. Null when the asset has
+  /// no entry for the word (a few corpus artefacts like "and/or").
+  final String? usIpa;
+  final String? ukIpa;
+
   const WordFrequencyInfo({
     required this.word,
     this.rank,
@@ -17,7 +22,11 @@ class WordFrequencyInfo {
     this.collins,
     this.examTags = const [],
     this.briefZh,
+    this.usIpa,
+    this.ukIpa,
   });
+
+  bool get hasIpa => (usIpa ?? '').isNotEmpty || (ukIpa ?? '').isNotEmpty;
 
   String get frequencyLabel {
     if (rank == null) return '';
@@ -38,14 +47,32 @@ class FrequencyService {
   FrequencyService._();
 
   final Map<String, WordFrequencyInfo> _freqMap = {};
+
+  /// word -> [US IPA, UK IPA], from `assets/data/frequency_ipa.json`.
+  final Map<String, List<String>> _ipa = {};
+
+  /// Obsolete English that the 词频表 does not show. The positions stay in the
+  /// asset, so every remaining word keeps its true COCA rank.
+  static const Set<String> obsoleteWords = {
+    'thou', 'thee', 'thy', 'thine', 'ye',
+    'whence', 'whither', 'hither', 'thither', 'wherefore',
+  };
+
+  /// Every position of the asset (obsolete words included), for rank arithmetic.
+  final List<String> _allWords = [];
   final List<String> _rankedWords = [];
   final Map<String, int> _wordToRank = {};
   final ValueNotifier<int> _version = ValueNotifier<int>(0);
   bool _initialized = false;
   Future<void>? _initializing;
 
+  /// Visible words, most frequent first (obsolete entries skipped).
   List<String> get rankedWords => List.unmodifiable(_rankedWords);
-  int get totalRankedWords => _rankedWords.length;
+
+  /// The rank space: every position of the asset, so ranges and COCA numbers
+  /// keep meaning what they meant before the archaic words were hidden.
+  int get totalRankedWords =>
+      _allWords.isNotEmpty ? _allWords.length : _rankedWords.length;
   bool get isInitialized => _initialized;
   ValueListenable<int> get versionListenable => _version;
 
@@ -58,10 +85,32 @@ class FrequencyService {
 
   Future<void> _doInit() async {
     _loadBuiltInLexicon();
+    await _loadIpaAsset();
     await _loadRankedWordsAsset();
     _initialized = true;
     _version.value++;
   }
+
+  Future<void> _loadIpaAsset() async {
+    try {
+      final raw = await rootBundle.loadString('assets/data/frequency_ipa.json');
+      final data = json.decode(raw) as Map<String, dynamic>;
+      final words = (data['words'] as Map).cast<String, dynamic>();
+      _ipa.clear();
+      words.forEach((word, value) {
+        final pair = (value as List).cast<String>();
+        if (pair.isNotEmpty) {
+          _ipa[word.toLowerCase()] =
+              [pair[0], pair.length > 1 ? pair[1] : ''];
+        }
+      });
+    } catch (_) {
+      // The list still shows without IPA if the asset is missing.
+    }
+  }
+
+  String? _usIpa(String word) => _ipa[word]?[0].isEmpty ?? true ? null : _ipa[word]![0];
+  String? _ukIpa(String word) => _ipa[word]?[1].isEmpty ?? true ? null : _ipa[word]![1];
 
   Future<void> _loadRankedWordsAsset() async {
     try {
@@ -69,9 +118,13 @@ class FrequencyService {
       final list = (json.decode(jsonStr) as List).cast<String>();
       _rankedWords.clear();
       _wordToRank.clear();
-      for (int i = 0; i < list.length; i++) {
-        final w = list[i].toLowerCase();
+      _allWords
+        ..clear()
+        ..addAll([for (final word in list) word.toLowerCase()]);
+      for (int i = 0; i < _allWords.length; i++) {
+        final w = _allWords[i];
         final rank = i + 1;
+        if (obsoleteWords.contains(w)) continue;
         _rankedWords.add(w);
         _wordToRank[w] = rank;
         if (_freqMap.containsKey(w)) {
@@ -83,6 +136,8 @@ class FrequencyService {
             collins: old.collins,
             examTags: old.examTags,
             briefZh: old.briefZh,
+            usIpa: _usIpa(w),
+            ukIpa: _ukIpa(w),
           );
         }
       }
@@ -109,7 +164,7 @@ class FrequencyService {
         .replaceAll('\u2019', "'")
         .replaceAll("''", "'")
         .toLowerCase();
-    if (lower.isEmpty) return null;
+    if (lower.isEmpty || obsoleteWords.contains(lower)) return null;
 
     if (_wordToRank.isNotEmpty) {
       final rank = _wordToRank[lower];
@@ -125,6 +180,8 @@ class FrequencyService {
                 collins: existing.collins,
                 examTags: existing.examTags,
                 briefZh: existing.briefZh,
+                usIpa: existing.usIpa ?? _usIpa(lower),
+                ukIpa: existing.ukIpa ?? _ukIpa(lower),
               );
       }
       return _synthesizeFrequencyInfo(lower, rank);
@@ -142,12 +199,16 @@ class FrequencyService {
     }
     if (_rankedWords.isEmpty) return const [];
 
-    final start = startRank.clamp(1, _rankedWords.length);
-    final end = endRank.clamp(start, _rankedWords.length);
+    // Ranks are positions in the full COCA list, archaic entries included, so a
+    // pruned word leaves a hole rather than renumbering everything after it.
+    final maxPosition = _allWords.isNotEmpty ? _allWords.length : _rankedWords.length;
+    final start = startRank.clamp(1, maxPosition);
+    final end = endRank.clamp(start, maxPosition);
     final result = <WordFrequencyInfo>[];
 
     for (int r = start; r <= end; r++) {
-      final w = _rankedWords[r - 1];
+      final w = _allWords.isNotEmpty ? _allWords[r - 1] : _rankedWords[r - 1];
+      if (obsoleteWords.contains(w)) continue;
       final existing = _freqMap[w];
       final synth = _synthesizeFrequencyInfo(w, r);
       final info = WordFrequencyInfo(
@@ -159,6 +220,8 @@ class FrequencyService {
             ? existing.examTags
             : synth.examTags,
         briefZh: existing?.briefZh,
+        usIpa: existing?.usIpa ?? _usIpa(w),
+        ukIpa: existing?.ukIpa ?? _ukIpa(w),
       );
       result.add(info);
     }
@@ -212,6 +275,8 @@ class FrequencyService {
       collins: collins,
       examTags: tags,
       briefZh: _freqMap[word]?.briefZh,
+      usIpa: _usIpa(word),
+      ukIpa: _ukIpa(word),
     );
   }
 

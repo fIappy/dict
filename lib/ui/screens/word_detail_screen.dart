@@ -133,6 +133,17 @@ class WordDetailScreen extends StatelessWidget {
     );
   }
 
+  /// Both accents as one line: `美 /ˈwɔtər/    英 /ˈwɔːtə/`.
+  static String ipaLine(WordFrequencyInfo? info) {
+    final us = info?.usIpa ?? '';
+    final uk = info?.ukIpa ?? '';
+    if (us.isEmpty && uk.isEmpty) return '';
+    return [
+      if (us.isNotEmpty) '美 /$us/',
+      if (uk.isNotEmpty) '英 /$uk/',
+    ].join('    ');
+  }
+
   Widget _buildLexemeBody(
     BuildContext context,
     LexemeEntry lexeme,
@@ -191,7 +202,7 @@ class WordDetailScreen extends StatelessWidget {
                   children: [
                     PronunciationBar(
                       word: lexeme.word,
-                      phonetic: '',
+                      phonetic: ipaLine(freq),
                     ),
                     FrequencyBadge(info: freq),
                     if (utterances.isNotEmpty)
@@ -286,7 +297,12 @@ class WordDetailScreen extends StatelessWidget {
                   children: [
                     PronunciationBar(
                       word: mdxEntry.word,
-                      phonetic: mdxEntry.phonetic,
+                      // The dictionary's own transcription first, then the
+                      // two accents from the frequency library.
+                      phonetic: [
+                        if (mdxEntry.phonetic.isNotEmpty) mdxEntry.phonetic,
+                        ipaLine(freq),
+                      ].where((part) => part.isNotEmpty).join('    '),
                       phonetics: mdxEntry.phonetics,
                       soundKey: mdxEntry.soundKey,
                       soundKeys: mdxEntry.soundKeys,

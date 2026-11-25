@@ -411,6 +411,25 @@ class _FrequencyScreenState extends State<FrequencyScreen> {
                       ],
                     ],
                   ),
+                  if (item.hasIpa) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      [
+                        if ((item.usIpa ?? '').isNotEmpty) '美 /${item.usIpa}/',
+                        if ((item.ukIpa ?? '').isNotEmpty) '英 /${item.ukIpa}/',
+                      ].join('   '),
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        height: 1.3,
+                        fontWeight: FontWeight.w500,
+                        color: isSelected
+                            ? theme.colorScheme.primary
+                            : (isDark ? Colors.white70 : Colors.blueGrey.shade700),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                   if (item.briefZh != null) ...[
                     const SizedBox(height: 2),
                     Text(

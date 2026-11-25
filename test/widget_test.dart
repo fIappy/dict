@@ -683,6 +683,9 @@ void main() {
         // COCA word (mixed case & deep COCA word) replaces Top xxxx.
         await pumpDetail('Abandon');
         expect(find.text('COCA #2275'), findsOneWidget);
+        // The header carries both transcriptions from the frequency library.
+        expect(find.textContaining('美 /'), findsOneWidget);
+        expect(find.textContaining('英 /'), findsOneWidget);
         expect(find.textContaining('Top '), findsNothing);
 
         await pumpDetail('stethoscope');
