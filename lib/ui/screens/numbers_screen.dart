@@ -136,29 +136,43 @@ class _NumbersScreenState extends State<NumbersScreen> {
 
   Widget _buildExampleGrid(BuildContext context, NumbersProvider provider) {
     final examples = provider.visibleExamples;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: [
-          for (final example in examples)
-            NumberExampleCard(
-              example: example,
-              selected: provider.selected == example,
-              onTap: () {
-                provider.selectExample(example);
-                // On a phone there is no detail pane to update, so tapping the
-                // card reads the sentence out immediately. A rule card has no
-                // sentence of its own — its samples carry their own buttons.
-                final reading = NumberData.readingOf(example);
-                if (!widget.isPaneView && reading != null) {
-                  provider.playReading(reading);
-                }
-              },
-            ),
-        ],
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const padding = 12.0;
+        const gap = 10.0;
+        final usable = constraints.maxWidth - padding * 2;
+        // Two cards at minimum, three once the pane is wide; the card width is
+        // what shrinks, never the column count below two.
+        final columns = usable >= 700 ? 3 : 2;
+        final cardWidth =
+            ((usable - gap * (columns - 1)) / columns).clamp(90.0, 320.0);
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(padding),
+          child: Wrap(
+            spacing: gap,
+            runSpacing: gap,
+            children: [
+              for (final example in examples)
+                NumberExampleCard(
+                  example: example,
+                  selected: provider.selected == example,
+                  width: cardWidth,
+                  onTap: () {
+                    provider.selectExample(example);
+                    // On a phone there is no detail pane to update, so tapping
+                    // the card reads the sentence out immediately. A rule card
+                    // has no sentence of its own — its samples carry their own
+                    // buttons.
+                    final reading = NumberData.readingOf(example);
+                    if (!widget.isPaneView && reading != null) {
+                      provider.playReading(reading);
+                    }
+                  },
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

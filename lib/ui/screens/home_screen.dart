@@ -162,6 +162,24 @@ class _HomeScreenState extends State<HomeScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final Widget middlePane = _buildMiddlePane(index);
 
+    // 背词 / AI 练习 lay themselves out as theme + control panel. A dictionary
+    // pane beside them was exactly what the reader did not want, so they take
+    // the whole width to the right of the rail.
+    if (index == 3 && (_reciteTab == 2 || _reciteTab == 3)) {
+      return Scaffold(
+        body: Row(
+          children: [
+            _DesktopNavigationRail(
+              selectedIndex: index,
+              onDestinationSelected: _selectSection,
+            ),
+            const VerticalDivider(width: 1),
+            Expanded(child: middlePane),
+          ],
+        ),
+      );
+    }
+
     final double maxMiddle = (constraints.maxWidth - 440.0).clamp(280.0, 900.0);
     return Scaffold(
       body: Row(

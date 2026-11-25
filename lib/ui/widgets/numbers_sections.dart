@@ -384,12 +384,21 @@ class NumberPatternCard extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              sample,
-                              style: const TextStyle(fontSize: 12.5, fontFamily: 'monospace'),
+                            Flexible(
+                              child: Text(
+                                sample,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
                             ),
                             const SizedBox(width: 4),
-                            Icon(Icons.volume_up_rounded, size: 13, color: theme.colorScheme.primary),
+                            Icon(Icons.volume_up_rounded,
+                                size: 13,
+                                color: theme.colorScheme.primary),
                           ],
                         ),
                       ),

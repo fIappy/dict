@@ -89,21 +89,28 @@ class AlphabetScreen extends StatelessWidget {
             ),
           ),
 
-          // 26 Letters Grid
+          // 26 Letters Grid: two per row on a phone, three once there is room;
+          // the cards shrink with the pane instead of dropping to one column.
           Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.all(12),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 1.35,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-              ),
-              itemCount: letters.length,
-              itemBuilder: (context, index) {
-                final l = letters[index];
-                final isSelected = provider.selectedChar == l.upper;
-                return _buildLetterCard(context, l, isSelected, theme, isDark);
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final columns = constraints.maxWidth >= 700 ? 3 : 2;
+                return GridView.builder(
+                  padding: const EdgeInsets.all(12),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    childAspectRatio: 1.35,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                  ),
+                  itemCount: letters.length,
+                  itemBuilder: (context, index) {
+                    final l = letters[index];
+                    final isSelected = provider.selectedChar == l.upper;
+                    return _buildLetterCard(
+                        context, l, isSelected, theme, isDark);
+                  },
+                );
               },
             ),
           ),

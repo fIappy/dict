@@ -250,6 +250,21 @@ void main() {
     expect(find.textContaining('先输入一个单词'), findsOneWidget);
     expect(provider.isGenerating, isFalse);
   });
+
+  testWidgets('a wide pane keeps the theme left and the controls right',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final provider = AiPracticeProvider(agentBuilder: (_) => _BlockingAgent());
+    await _mountPane(tester, provider);
+    await tester.pumpAndSettle();
+
+    // Left: the theme and its words. Right: the generation controls.
+    expect(find.text('体育运动'), findsWidgets);
+    expect(find.text('coach'), findsWidgets);
+    expect(find.text('生成句子'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 /// Records what the passage request carried.
@@ -323,6 +338,23 @@ void _expectMarks(SelectableText widget) {
       reason: 'theme words carry their own colour');
   expect(phrase.style?.decoration, TextDecoration.underline,
       reason: 'collocations are underlined');
+}
+
+Future<void> _mountPane(WidgetTester tester, AiPracticeProvider provider) {
+  return tester.pumpWidget(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider<AiPracticeProvider>.value(value: provider),
+        ChangeNotifierProvider(create: (_) => EntrySpeechProvider()),
+      ],
+      child: const MaterialApp(
+        home: Scaffold(
+          body: AiPracticeScreen(scene: _scene, isPaneView: true),
+        ),
+      ),
+    ),
+  );
 }
 
 Future<void> _mount(WidgetTester tester, AiPracticeProvider provider) {

@@ -242,7 +242,22 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
         ],
       );
 
-    if (widget.isPaneView) return body;
+    if (widget.isPaneView) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 900) return body;
+          // 背词 section, wide window: the theme's words stay on the left and
+          // the controls/results get a column of their own on the right.
+          return Row(
+            children: [
+              Expanded(child: _buildThemePanel(context)),
+              const VerticalDivider(width: 1),
+              SizedBox(width: 460, child: body),
+            ],
+          );
+        },
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -251,6 +266,96 @@ class _AiPracticeScreenState extends State<AiPracticeScreen> {
         ),
       ),
       body: body,
+    );
+  }
+
+  /// The left column of a wide AI page: the theme and every word worth using.
+  ///
+  /// Tapping a word fills the 造句 box; the list is the same vocabulary the
+  /// prompts are constrained to, so it doubles as a reminder of what can be
+  /// asked for.
+  Widget _buildThemePanel(BuildContext context) {
+    final theme = Theme.of(context);
+    final words = [for (final group in widget.scene.groups) ...group.words];
+    final glosses = <String, String>{
+      for (final group in widget.scene.groups) ...group.glosses,
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.scene.label,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${words.length} 词 · ${widget.scene.hint}',
+                style: TextStyle(fontSize: 11.5, color: theme.hintColor),
+              ),
+            ],
+          ),
+        ),
+        Divider(height: 1, color: theme.colorScheme.outlineVariant),
+        Expanded(
+          child: ListView.builder(
+            itemCount: words.length,
+            itemBuilder: (context, index) {
+              final word = words[index];
+              return InkWell(
+                onTap: () => setState(() {
+                  _wordController.text = word;
+                }),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(16, 7, 16, 7),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: theme.dividerColor.withValues(alpha: 0.25),
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 150,
+                        child: Text(
+                          word,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          glosses[word] ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.hintColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

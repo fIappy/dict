@@ -22,9 +22,17 @@ import '../widgets/word_definition_view.dart';
 /// list to what the reader still needs, and every word can open its dictionary
 /// entry in the side panel instead of sending the reader to another window.
 class VocabDrillScreen extends StatefulWidget {
-  const VocabDrillScreen({super.key, required this.scene});
+  const VocabDrillScreen({
+    super.key,
+    required this.scene,
+    this.hideLookup = false,
+  });
 
   final ThemeScene scene;
+
+  /// True inside 背词: the right column is the control panel, never a
+  /// dictionary entry.
+  final bool hideLookup;
 
   @override
   State<VocabDrillScreen> createState() => _VocabDrillScreenState();
@@ -173,9 +181,25 @@ class _VocabDrillScreenState extends State<VocabDrillScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 940;
-        final panel = _lookup == null ? null : _buildLookup(context);
-        if (panel != null && !wide) {
+        // 背词 in a wide window: the theme list stays on the left and the
+        // controls move to a column of their own on the right. A dictionary
+        // entry never takes that column.
+        if (constraints.maxWidth >= 900) {
+          return Row(
+            children: [
+              Expanded(child: _buildTable(context, vocabulary, words)),
+              const VerticalDivider(width: 1),
+              SizedBox(
+                width: 340,
+                child: _buildControlPanel(context, vocabulary, words.length),
+              ),
+            ],
+          );
+        }
+        final panel = widget.hideLookup || _lookup == null
+            ? null
+            : _buildLookup(context);
+        if (panel != null) {
           // A phone has no room for three columns: the entry takes the page.
           return panel;
         }
@@ -187,16 +211,129 @@ class _VocabDrillScreenState extends State<VocabDrillScreen> {
               child: Row(
                 children: [
                   Expanded(child: _buildTable(context, vocabulary, words)),
-                  if (panel != null) ...[
-                    const VerticalDivider(width: 1),
-                    SizedBox(width: 400, child: panel),
-                  ],
                 ],
               ),
             ),
           ],
         );
       },
+    );
+  }
+
+  /// The right-hand column of a wide 背词 page: what to play, which accent,
+  /// how to filter and whether meanings are shown.
+  Widget _buildControlPanel(
+    BuildContext context,
+    VocabularyProvider vocabulary,
+    int shown,
+  ) {
+    final theme = Theme.of(context);
+    final total = _words.length;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      children: [
+        Text(
+          scene.label,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          '显示 $shown 词 · 共 $total 词 · 带星 ${vocabulary.starredCount} 词',
+          style: TextStyle(fontSize: 11.5, color: theme.hintColor),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(child: _buildStarFilter(context, vocabulary)),
+            const SizedBox(width: 4),
+            TextButton.icon(
+              icon: Icon(
+                vocabulary.revealAll
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                size: 16,
+              ),
+              label: Text(
+                vocabulary.revealAll ? '全部隐藏' : '全部显示',
+                style: const TextStyle(fontSize: 12),
+              ),
+              onPressed: vocabulary.toggleRevealAll,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        FilledButton.tonalIcon(
+          icon: Icon(
+            _looping ? Icons.stop_rounded : Icons.play_arrow_rounded,
+            size: 18,
+          ),
+          label: Text(
+            _looping ? '停止朗读' : '循环朗读 $shown 词',
+            style: const TextStyle(fontSize: 12.5),
+          ),
+          onPressed: shown == 0
+              ? null
+              : () => _looping
+                  ? _stopLoop()
+                  : _startLoop(vocabulary.arrange(vocabulary.filtered(_words))),
+        ),
+        const SizedBox(height: 12),
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(
+                value: 'us',
+                label: Text('美音', style: TextStyle(fontSize: 12))),
+            ButtonSegment(
+                value: 'uk',
+                label: Text('英音', style: TextStyle(fontSize: 12))),
+          ],
+          selected: {vocabulary.accent},
+          onSelectionChanged: (selection) =>
+              vocabulary.setAccent(selection.first),
+          showSelectedIcon: false,
+          style: const ButtonStyle(
+            visualDensity: VisualDensity.compact,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12)),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          icon: Icon(
+            vocabulary.isShuffled ? Icons.sort_rounded : Icons.shuffle_rounded,
+            size: 16,
+          ),
+          label: Text(
+            vocabulary.isShuffled ? '恢复原序' : '打乱顺序',
+            style: const TextStyle(fontSize: 12),
+          ),
+          onPressed: () => vocabulary.isShuffled
+              ? vocabulary.restoreOrder()
+              : vocabulary.shuffle(_words),
+        ),
+        if (_speaking != null) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(Icons.graphic_eq_rounded,
+                  size: 15, color: theme.colorScheme.error),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  _speaking!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 
@@ -454,8 +591,12 @@ class _VocabDrillScreenState extends State<VocabDrillScreen> {
           children: [
             SizedBox(
               width: 100,
-              child: Row(
-                children: [
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                   _starButton(
                     icon: Icons.remove_circle_outline,
                     tooltip: '减一颗星',
@@ -477,14 +618,15 @@ class _VocabDrillScreenState extends State<VocabDrillScreen> {
                       ),
                     ),
                   ),
-                  _starButton(
-                    icon: Icons.add_circle_outline,
-                    tooltip: '加一颗星',
-                    onPressed: stars < VocabularyProvider.maxStars
-                        ? () => vocabulary.addStar(word)
-                        : null,
-                  ),
-                ],
+                    _starButton(
+                      icon: Icons.add_circle_outline,
+                      tooltip: '加一颗星',
+                      onPressed: stars < VocabularyProvider.maxStars
+                          ? () => vocabulary.addStar(word)
+                          : null,
+                    ),
+                  ],
+                ),
               ),
             ),
             Expanded(
@@ -515,12 +657,13 @@ class _VocabDrillScreenState extends State<VocabDrillScreen> {
                     color: _speaking == word ? theme.colorScheme.error : null,
                     onPressed: () => _playWord(word),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.search_rounded, size: 16),
-                    tooltip: '查词典',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => _lookUp(word),
-                  ),
+                  if (!widget.hideLookup)
+                    IconButton(
+                      icon: const Icon(Icons.search_rounded, size: 16),
+                      tooltip: '查词典',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => _lookUp(word),
+                    ),
                 ],
               ),
             ),
